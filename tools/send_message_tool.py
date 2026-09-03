@@ -6,10 +6,12 @@ human-friendly channel names to IDs. Works in both CLI and gateway contexts.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
 import re
+import threading
 import time
 
 
@@ -91,6 +93,89 @@ _CAPTIONABLE_EXTS = _IMAGE_EXTS | _VIDEO_EXTS | {
 # more generous, so a conservative shared ceiling keeps behavior predictable.
 _TELEGRAM_CAPTION_LIMIT = 1024
 _DEFAULT_CAPTION_LIMIT = 4096
+
+# Successful identical email sends are remembered only for the lifetime of a
+# live agent turn.  Concurrent duplicates wait for the owning call's actual
+# adapter result instead of racing a second external send.
+_EMAIL_TURN_SEND_LOCK = threading.Lock()
+_EMAIL_TURN_SENDS = {}
+_EMAIL_TURN_SEND_MAX = 2048
+_EMAIL_TURN_SEND_WAIT_SECONDS = 180.0
+
+
+def _current_email_turn_identity():
+    try:
+        from agent.relay_runtime import current_turn
+
+        turn = current_turn()
+    except Exception:
+        return None
+    if turn is None or getattr(turn, "closed", False):
+        return None
+    lease = getattr(turn, "lease", None)
+    session_id = str(getattr(lease, "session_id", "") or "")
+    turn_id = str(getattr(turn, "turn_id", "") or "")
+    if not turn_id:
+        return None
+    return session_id, turn_id
+
+
+def _begin_email_turn_send(address: str, message: str):
+    identity = _current_email_turn_identity()
+    if identity is None:
+        return None, None, True
+    digest = hashlib.sha256(message.encode("utf-8")).hexdigest()
+    key = (*identity, address.strip().lower(), digest)
+    now = time.monotonic()
+    with _EMAIL_TURN_SEND_LOCK:
+        if len(_EMAIL_TURN_SENDS) >= _EMAIL_TURN_SEND_MAX:
+            expired = [
+                item_key
+                for item_key, item in _EMAIL_TURN_SENDS.items()
+                if item["event"].is_set() or now - item["created"] > 3600
+            ]
+            for item_key in expired:
+                _EMAIL_TURN_SENDS.pop(item_key, None)
+            if len(_EMAIL_TURN_SENDS) >= _EMAIL_TURN_SEND_MAX:
+                # Never let the guard itself become unbounded. The send still
+                # proceeds; only deduplication is skipped under this unlikely
+                # all-in-flight saturation case.
+                return None, None, True
+        record = _EMAIL_TURN_SENDS.get(key)
+        if record is not None:
+            return key, record, False
+        record = {
+            "created": now,
+            "event": threading.Event(),
+            "result": None,
+        }
+        _EMAIL_TURN_SENDS[key] = record
+        return key, record, True
+
+
+def _complete_email_turn_send(key, record, result) -> None:
+    if key is None or record is None:
+        return
+    success = isinstance(result, dict) and result.get("success") is True
+    with _EMAIL_TURN_SEND_LOCK:
+        record["result"] = dict(result) if isinstance(result, dict) else result
+        record["event"].set()
+        if not success and _EMAIL_TURN_SENDS.get(key) is record:
+            _EMAIL_TURN_SENDS.pop(key, None)
+
+
+def _reuse_email_turn_send(record):
+    if not record["event"].wait(_EMAIL_TURN_SEND_WAIT_SECONDS):
+        return _error("Timed out waiting for an identical email send in this turn")
+    result = record.get("result")
+    if isinstance(result, dict):
+        reused = dict(result)
+        reused["duplicate"] = True
+        if reused.get("success"):
+            reused["note"] = "Identical email was already sent in this turn"
+        return reused
+    return _error("Identical email send completed without a usable result")
+
 
 def prepare_send_message_platforms() -> None:
     """Load enabled standalone plugins before tool schemas/cache keys are built."""
@@ -217,7 +302,9 @@ SEND_MESSAGE_SCHEMA = {
         "Send a message to a connected messaging platform, or list available targets.\n\n"
         "IMPORTANT: When the user asks to send to a specific channel or person "
         "(not just a bare platform name), call send_message(action='list') FIRST to see "
-        "available targets, then send to the correct one.\n"
+        "available targets, then send to the correct one. An explicit email address "
+        "in the form email:user@example.com is already a complete target and does not "
+        "require a list call.\n"
         "If the user just says a platform name like 'send to telegram', send directly "
         "to the home channel without listing first."
     ),
@@ -231,7 +318,7 @@ SEND_MESSAGE_SCHEMA = {
             },
             "target": {
                 "type": "string",
-                "description": "Delivery target. Format: 'platform' (uses home channel), 'platform:#channel-name', 'platform:chat_id', or 'platform:chat_id:thread_id' for Telegram topics and Discord threads. Examples: 'telegram', 'telegram:-1001234567890:17585', 'discord:999888777:555444333', 'discord:#bot-home', 'slack:#engineering', 'signal:+155****4567', 'matrix:!roomid:server.org', 'matrix:@user:server.org', 'ntfy:alerts-channel' (explicit ntfy topic), 'yuanbao:direct:<account_id>' (DM), 'yuanbao:group:<group_code>' (group chat)"
+                "description": "Delivery target. Format: 'platform' (uses home channel), 'platform:#channel-name', 'platform:chat_id', or 'platform:chat_id:thread_id' for Telegram topics and Discord threads. Examples: 'telegram', 'telegram:-1001234567890:17585', 'discord:999888777:555444333', 'discord:#bot-home', 'slack:#engineering', 'email:user@example.com', 'signal:+155****4567', 'matrix:!roomid:server.org', 'matrix:@user:server.org', 'ntfy:alerts-channel' (explicit ntfy topic), 'yuanbao:direct:<account_id>' (DM), 'yuanbao:group:<group_code>' (group chat)"
             },
             "message": {
                 "type": "string",
@@ -487,6 +574,15 @@ def _handle_send(args):
                 return json.dumps(_resolve_err)
             chat_id = _resolved
 
+    email_turn_key = None
+    email_turn_record = None
+    if platform == Platform.EMAIL:
+        email_turn_key, email_turn_record, owns_send = _begin_email_turn_send(
+            str(chat_id), cleaned_message
+        )
+        if not owns_send:
+            return json.dumps(_reuse_email_turn_send(email_turn_record))
+
     try:
         from model_tools import _run_async
         send_kwargs = {
@@ -531,9 +627,12 @@ def _handle_send(args):
 
         if isinstance(result, dict) and "error" in result:
             result["error"] = _sanitize_error_text(result["error"])
+        _complete_email_turn_send(email_turn_key, email_turn_record, result)
         return json.dumps(result)
     except Exception as e:
-        return json.dumps(_error(f"Send failed: {e}"))
+        result = _error(f"Send failed: {e}")
+        _complete_email_turn_send(email_turn_key, email_turn_record, result)
+        return json.dumps(result)
 
 
 def _parse_target_ref(platform_name: str, target_ref: str):
@@ -2484,16 +2583,18 @@ async def _send_yuanbao(chat_id, message, media_files=None):
 
 
 # --- Registry ---
-from tools.registry import tool_error
+from tools.registry import registry, tool_error
 
-# NOTE: ``send_message`` is intentionally NOT registered as an agent-callable
-# model tool. The agent should not decide on its own to fire off cross-platform
-# messages or reactions. The send engine in this module (``_send_to_platform``,
-# ``_send_via_adapter``, ``_parse_target_ref``, the per-platform ``_send_*``
-# helpers) remains the shared transport used by:
-#   - cron delivery (cron/scheduler.py)
-#   - the ``hermes send`` CLI command (hermes_cli/send_cmd.py)
-#   - the gateway kanban notifier (dashboard-toggled, outside agent control)
-#   - the standalone MCP server (mcp_serve.py), which is an opt-in surface
-# Those callers import the helpers directly; none of them need the registry
-# entry.
+# This private-demo branch deliberately exposes the existing transport to the
+# local CLI's ``voice_delivery`` toolset.  The availability check keeps the
+# schema hidden unless a gateway-backed delivery path exists; messaging
+# platforms such as Feishu do not include this toolset and retain their normal
+# response behavior.
+registry.register(
+    name="send_message",
+    toolset="voice_delivery",
+    schema=SEND_MESSAGE_SCHEMA,
+    handler=lambda args, **kw: send_message_tool(args, **kw),
+    check_fn=_check_send_message,
+    emoji="📨",
+)

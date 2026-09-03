@@ -209,6 +209,12 @@ TOOLSETS = {
         "tools": ["text_to_speech"],
         "includes": []
     },
+
+    "voice_delivery": {
+        "description": "Outbound delivery for local voice reports through a configured gateway",
+        "tools": ["send_message"],
+        "includes": []
+    },
     
     "todo": {
         "description": "Task planning and tracking for multi-step work",
@@ -477,7 +483,7 @@ TOOLSETS = {
     
     "hermes-cli": {
         "description": "Full interactive CLI toolset - all default tools plus cronjob management",
-        "tools": _HERMES_CORE_TOOLS,
+        "tools": _HERMES_CORE_TOOLS + ["send_message"],
         "includes": []
     },
 

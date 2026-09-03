@@ -54,6 +54,10 @@ from hermes_cli.fallback_config import get_fallback_chain
 from hermes_cli.cli_agent_setup_mixin import CLIAgentSetupMixin
 from hermes_cli.cli_commands_mixin import CLICommandsMixin
 from hermes_cli.cli_billing_mixin import CLIBillingMixin
+from hermes_cli.voice_response_policy import (
+    build_voice_turn_prefix,
+    prepare_voice_tts_text,
+)
 from agent.interrupt_compat import request_hard_interrupt
 from agent.pet import render as pet_render
 
@@ -15110,6 +15114,30 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 self._voice_tool_ack_timing = "first_tool"
                 self._voice_tool_ack_armed = False
 
+    def _voice_tts_enabled_for_turn(self, voice_input: bool) -> bool:
+        """TTS belongs only to a genuine local ASR turn, never typed input."""
+        return bool(self._voice_tts and voice_input)
+
+    def _enqueue_voice_final_tts(
+        self,
+        text_queue,
+        response: str,
+        *,
+        voice_input: bool,
+        interrupted: bool,
+    ) -> str:
+        """Queue one bounded final utterance after model/tool completion."""
+        if text_queue is None or not voice_input or interrupted:
+            return ""
+        spoken = prepare_voice_tts_text(response)
+        if not spoken:
+            return ""
+        from tools.tts_tool import ImmediateTTSUtterance
+
+        self._voice_last_tts_text = (self._voice_last_tts_text or "") + spoken
+        text_queue.put(ImmediateTTSUtterance(spoken))
+        return spoken
+
     def _voice_clarify_settings(self) -> dict:
         """Return shape-safe, live configuration for headless clarification."""
         settings = {
@@ -17733,7 +17761,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             stop_event = None
             _tts_normal_exit = False
 
-            if self._voice_tts:
+            if self._voice_tts_enabled_for_turn(voice_input):
                 try:
                     from tools.tts_tool import (
                         _import_sounddevice,
@@ -17794,17 +17822,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 # turn start (see above) — it spans generation AND playback.
                 self._voice_tts_stop = stop_event
 
-                def stream_callback(delta: str):
-                    if text_queue is not None:
-                        if isinstance(delta, str) and delta.strip():
-                            with self._voice_tool_ack_lock:
-                                if self._voice_tool_ack_queue is text_queue:
-                                    self._voice_tool_ack_saw_text = True
-                        text_queue.put(delta)
-                    # Track what's actually being spoken so a playback-phase
-                    # barge capture can be checked against it (echo guard,
-                    # #75780).
-                    self._voice_last_tts_text = (self._voice_last_tts_text or "") + delta
+                # Model deltas still use the normal terminal streaming path,
+                # but are deliberately withheld from TTS.  Voice output is
+                # spoken once from the bounded final response after tools have
+                # completed, so long reports and tool-loop fragments are not
+                # read aloud.
+                stream_callback = None
 
                 # On this machine the local command TTS needs about a second
                 # to synthesize even a short phrase. Queue and fully play the
@@ -17831,15 +17854,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # run_conversation persists the original clean user message.
             _voice_prefix = ""
             if voice_input and isinstance(message, str):
-                _voice_prefix = (
-                    "[Voice input — respond concisely and conversationally, "
-                    "2-3 sentences max. No code blocks or markdown. Avoid "
-                    "clarification for low-risk or reversible ambiguity: choose "
-                    "a reasonable default and proceed. Clarify only when missing "
-                    "information makes the task unsafe, irreversible, or impossible. "
-                    "When clarification is essential, ask one brief question at a "
-                    "time with no more than three options.] "
-                )
+                _voice_prefix = build_voice_turn_prefix()
 
             def run_agent():
                 nonlocal result
@@ -18101,18 +18116,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # Flush any remaining streamed text and close the box
             self._flush_stream()
 
-            # Signal end-of-text to TTS consumer and wait for it to finish
-            if use_streaming_tts and text_queue is not None:
-                text_queue.put(None)  # sentinel
-                if tts_thread is not None:
-                    tts_thread.join(timeout=120)
-                # Mark normal completion only if the thread actually
-                # finished.  If join() timed out and the thread is still
-                # alive, leave _tts_normal_exit False so the finally block
-                # sets stop_event to kill the runaway worker.
-                if tts_thread is not None and not tts_thread.is_alive():
-                    _tts_normal_exit = True
-
             # Drain any remaining agent output still in the StdoutProxy
             # buffer so tool/status lines render ABOVE our response box.
             # The flush pushes data into the renderer queue; the short
@@ -18201,6 +18204,22 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         self.agent.clear_interrupt()
                 except Exception:
                     pass
+
+            # Only now is the final answer known.  Queue one short utterance,
+            # after verbal ack / clarify / approval items already handled by
+            # this worker, then drain the pipeline before reopening the mic.
+            if use_streaming_tts and text_queue is not None:
+                self._enqueue_voice_final_tts(
+                    text_queue,
+                    response,
+                    voice_input=voice_input,
+                    interrupted=bool(_interrupted_this_turn or interrupt_msg),
+                )
+                text_queue.put(None)
+                if tts_thread is not None:
+                    tts_thread.join(timeout=120)
+                if tts_thread is not None and not tts_thread.is_alive():
+                    _tts_normal_exit = True
 
             response_previewed = result.get("response_previewed", False) if result else False
 
@@ -18341,8 +18360,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
             # Speak response aloud if voice TTS is enabled
             # Skip batch TTS when streaming TTS already handled it
-            if self._voice_tts and response and not use_streaming_tts:
-                self._voice_speak_response_async(response)
+            if (
+                self._voice_tts_enabled_for_turn(voice_input)
+                and response
+                and not use_streaming_tts
+                and not (_interrupted_this_turn or interrupt_msg)
+            ):
+                spoken_response = prepare_voice_tts_text(response)
+                if spoken_response:
+                    self._voice_speak_response_async(spoken_response)
 
 
             # Re-queue the interrupt message (and any that arrived while we were
