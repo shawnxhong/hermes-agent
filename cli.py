@@ -5741,6 +5741,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self._clarify_deadline = 0
         self._clarify_multi_base = None
         self._clarify_prefill = ""
+        # Answers already collected during the current agent turn, keyed by a
+        # normalized clarify signature. Reset at chat() entry. This prevents a
+        # looping model from repeatedly blocking the user on the same prompt.
+        self._clarify_answer_cache = {}
         self._sudo_state = None
         self._sudo_deadline = 0
         self._modal_input_snapshot = None
@@ -5828,6 +5832,27 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self._voice_tts_done = threading.Event()
         self._voice_tts_done.set()
         self._voice_tts_stop = None  # active streaming pipeline's stop event
+        # Per-turn verbal acknowledgement state.  The active TTS queue is
+        # exposed only while a voice-input turn is running so the first tool
+        # call can enqueue a short acknowledgement without blocking the tool.
+        self._voice_tool_ack_lock = threading.Lock()
+        self._voice_tool_ack_queue = None
+        self._voice_tool_ack_phrase = ""
+        self._voice_tool_ack_language = ""
+        self._voice_tool_ack_timing = "first_tool"
+        self._voice_tool_ack_armed = False
+        self._voice_tool_ack_fired = False
+        self._voice_tool_ack_saw_text = False
+        self._voice_turn_tts_queue = None
+        self._voice_clarify_response_queue = None
+        self._voice_clarify_choices = []
+        self._voice_clarify_multi_select = False
+        self._voice_clarify_preparing = False
+        self._voice_clarify_listening = False
+        self._voice_approval_response_queue = None
+        self._voice_approval_choices = []
+        self._voice_approval_preparing = False
+        self._voice_approval_listening = False
         self._voice_barge_capture = threading.Event()  # barge monitor is capturing the interruption
         self._voice_last_tts_text = ""  # most recently spoken TTS text (echo guard, #75780)
         self._voice_barge_phase = None  # "generation" or "playback" phase of the last barge trip
@@ -14982,6 +15007,401 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
     # Tool progress callback (audio cues for voice mode)
     # ====================================================================
 
+    def _arm_voice_tool_ack(
+        self, text_queue, *, voice_input: bool, user_text: str = ""
+    ) -> None:
+        """Arm one language-matched spoken acknowledgement for this turn."""
+        enabled = False
+        phrase = ""
+        timing = "first_tool"
+        language = "zh" if re.search(r"[\u3400-\u9fff]", user_text or "") else "en"
+        if voice_input and self._voice_tts and text_queue is not None:
+            try:
+                from hermes_cli.config import load_config
+
+                voice_cfg = load_config().get("voice", {})
+                ack_cfg = voice_cfg.get("tool_ack", {}) if isinstance(voice_cfg, dict) else {}
+                enabled = bool(ack_cfg.get("enabled", False)) if isinstance(ack_cfg, dict) else False
+                if isinstance(ack_cfg, dict):
+                    configured_timing = str(ack_cfg.get("timing", "first_tool")).strip().lower()
+                    if configured_timing in {"first_tool", "turn_start"}:
+                        timing = configured_timing
+                phrases = ack_cfg.get("phrases", []) if isinstance(ack_cfg, dict) else []
+                # Preferred schema: phrases.zh / phrases.en.  A legacy flat
+                # list remains valid and is used for either language.
+                if isinstance(phrases, dict):
+                    phrases = phrases.get(language, [])
+                if isinstance(phrases, str):
+                    phrases = [phrases]
+                if isinstance(phrases, list):
+                    phrase = next(
+                        (item.strip() for item in phrases if isinstance(item, str) and item.strip()),
+                        "",
+                    )
+            except Exception:
+                enabled = False
+
+        if phrase and phrase[-1] not in ".!?。！？":
+            phrase += "。" if language == "zh" else "."
+        with self._voice_tool_ack_lock:
+            self._voice_turn_tts_queue = text_queue if voice_input else None
+            self._voice_tool_ack_queue = text_queue if enabled and phrase else None
+            self._voice_tool_ack_phrase = phrase
+            self._voice_tool_ack_language = language
+            self._voice_tool_ack_timing = timing
+            self._voice_tool_ack_armed = bool(enabled and phrase and text_queue is not None)
+            self._voice_tool_ack_fired = False
+            self._voice_tool_ack_saw_text = False
+
+    def _maybe_enqueue_voice_tool_ack(self, *, wait_until_spoken: bool = False) -> None:
+        """Queue the one-shot acknowledgement, optionally waiting for playback."""
+        with self._voice_tool_ack_lock:
+            if (
+                not self._voice_tool_ack_armed
+                or self._voice_tool_ack_fired
+                or self._voice_tool_ack_saw_text
+                or self._voice_tool_ack_queue is None
+            ):
+                return
+            text_queue = self._voice_tool_ack_queue
+            phrase = self._voice_tool_ack_phrase
+            # Claim the one-shot before publishing it so concurrent tool calls
+            # cannot enqueue duplicate acknowledgements.
+            self._voice_tool_ack_fired = True
+
+        try:
+            from tools.tts_tool import ImmediateTTSUtterance, TTSPlaybackBarrier
+
+            # Include the acknowledgement in the echo guard's spoken-text
+            # reference so headset bleed cannot barge-in on Hermes itself.
+            self._voice_last_tts_text = (self._voice_last_tts_text or "") + phrase
+            text_queue.put_nowait(ImmediateTTSUtterance(phrase))
+            if wait_until_spoken:
+                barrier = TTSPlaybackBarrier()
+                text_queue.put_nowait(barrier)
+                if barrier.wait(timeout=30.0):
+                    logger.info(
+                        "Voice acknowledgement played before agent start "
+                        "(language=%s)",
+                        self._voice_tool_ack_language,
+                    )
+                else:
+                    logger.warning("Voice acknowledgement playback timed out")
+            else:
+                logger.info(
+                    "Voice tool acknowledgement queued (language=%s)",
+                    self._voice_tool_ack_language,
+                )
+        except Exception:
+            logger.debug("Could not enqueue voice tool acknowledgement", exc_info=True)
+
+    def _clear_voice_tool_ack(self, text_queue) -> None:
+        """Disarm an acknowledgement queue if it still belongs to this turn."""
+        lock = getattr(self, "_voice_tool_ack_lock", None)
+        if lock is None:
+            return
+        with lock:
+            if getattr(self, "_voice_turn_tts_queue", None) is text_queue:
+                self._voice_turn_tts_queue = None
+            if getattr(self, "_voice_tool_ack_queue", None) is text_queue:
+                self._voice_tool_ack_queue = None
+                self._voice_tool_ack_phrase = ""
+                self._voice_tool_ack_language = ""
+                self._voice_tool_ack_timing = "first_tool"
+                self._voice_tool_ack_armed = False
+
+    def _voice_clarify_settings(self) -> dict:
+        """Return shape-safe, live configuration for headless clarification."""
+        settings = {
+            "enabled": False,
+            "followup_timeout_seconds": 30.0,
+            "playback_timeout_seconds": 120.0,
+        }
+        try:
+            from hermes_cli.config import load_config
+
+            voice_cfg = load_config().get("voice", {})
+            raw = voice_cfg.get("clarify", {}) if isinstance(voice_cfg, dict) else {}
+            if not isinstance(raw, dict):
+                return settings
+            settings["enabled"] = bool(raw.get("enabled", False))
+            for key in ("followup_timeout_seconds", "playback_timeout_seconds"):
+                value = raw.get(key)
+                if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+                    settings[key] = float(value)
+        except Exception:
+            pass
+        return settings
+
+    def _voice_clarify_available(self) -> bool:
+        """Whether the active turn can ask and capture a headless voice prompt."""
+        settings = self._voice_clarify_settings()
+        lock = getattr(self, "_voice_tool_ack_lock", None)
+        if lock is None:
+            text_queue = getattr(self, "_voice_turn_tts_queue", None)
+        else:
+            with lock:
+                text_queue = getattr(self, "_voice_turn_tts_queue", None)
+        return bool(
+            settings["enabled"]
+            and getattr(self, "_voice_mode", False)
+            and getattr(self, "_voice_tts", False)
+            # ``_voice_turn_tts_queue`` is exposed only for an actual voice
+            # input turn.  Do not require continuous mode here: wake-word
+            # turns intentionally set ``_voice_continuous = False`` while
+            # their one-shot request is running, but still need the spoken
+            # clarify prompt and its dedicated wake-free answer window.
+            and text_queue is not None
+        )
+
+    def _voice_clarify_begin(
+        self, question: str, choices, multi_select: bool, response_queue
+    ) -> bool:
+        """Speak a clarify prompt, then open one wake-word-free ASR window."""
+        if not self._voice_clarify_available():
+            return False
+
+        from hermes_cli.voice_clarify import build_spoken_prompt
+        from tools.tts_tool import ImmediateTTSUtterance, TTSPlaybackBarrier
+
+        settings = self._voice_clarify_settings()
+        spoken_prompt = build_spoken_prompt(
+            question, choices, multi_select=multi_select
+        )
+        barrier = TTSPlaybackBarrier()
+
+        # Retire the turn-wide barge listener before playing the question. A
+        # dedicated listener is started after playback, avoiding self-echo and
+        # competing microphone streams.
+        self._voice_clarify_preparing = True
+        self._voice_clarify_listening = False
+        fd_active = getattr(self, "_voice_fd_active", None)
+        stop_deadline = time.monotonic() + 3.0
+        while fd_active is not None and fd_active.is_set() and time.monotonic() < stop_deadline:
+            time.sleep(0.05)
+
+        lock = getattr(self, "_voice_tool_ack_lock", None)
+        if lock is None:
+            text_queue = getattr(self, "_voice_turn_tts_queue", None)
+        else:
+            with lock:
+                text_queue = getattr(self, "_voice_turn_tts_queue", None)
+        if text_queue is None:
+            self._voice_clarify_preparing = False
+            return False
+
+        self._voice_last_tts_text = (self._voice_last_tts_text or "") + spoken_prompt
+        text_queue.put(ImmediateTTSUtterance(spoken_prompt))
+        text_queue.put(barrier)
+        if not barrier.wait(settings["playback_timeout_seconds"]):
+            logger.warning("Voice clarify prompt playback timed out")
+            self._voice_clarify_preparing = False
+            return False
+
+        if self._voice_beeps_enabled():
+            try:
+                from tools.voice_mode import play_beep
+
+                play_beep(frequency=880, count=1)
+            except Exception:
+                pass
+
+        self._voice_clarify_response_queue = response_queue
+        self._voice_clarify_choices = list(choices or [])
+        self._voice_clarify_multi_select = bool(multi_select and choices)
+        self._voice_clarify_listening = True
+        self._voice_clarify_preparing = False
+        threading.Thread(
+            target=self._voice_full_duplex_listener,
+            kwargs={"clarify_only": True},
+            daemon=True,
+        ).start()
+        logger.info("Voice clarify answer window opened")
+        return True
+
+    def _voice_clarify_end(self) -> None:
+        """Close the answer window and resume normal turn-wide barge-in."""
+        was_active = bool(
+            getattr(self, "_voice_clarify_preparing", False)
+            or getattr(self, "_voice_clarify_listening", False)
+            or getattr(self, "_voice_clarify_response_queue", None) is not None
+        )
+        self._voice_clarify_preparing = False
+        self._voice_clarify_listening = False
+        self._voice_clarify_response_queue = None
+        self._voice_clarify_choices = []
+        self._voice_clarify_multi_select = False
+        if not was_active:
+            return
+
+        def _resume_listener():
+            fd_active = getattr(self, "_voice_fd_active", None)
+            deadline = time.monotonic() + 3.0
+            while fd_active is not None and fd_active.is_set() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if (
+                getattr(self, "_agent_running", False)
+                and getattr(self, "_voice_mode", False)
+                and getattr(self, "_voice_continuous", False)
+            ):
+                self._voice_full_duplex_listener()
+
+        threading.Thread(target=_resume_listener, daemon=True).start()
+
+    def _voice_route_clarify_transcript(self, transcript: str) -> bool:
+        """Resolve and deliver a transcript to clarify instead of a new turn."""
+        response_queue = getattr(self, "_voice_clarify_response_queue", None)
+        if response_queue is None or not getattr(self, "_voice_clarify_listening", False):
+            return False
+        from hermes_cli.voice_clarify import resolve_spoken_answer
+
+        answer = resolve_spoken_answer(
+            transcript,
+            getattr(self, "_voice_clarify_choices", []),
+            multi_select=getattr(self, "_voice_clarify_multi_select", False),
+        )
+        self._voice_clarify_listening = False
+        response_queue.put(answer)
+        _cprint(f"\n{_DIM}Voice answer: {transcript}{_RST}")
+        logger.info("Voice clarify answer captured")
+        return True
+
+    def _voice_approval_begin(
+        self, command: str, description: str, choices, response_queue
+    ) -> bool:
+        """Speak a dangerous-operation prompt and open a wake-free ASR window."""
+        if not self._voice_clarify_available():
+            return False
+
+        from hermes_cli.voice_clarify import build_approval_spoken_prompt
+        from tools.tts_tool import ImmediateTTSUtterance, TTSPlaybackBarrier
+
+        # ``view`` is useful in a terminal but has no meaningful screenless
+        # voice flow. The spoken choices remain a strict subset of the actual
+        # approval choices and always include deny.
+        voice_choices = [
+            choice for choice in (choices or [])
+            if choice in {"once", "session", "always", "deny"}
+        ]
+        if "deny" not in voice_choices:
+            voice_choices.append("deny")
+        spoken_prompt = build_approval_spoken_prompt(
+            command,
+            description,
+            voice_choices,
+            language=getattr(self, "_voice_tool_ack_language", None),
+        )
+        settings = self._voice_clarify_settings()
+        barrier = TTSPlaybackBarrier()
+
+        # Stop the turn-wide listener before speaking, then give this modal a
+        # dedicated listener. This avoids speaker echo and microphone races.
+        self._voice_approval_preparing = True
+        self._voice_approval_listening = False
+        fd_active = getattr(self, "_voice_fd_active", None)
+        stop_deadline = time.monotonic() + 3.0
+        while fd_active is not None and fd_active.is_set() and time.monotonic() < stop_deadline:
+            time.sleep(0.05)
+
+        lock = getattr(self, "_voice_tool_ack_lock", None)
+        if lock is None:
+            text_queue = getattr(self, "_voice_turn_tts_queue", None)
+        else:
+            with lock:
+                text_queue = getattr(self, "_voice_turn_tts_queue", None)
+        if text_queue is None:
+            self._voice_approval_preparing = False
+            return False
+
+        self._voice_last_tts_text = (self._voice_last_tts_text or "") + spoken_prompt
+        text_queue.put(ImmediateTTSUtterance(spoken_prompt))
+        text_queue.put(barrier)
+        if not barrier.wait(settings["playback_timeout_seconds"]):
+            logger.warning("Voice approval prompt playback timed out")
+            self._voice_approval_preparing = False
+            return False
+
+        if self._voice_beeps_enabled():
+            try:
+                from tools.voice_mode import play_beep
+
+                play_beep(frequency=880, count=1)
+            except Exception:
+                pass
+
+        self._voice_approval_response_queue = response_queue
+        self._voice_approval_choices = voice_choices
+        self._voice_approval_listening = True
+        self._voice_approval_preparing = False
+        threading.Thread(
+            target=self._voice_full_duplex_listener,
+            kwargs={"clarify_only": True},
+            daemon=True,
+        ).start()
+        logger.info("Voice approval answer window opened")
+        return True
+
+    def _voice_approval_end(self) -> None:
+        """Close a screenless approval answer window."""
+        was_active = bool(
+            getattr(self, "_voice_approval_preparing", False)
+            or getattr(self, "_voice_approval_listening", False)
+            or getattr(self, "_voice_approval_response_queue", None) is not None
+        )
+        self._voice_approval_preparing = False
+        self._voice_approval_listening = False
+        self._voice_approval_response_queue = None
+        self._voice_approval_choices = []
+        if not was_active:
+            return
+
+        def _resume_listener():
+            fd_active = getattr(self, "_voice_fd_active", None)
+            deadline = time.monotonic() + 3.0
+            while fd_active is not None and fd_active.is_set() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if (
+                getattr(self, "_agent_running", False)
+                and getattr(self, "_voice_mode", False)
+                and getattr(self, "_voice_continuous", False)
+            ):
+                self._voice_full_duplex_listener()
+
+        threading.Thread(target=_resume_listener, daemon=True).start()
+
+    def _voice_route_approval_transcript(self, transcript: str) -> bool:
+        """Resolve a spoken approval; unknown speech is denied fail-closed."""
+        response_queue = getattr(self, "_voice_approval_response_queue", None)
+        if response_queue is None or not getattr(self, "_voice_approval_listening", False):
+            return False
+        from hermes_cli.voice_clarify import resolve_spoken_approval
+
+        verdict = resolve_spoken_approval(
+            transcript, getattr(self, "_voice_approval_choices", [])
+        )
+        if verdict is None:
+            verdict = "deny"
+            logger.warning(
+                "Unrecognized voice approval response; denying: %r", transcript
+            )
+            _cprint(
+                f"\n{_DIM}Voice approval not recognized; denied for safety: "
+                f"{transcript}{_RST}"
+            )
+        else:
+            _cprint(f"\n{_DIM}Voice approval: {transcript}{_RST}")
+        self._voice_approval_listening = False
+        response_queue.put(verdict)
+        logger.info("Voice approval answer captured: %s", verdict)
+        return True
+
+    def _voice_route_modal_transcript(self, transcript: str) -> bool:
+        """Route a wake-free modal answer before treating it as a new turn."""
+        return (
+            self._voice_route_approval_transcript(transcript)
+            or self._voice_route_clarify_transcript(transcript)
+        )
+
     def _on_tool_progress(self, event_type: str, function_name: str = None, preview: str = None, function_args: dict = None, **kwargs):
         """Called on tool lifecycle events (tool.started, tool.completed, reasoning.available, etc.).
 
@@ -15026,6 +15446,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._spinner_text = f"◆ aggregating ({agg})" if agg else "◆ aggregating"
             self._invalidate()
             return
+
+        if event_type == "tool.started":
+            self._maybe_enqueue_voice_tool_ack()
 
         # Feed the pet: tools mean "running" (not reasoning); a failed tool
         # latches the turn so it ends on a sulk.
@@ -15412,7 +15835,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 self._attached_images.clear()
                 if hasattr(self, '_app') and self._app:
                     self._app.invalidate()
-                self._pending_input.put(_VoiceInputMessage(transcript))
+                if not self._voice_route_modal_transcript(transcript):
+                    self._pending_input.put(_VoiceInputMessage(transcript))
                 submitted = True
             elif result.get("success"):
                 _cprint(f"{_DIM}No speech detected.{_RST}")
@@ -15568,7 +15992,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._voice_tts_done.set()
 
 
-    def _voice_full_duplex_listener(self) -> None:
+    def _voice_full_duplex_listener(self, *, clarify_only: bool = False) -> None:
         """Full-duplex agent-turn listener: mic live for the WHOLE turn.
 
         Armed at utterance-submit (chat() start in continuous voice mode) and
@@ -15623,6 +16047,16 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             tts_done = getattr(self, "_voice_tts_done", None)
 
             def _should_stop() -> bool:
+                if clarify_only:
+                    return not (
+                        getattr(self, "_voice_clarify_listening", False)
+                        or getattr(self, "_voice_approval_listening", False)
+                    )
+                if (
+                    getattr(self, "_voice_clarify_preparing", False)
+                    or getattr(self, "_voice_approval_preparing", False)
+                ):
+                    return True
                 if not (getattr(self, "_voice_mode", False) and getattr(self, "_voice_continuous", False)):
                     return True
                 if getattr(self, "_agent_running", False):
@@ -15647,7 +16081,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     if _pipe_stop is not None:
                         _pipe_stop.set()
                     stop_playback()
-                else:
+                elif not (
+                    clarify_only
+                    or getattr(self, "_voice_clarify_response_queue", None) is not None
+                    or getattr(self, "_voice_approval_response_queue", None) is not None
+                ):
                     # Generation phase: no audio to cut — interrupt the
                     # in-flight agent turn (same seam as typed interrupt).
                     logger.debug(
@@ -15672,7 +16110,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 grace_ms=max(0, _grace_ms),
             )
             if wav_path and self._voice_barge_capture.is_set():
-                self._voice_submit_barge_utterance(wav_path)
+                self._voice_submit_barge_utterance(
+                    wav_path, clarify_only=clarify_only
+                )
             else:
                 self._voice_barge_capture.clear()
         except Exception as e:
@@ -15681,7 +16121,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         finally:
             fd_active.clear()
 
-    def _voice_submit_barge_utterance(self, wav_path: str) -> None:
+    def _voice_submit_barge_utterance(
+        self, wav_path: str, *, clarify_only: bool = False
+    ) -> None:
         """Transcribe a barge-captured interruption and queue it as the next turn."""
         submitted = False
         try:
@@ -15708,7 +16150,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         )
                         _cprint(f"\n{_DIM}Ignored likely TTS echo (not queued).{_RST}")
                         return
-                self._pending_input.put(_VoiceInputMessage(transcript))
+                if not self._voice_route_modal_transcript(transcript):
+                    self._pending_input.put(_VoiceInputMessage(transcript))
                 submitted = True
             elif not result.get("success"):
                 _cprint(f"\n{_DIM}Transcription failed: {result.get('error', 'Unknown error')}{_RST}")
@@ -15723,7 +16166,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._voice_barge_capture.clear()
             self._voice_barge_phase = None
             # No usable transcript: hand the mic back to the normal loop.
-            if not submitted and self._voice_mode and self._voice_continuous and not self._voice_recording:
+            if (
+                not submitted
+                and not clarify_only
+                and getattr(self, "_voice_clarify_response_queue", None) is None
+                and getattr(self, "_voice_approval_response_queue", None) is None
+                and self._voice_mode
+                and self._voice_continuous
+                and not self._voice_recording
+            ):
                 self._voice_restart_recording_async()
 
     def _voice_beeps_enabled(self) -> bool:
@@ -16026,6 +16477,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # VAD auto-stop transcribes and queues the transcript for process_loop.
         with self._voice_lock:
             self._voice_mode = True
+            # Wake-word sessions are fully hands-free: honor the same
+            # auto-TTS setting used by /voice on so the reply is spoken.
+            try:
+                from hermes_cli.config import load_config
+                voice_cfg = load_config().get("voice")
+                if isinstance(voice_cfg, dict) and voice_cfg.get("auto_tts", False):
+                    self._voice_tts = True
+            except Exception:
+                pass
         self._voice_continuous = False
         try:
             self._voice_start_recording()
@@ -16219,6 +16679,52 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         except Exception:
             pass
 
+    @staticmethod
+    def _clarify_cache_signature(question, choices, multi_select=False):
+        """Return a stable signature for duplicate prompts within one turn."""
+        from tools.clarify_tool import strip_recommended
+
+        def _clean(value):
+            value = strip_recommended(str(value or ""))
+            return " ".join(value.split()).casefold()
+
+        return (
+            _clean(question),
+            tuple(_clean(choice) for choice in (choices or [])),
+            bool(multi_select and choices),
+        )
+
+    def _reuse_clarify_answer(self, signature):
+        """Return a marked prior answer, or ``None`` when this prompt is new."""
+        cache = getattr(self, "_clarify_answer_cache", None)
+        if not isinstance(cache, dict) or signature not in cache:
+            return None
+        from tools.clarify_tool import ReusedClarifyResponse
+
+        answer = cache[signature]
+        logger.warning(
+            "Suppressing duplicate clarify in the same turn; reusing answer"
+        )
+        return ReusedClarifyResponse(answer)
+
+    def _remember_clarify_answer(self, signature, answer) -> None:
+        """Cache only real user answers; timeout/cancel sentinels are excluded."""
+        from tools.clarify_tool import TIMEOUT_RESPONSE
+
+        if answer is None:
+            return
+        if isinstance(answer, str) and (
+            not answer.strip()
+            or answer.strip() == TIMEOUT_RESPONSE
+            or answer.startswith("The user cancelled.")
+        ):
+            return
+        cache = getattr(self, "_clarify_answer_cache", None)
+        if not isinstance(cache, dict):
+            cache = {}
+            self._clarify_answer_cache = cache
+        cache[signature] = answer
+
     def _clarify_callback(self, question, choices, multi_select=False, questions=None):
         """
         Platform callback for the clarify tool. Called from the agent thread.
@@ -16251,6 +16757,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         is_open_ended = not choices
         # multi-select support: only active when multi_select is True and choices exist
         effective_multi = multi_select and not is_open_ended
+        clarify_signature = self._clarify_cache_signature(
+            question, choices, effective_multi
+        )
+        reused_answer = self._reuse_clarify_answer(clarify_signature)
+        if reused_answer is not None:
+            self._persist_prompt_summary(
+                "?", "Clarify (reused)", question, str(reused_answer.answer)
+            )
+            return reused_answer
 
         self._clarify_state = {
             "question": question,
@@ -16261,7 +16776,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             "selected_indices": set() if effective_multi else None,
             "response_queue": response_queue,
         }
-        self._clarify_deadline = None if timeout <= 0 else _time.monotonic() + timeout
         # Open-ended questions skip straight to freetext input
         self._clarify_freetext = is_open_ended
         self._clarify_multi_base = None
@@ -16272,6 +16786,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # _invalidate throttle / resize guard — see _paint_now / _invalidate (#41098).
         self._paint_now()
 
+        voice_clarify = self._voice_clarify_begin(
+            question, choices, effective_multi, response_queue
+        )
+        if voice_clarify:
+            timeout = self._voice_clarify_settings()["followup_timeout_seconds"]
+        self._clarify_deadline = None if timeout <= 0 else _time.monotonic() + timeout
+
         # Poll for the user's response. The countdown in the hint line updates
         # on each repaint; refresh it once a second so the timer stays visible
         # while we wait. Selection changes (↑/↓) trigger instant repaints via
@@ -16281,6 +16802,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             try:
                 result = response_queue.get(timeout=1)
                 self._clarify_deadline = None
+                if voice_clarify:
+                    self._clarify_state = None
+                    self._clarify_freetext = False
+                    self._clarify_multi_base = None
+                    self._voice_clarify_end()
+                    self._paint_now()
+                self._remember_clarify_answer(clarify_signature, result)
                 self._persist_prompt_summary("?", "Clarify", question, str(result))
                 return result
             except queue.Empty:
@@ -16299,6 +16827,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self._clarify_freetext = False
         self._clarify_deadline = None
         self._clarify_multi_base = None
+        if voice_clarify:
+            self._voice_clarify_end()
         self._paint_now()
         _cprint(f"\n{_DIM}(clarify timed out after {timeout}s — agent will decide){_RST}")
         return (
@@ -16438,6 +16968,25 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
         from tools.clarify_gateway import resolve_clarify_timeout
 
+        # A screenless voice user cannot operate the compact multi-question
+        # form. Ask the same normalized entries sequentially, using the single
+        # voice prompt + ASR window for each answer. Keyboard mode keeps the
+        # existing batch panel unchanged.
+        if self._voice_clarify_available():
+            answers = {}
+            for entry in questions:
+                answer = self._clarify_callback(
+                    entry["question"],
+                    entry.get("choices"),
+                    multi_select=bool(entry.get("multi_select")),
+                )
+                if isinstance(answer, str) and answer.startswith(
+                    "The user did not provide a response within the time limit."
+                ):
+                    return {"answers": answers, "timed_out": True}
+                answers[entry["qid"]] = answer
+            return {"answers": answers}
+
         timeout = resolve_clarify_timeout(CLI_CONFIG)
         response_queue = queue.Queue()
 
@@ -16565,19 +17114,20 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             timeout = int(CLI_CONFIG.get("approvals", {}).get("timeout", 300))
             response_queue = queue.Queue()
 
+            approval_choices = self._approval_choices(
+                command,
+                allow_permanent=allow_permanent,
+                allow_session=allow_session,
+                smart_denied=smart_denied,
+            )
+
             self._approval_state = {
                 "command": command,
                 "description": description,
-                "choices": self._approval_choices(
-                    command,
-                    allow_permanent=allow_permanent,
-                    allow_session=allow_session,
-                    smart_denied=smart_denied,
-                ),
+                "choices": approval_choices,
                 "selected": 0,
                 "response_queue": response_queue,
             }
-            self._approval_deadline = _time.monotonic() + timeout
 
             self._ring_bell(prompt=True, context="approval", detail=command)
             # Modal prompt — paint immediately, bypassing the throttle/resize
@@ -16587,12 +17137,21 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # (#41098). The countdown refreshes below paint the same way.
             self._paint_now()
 
+            voice_approval = self._voice_approval_begin(
+                command, description, approval_choices, response_queue
+            )
+            if voice_approval:
+                timeout = self._voice_clarify_settings()["followup_timeout_seconds"]
+            self._approval_deadline = _time.monotonic() + timeout
+
             _last_countdown_refresh = _time.monotonic()
             while True:
                 try:
                     result = response_queue.get(timeout=1)
                     self._approval_state = None
                     self._approval_deadline = 0
+                    if voice_approval:
+                        self._voice_approval_end()
                     self._paint_now()
                     _outcome_labels = {
                         "once": "allowed once",
@@ -16616,12 +17175,16 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
             self._approval_state = None
             self._approval_deadline = 0
+            if voice_approval:
+                self._voice_approval_end()
             self._paint_now()
             _cprint(f"\n{_DIM}  ⏱ Timeout — denying command{_RST}")
             self._persist_prompt_summary(
                 "⚠", "Approval", command, "timed out (no response)",
             )
-            return "timeout"
+            # Voice approval is intentionally fail-closed. Keyboard keeps the
+            # legacy timeout sentinel for callers that distinguish it.
+            return "deny" if voice_approval else "timeout"
 
     def _approval_choices(self, command: str, *, allow_permanent: bool = True,
                           allow_session: bool = True,
@@ -16907,6 +17470,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             except Exception:
                 pass
             self._approval_state = None
+            self._voice_approval_end()
         if self._clarify_state:
             try:
                 self._clarify_state["response_queue"].put(
@@ -16917,6 +17481,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._clarify_state = None
             self._clarify_freetext = False
             self._clarify_multi_base = None
+            self._voice_clarify_end()
         if self._sudo_state:
             try:
                 self._sudo_state["response_queue"].put("")
@@ -16981,6 +17546,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # this to True. Early returns (credential refresh failure, etc.)
         # leave it False, which is correct — those aren't user interrupts.
         self._last_turn_interrupted = False
+        # A clarify answer may be reused only inside this one model turn. A
+        # later user turn is allowed to ask the same question again because
+        # circumstances or preferences may have changed.
+        self._clarify_answer_cache = {}
 
         # Refresh provider credentials if needed (handles key rotation transparently)
         if not self._ensure_runtime_credentials():
@@ -17145,16 +17714,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # reset at the start of each user turn.
             self._reasoning_shown_this_turn = False
 
-            # Full-duplex agent-turn listener (continuous voice mode): arm
-            # the mic NOW — at utterance-submit — not when TTS playback
-            # starts. It spans generation (speech interrupts the turn) and
-            # playback (speech cuts TTS), and disarms itself when the turn
-            # is fully done. See _voice_full_duplex_listener.
+            # Reset the echo reference at utterance-submit. The full-duplex
+            # listener starts below, after any turn-start verbal ack has
+            # finished, so it cannot capture Hermes acknowledging the user.
             if self._voice_mode and self._voice_continuous:
                 self._voice_last_tts_text = ""
-                threading.Thread(
-                    target=self._voice_full_duplex_listener, daemon=True
-                ).start()
 
             # --- Streaming TTS setup ---
             # Any working TTS provider streams sentence-by-sentence as the agent
@@ -17184,6 +17748,16 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             if use_streaming_tts:
                 text_queue = queue.Queue()
                 stop_event = threading.Event()
+
+                # The first tool.started event may enqueue a short spoken
+                # acknowledgement into this same queue.  The TTS worker then
+                # serializes it with later answer text while tool execution
+                # continues independently.
+                self._arm_voice_tool_ack(
+                    text_queue,
+                    voice_input=voice_input,
+                    user_text=message if isinstance(message, str) else "",
+                )
 
                 # When token streaming is enabled (the common case), the
                 # CLI's _stream_delta already renders text token-by-token as
@@ -17222,11 +17796,35 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
                 def stream_callback(delta: str):
                     if text_queue is not None:
+                        if isinstance(delta, str) and delta.strip():
+                            with self._voice_tool_ack_lock:
+                                if self._voice_tool_ack_queue is text_queue:
+                                    self._voice_tool_ack_saw_text = True
                         text_queue.put(delta)
                     # Track what's actually being spoken so a playback-phase
                     # barge capture can be checked against it (echo guard,
                     # #75780).
                     self._voice_last_tts_text = (self._voice_last_tts_text or "") + delta
+
+                # On this machine the local command TTS needs about a second
+                # to synthesize even a short phrase. Queue and fully play the
+                # acknowledgement before starting inference so no fast tool
+                # can complete first. ``first_tool`` remains the compatible
+                # default; the user's config opts into ``turn_start``.
+                if (
+                    voice_input
+                    and getattr(self, "_voice_tool_ack_timing", "first_tool")
+                    == "turn_start"
+                ):
+                    self._maybe_enqueue_voice_tool_ack(wait_until_spoken=True)
+
+            # Arm turn-wide barge-in after the turn-start ack, but before the
+            # model thread. It still covers the complete generation/tool/TTS
+            # phase without competing with acknowledgement playback.
+            if self._voice_mode and self._voice_continuous:
+                threading.Thread(
+                    target=self._voice_full_duplex_listener, daemon=True
+                ).start()
 
             # When voice mode is active, prepend a brief instruction so the
             # model responds concisely. The prefix is API-call-local only —
@@ -17235,7 +17833,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             if voice_input and isinstance(message, str):
                 _voice_prefix = (
                     "[Voice input — respond concisely and conversationally, "
-                    "2-3 sentences max. No code blocks or markdown.] "
+                    "2-3 sentences max. No code blocks or markdown. Avoid "
+                    "clarification for low-risk or reversible ambiguity: choose "
+                    "a reasonable default and proceed. Clarify only when missing "
+                    "information makes the task unsafe, irreversible, or impossible. "
+                    "When clarification is essential, ask one brief question at a "
+                    "time with no more than three options.] "
                 )
 
             def run_agent():
@@ -17801,6 +18404,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     text_queue.put_nowait(None)
                 except Exception:
                     pass
+            self._clear_voice_tool_ack(text_queue)
             if stop_event is not None and not _tts_normal_exit:
                 logger.info("TTS CUT: exception finally block setting stop_event")
                 stop_event.set()

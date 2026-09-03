@@ -7,6 +7,9 @@ tool history that was lost when the TUI switched to a single-line spinner.
 
 import sys
 import importlib
+import queue
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 
@@ -153,6 +156,157 @@ class TestToolProgressScrollback:
         # First entry consumed, second remains
         assert len(cli._pending_tool_info.get("terminal", [])) == 1
         assert cli._pending_tool_info["terminal"][0] == {"command": "pwd"}
+
+
+class TestVoiceToolAck:
+    """One-shot verbal acknowledgement before voice-turn tool execution."""
+
+    @staticmethod
+    def _arm(
+        cli,
+        text_queue,
+        *,
+        enabled=True,
+        phrases=None,
+        voice_input=True,
+        user_text="请查询天气",
+        timing=None,
+    ):
+        cli._voice_tts = True
+        cfg = {
+            "voice": {
+                "tool_ack": {
+                    "enabled": enabled,
+                    "phrases": phrases or {
+                        "zh": ["好的，我来查一下。"],
+                        "en": ["Sure, let me check."],
+                    },
+                }
+            }
+        }
+        if timing is not None:
+            cfg["voice"]["tool_ack"]["timing"] = timing
+        with patch("hermes_cli.config.load_config", return_value=cfg):
+            cli._arm_voice_tool_ack(
+                text_queue, voice_input=voice_input, user_text=user_text
+            )
+
+    def test_first_tool_started_enqueues_ack_once(self):
+        cli = _make_cli(tool_progress="off")
+        text_queue = queue.Queue()
+        self._arm(cli, text_queue)
+
+        cli._on_tool_progress("tool.started", "web_search", "weather", {"query": "weather"})
+        cli._on_tool_progress("tool.started", "weather", "Shanghai", {})
+
+        assert text_queue.get_nowait() == "好的，我来查一下。"
+        assert text_queue.empty()
+
+    def test_disabled_or_non_voice_turn_does_not_arm(self):
+        cli = _make_cli(tool_progress="off")
+        disabled_queue = queue.Queue()
+        self._arm(cli, disabled_queue, enabled=False)
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+        assert disabled_queue.empty()
+
+        keyboard_queue = queue.Queue()
+        self._arm(cli, keyboard_queue, voice_input=False)
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+        assert keyboard_queue.empty()
+
+    def test_existing_spoken_model_text_suppresses_ack(self):
+        cli = _make_cli(tool_progress="off")
+        text_queue = queue.Queue()
+        self._arm(cli, text_queue)
+        cli._voice_tool_ack_saw_text = True
+
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+
+        assert text_queue.empty()
+
+    def test_phrase_gets_sentence_terminator(self):
+        cli = _make_cli(tool_progress="off")
+        text_queue = queue.Queue()
+        self._arm(cli, text_queue, phrases=["请稍候"])
+
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+
+        assert text_queue.get_nowait() == "请稍候。"
+
+    def test_english_transcript_selects_english_ack(self):
+        cli = _make_cli(tool_progress="off")
+        text_queue = queue.Queue()
+        self._arm(cli, text_queue, user_text="What is the weather today?")
+
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+
+        assert text_queue.get_nowait() == "Sure, let me check."
+
+    def test_mixed_transcript_prefers_chinese_ack(self):
+        cli = _make_cli(tool_progress="off")
+        text_queue = queue.Queue()
+        self._arm(cli, text_queue, user_text="帮我查一下 Intel weather")
+
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+
+        assert text_queue.get_nowait() == "好的，我来查一下。"
+
+    def test_legacy_flat_phrase_list_remains_supported(self):
+        cli = _make_cli(tool_progress="off")
+        text_queue = queue.Queue()
+        self._arm(
+            cli,
+            text_queue,
+            phrases=["Legacy acknowledgement"],
+            user_text="English request",
+        )
+
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+
+        assert text_queue.get_nowait() == "Legacy acknowledgement."
+
+    def test_clear_is_owner_safe_and_next_turn_can_rearm(self):
+        cli = _make_cli(tool_progress="off")
+        old_queue = queue.Queue()
+        new_queue = queue.Queue()
+        self._arm(cli, old_queue)
+        self._arm(cli, new_queue)
+
+        cli._clear_voice_tool_ack(old_queue)
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+
+        assert old_queue.empty()
+        assert new_queue.get_nowait() == "好的，我来查一下。"
+
+    def test_turn_start_ack_waits_for_playback_barrier(self):
+        from tools.tts_tool import ImmediateTTSUtterance, TTSPlaybackBarrier
+
+        cli = _make_cli(tool_progress="off")
+        text_queue = queue.Queue()
+        self._arm(cli, text_queue, timing="turn_start")
+
+        worker = threading.Thread(
+            target=cli._maybe_enqueue_voice_tool_ack,
+            kwargs={"wait_until_spoken": True},
+            daemon=True,
+        )
+        worker.start()
+        ack = text_queue.get(timeout=1)
+        barrier = text_queue.get(timeout=1)
+
+        assert isinstance(ack, ImmediateTTSUtterance)
+        assert str(ack) == "好的，我来查一下。"
+        assert isinstance(barrier, TTSPlaybackBarrier)
+        time.sleep(0.05)
+        assert worker.is_alive()
+
+        barrier.set()
+        worker.join(timeout=1)
+        assert not worker.is_alive()
+
+        # The later tool event must not enqueue a duplicate acknowledgement.
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+        assert text_queue.empty()
 
 
 class TestMoAReferenceBlocks:

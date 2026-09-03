@@ -2030,6 +2030,26 @@ DEFAULT_CONFIG = {
         "beep_enabled": True,         # Play record start/stop beeps in CLI voice mode
         "beep_volume": 0.3,           # Beep amplitude multiplier (0.0-1.0, default keeps prior hardcoded value)
         "thinking_sound": True,       # Calm ambient bubble sound while the agent works in voice chat (volume follows beep_volume)
+        # Speak one short acknowledgement before the first tool call in a
+        # voice-input turn. Disabled by default; phrases are user-configurable.
+        "tool_ack": {
+            "enabled": False,
+            # first_tool preserves the conditional behavior. turn_start plays
+            # before model inference, guaranteeing acknowledgement precedes
+            # every tool at the cost of also acknowledging no-tool turns.
+            "timing": "first_tool",
+            "phrases": {
+                "zh": ["好的，我来查一下。"],
+                "en": ["Sure, let me check."],
+            },
+        },
+        # In a headless voice turn, speak clarify questions/options and open
+        # one wake-word-free ASR answer window after playback completes.
+        "clarify": {
+            "enabled": False,
+            "followup_timeout_seconds": 30,
+            "playback_timeout_seconds": 120,
+        },
         "silence_threshold": 200,     # RMS below this = silence (0-32767)
         "silence_duration": 3.0,      # Seconds of silence before auto-stop
         "barge_in": True,             # Interrupt the agent / stop TTS when the user starts talking

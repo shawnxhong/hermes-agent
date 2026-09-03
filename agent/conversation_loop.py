@@ -39,6 +39,7 @@ from agent.conversation_compression import (
     conversation_history_after_compression,
 )
 from agent.context_engine import automatic_compaction_status_message
+from agent.control_marker_sanitization import strip_control_marker_echoes
 from agent.display import KawaiiSpinner
 from agent.error_classifier import FailoverReason, classify_api_error
 from agent.fast_mode import begin_turn as begin_fast_mode_turn
@@ -7451,6 +7452,23 @@ def run_conversation(
                     assistant_message.content = "\n".join(parts)
                 else:
                     assistant_message.content = str(raw)
+
+            # The OUT-OF-BAND /steer block is input-only protocol metadata.
+            # Some smaller/local models copy it into assistant content (often
+            # immediately before a tool call).  Remove it before hooks,
+            # persistence, fallback capture, and final-response handling.
+            if isinstance(assistant_message.content, str):
+                _raw_assistant_content = assistant_message.content
+                assistant_message.content = strip_control_marker_echoes(
+                    _raw_assistant_content
+                )
+                if assistant_message.content != _raw_assistant_content:
+                    logger.warning(
+                        "Discarded echoed OUT-OF-BAND control marker from "
+                        "assistant content (model=%s provider=%s)",
+                        agent.model,
+                        agent.provider,
+                    )
 
             # ── Agent-as-provider projection ──────────────────────────────
             # A provider that IS an agent ran its own tools inside its own

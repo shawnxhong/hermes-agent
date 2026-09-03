@@ -193,6 +193,7 @@ from tools.browser_tool import cleanup_browser
 
 # Agent internals extracted to agent/ package for modularity
 from agent.memory_manager import sanitize_context
+from agent.control_marker_sanitization import strip_control_marker_echoes
 from agent.memory_provider import is_trivial_prompt
 from agent.error_classifier import FailoverReason
 from agent.redact import redact_sensitive_text
@@ -7133,6 +7134,28 @@ class AIAgent:
 
     def _reset_stream_delivery_tracking(self) -> None:
         """Reset tracking for text delivered during the current model response."""
+        control_scrubber = getattr(self, "_stream_control_marker_scrubber", None)
+
+        def _deliver_tail(tail: str, *, through_control: bool = True) -> None:
+            if through_control:
+                if control_scrubber is not None:
+                    tail = control_scrubber.feed(tail)
+                else:
+                    tail = strip_control_marker_echoes(tail)
+            if not tail:
+                return
+            callbacks = [
+                cb
+                for cb in (self.stream_delta_callback, self._stream_callback)
+                if cb is not None
+            ]
+            for cb in callbacks:
+                try:
+                    cb(tail)
+                except Exception:
+                    pass
+            self._record_streamed_assistant_text(tail)
+
         # Flush any benign partial-tag tail held by the think scrubber
         # first (#17924): an innocent '<' at the end of the stream that
         # turned out not to be a tag prefix should reach the UI.  Then
@@ -7148,28 +7171,16 @@ class AIAgent:
                 ctx_scrubber = getattr(self, "_stream_context_scrubber", None)
                 if ctx_scrubber is not None:
                     think_tail = ctx_scrubber.feed(think_tail)
-                if think_tail:
-                    callbacks = [cb for cb in (self.stream_delta_callback, self._stream_callback) if cb is not None]
-                    for cb in callbacks:
-                        try:
-                            cb(think_tail)
-                        except Exception:
-                            pass
-                    self._record_streamed_assistant_text(think_tail)
+                _deliver_tail(think_tail)
         # Flush any benign partial-tag tail held by the context scrubber so it
         # reaches the UI before we clear state for the next model call.  If
         # the scrubber is mid-span, flush() drops the orphaned content.
         scrubber = getattr(self, "_stream_context_scrubber", None)
         if scrubber is not None:
             tail = scrubber.flush()
-            if tail:
-                callbacks = [cb for cb in (self.stream_delta_callback, self._stream_callback) if cb is not None]
-                for cb in callbacks:
-                    try:
-                        cb(tail)
-                    except Exception:
-                        pass
-                self._record_streamed_assistant_text(tail)
+            _deliver_tail(tail)
+        if control_scrubber is not None:
+            _deliver_tail(control_scrubber.flush(), through_control=False)
         self._current_streamed_assistant_text = ""
 
     @property
@@ -7556,6 +7567,11 @@ class AIAgent:
             # newlines are legitimate markdown. Look at the parts list, not
             # the joined property: joining on every token would copy the
             # whole reply again.
+            control_scrubber = getattr(self, "_stream_control_marker_scrubber", None)
+            if control_scrubber is not None:
+                text = control_scrubber.feed(text)
+            else:
+                text = strip_control_marker_echoes(text)
             if not prepended_break and not getattr(
                 self, "_streamed_assistant_text_parts", None
             ):

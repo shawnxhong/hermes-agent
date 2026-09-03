@@ -4160,6 +4160,30 @@ def _has_openai_audio_backend() -> bool:
 # ===========================================================================
 # Streaming TTS: sentence-by-sentence pipeline
 # ===========================================================================
+
+
+class ImmediateTTSUtterance(str):
+    """A queue item that must be spoken immediately as one complete utterance.
+
+    Used for short, latency-sensitive voice acknowledgements.  It remains a
+    ``str`` so existing queue/debug consumers stay compatible, while the TTS
+    worker can bypass the normal minimum-sentence-length buffering.
+    """
+
+
+class TTSPlaybackBarrier:
+    """Queue marker that fires only after all preceding audio has played."""
+
+    def __init__(self, event: Optional[threading.Event] = None):
+        self.event = event or threading.Event()
+
+    def set(self) -> None:
+        self.event.set()
+
+    def wait(self, timeout: Optional[float] = None) -> bool:
+        return self.event.wait(timeout)
+
+
 # Markdown stripping patterns (same as cli.py _voice_speak_response)
 _MD_CODE_BLOCK = re.compile(r'```[\s\S]*?```')
 _MD_LINK = re.compile(r'\[([^\]]+)\]\([^)]+\)')
@@ -4238,7 +4262,7 @@ class _SyncSentencePipeline:
 
     def __init__(self, stop_event: threading.Event, *, lookahead: int = 2):
         self._stop = stop_event
-        self._queue: "queue.Queue[Optional[tuple[str, Future]]]" = queue.Queue(
+        self._queue: "queue.Queue[object]" = queue.Queue(
             maxsize=max(1, lookahead)
         )
         self._executor = ThreadPoolExecutor(
@@ -4256,6 +4280,10 @@ class _SyncSentencePipeline:
         future = self._executor.submit(self._synthesize_to_tmp, cleaned)
         self._queue.put((cleaned, future))
 
+    def barrier(self, marker: TTSPlaybackBarrier) -> None:
+        """Signal *marker* after every earlier sentence finishes playback."""
+        self._queue.put(marker)
+
     def close(self) -> None:
         """Flush queued sentences in order (skipped if stopped), then join."""
         self._queue.put(None)
@@ -4269,8 +4297,35 @@ class _SyncSentencePipeline:
         try:
             fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
             os.close(fd)
-            text_to_speech_tool(text=cleaned, output_path=tmp_path)
-            return tmp_path
+            raw_result = text_to_speech_tool(text=cleaned, output_path=tmp_path)
+
+            # Command providers align the requested suffix with their
+            # configured output_format (for example, requested .mp3 becomes
+            # .wav) and return that actual path in the tool JSON.  Playing the
+            # original placeholder silently skips valid generated audio.
+            actual_path = tmp_path
+            if isinstance(raw_result, str):
+                try:
+                    result = json.loads(raw_result)
+                except (json.JSONDecodeError, TypeError):
+                    result = None
+                if isinstance(result, dict):
+                    if not result.get("success", False):
+                        try:
+                            os.unlink(tmp_path)
+                        except OSError:
+                            pass
+                        return None
+                    returned_path = result.get("file_path")
+                    if isinstance(returned_path, str) and returned_path:
+                        actual_path = returned_path
+
+            if actual_path != tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+            return actual_path
         except Exception as exc:
             logger.warning("Sync per-sentence TTS synthesis failed: %s", exc)
             if tmp_path:
@@ -4285,6 +4340,9 @@ class _SyncSentencePipeline:
             item = self._queue.get()
             if item is None:
                 return
+            if isinstance(item, TTSPlaybackBarrier):
+                item.set()
+                continue
             _sentence, future = item
             tmp_path = None
             try:
@@ -4322,6 +4380,8 @@ def stream_tts_to_speaker(
 
     Protocol:
         * The producer puts ``str`` deltas onto *text_queue*.
+        * ``ImmediateTTSUtterance`` speaks one complete item immediately.
+        * ``TTSPlaybackBarrier`` fires after all preceding audio has played.
         * A ``None`` sentinel signals end-of-text (flush remaining buffer).
         * *stop_event* can be set to abort early (barge-in / user interrupt).
         * *tts_done_event* is **set** in the ``finally`` block so callers
@@ -4476,6 +4536,9 @@ def stream_tts_to_speaker(
                         chunk_queue = _audio_queue.get()
                         if chunk_queue is None:
                             break
+                        if isinstance(chunk_queue, TTSPlaybackBarrier):
+                            chunk_queue.set()
+                            continue
                         if stop_event.is_set():
                             continue
                         if _current_stream is None:
@@ -4550,6 +4613,9 @@ def stream_tts_to_speaker(
                     chunk_queue = _audio_queue.get()
                     if chunk_queue is None:
                         break
+                    if isinstance(chunk_queue, TTSPlaybackBarrier):
+                        chunk_queue.set()
+                        continue
                     if stop_event.is_set():
                         continue
                     _chunks = []
@@ -4684,13 +4750,39 @@ def stream_tts_to_speaker(
                     _speak_sentence(sentence)
                 break
 
+            if isinstance(delta, ImmediateTTSUtterance):
+                # Preserve ordering if normal model text was buffered first,
+                # then bypass SentenceChunker's min_len threshold for this
+                # deliberately short acknowledgement.
+                for sentence in chunker.flush():
+                    _speak_sentence(sentence)
+                _speak_sentence(str(delta))
+                continue
+
+            if isinstance(delta, TTSPlaybackBarrier):
+                # Flush buffered text first, then put the marker behind the
+                # resulting audio.  Clarify uses this to open the microphone
+                # only after its spoken question (and preceding verbal ack)
+                # has actually finished playing.
+                for sentence in chunker.flush():
+                    _speak_sentence(sentence)
+                if sync_pipeline is not None:
+                    sync_pipeline.barrier(delta)
+                elif streamer is not None:
+                    _audio_queue.put(delta)
+                else:  # Defensive: no playback backend was constructed.
+                    delta.set()
+                continue
+
             for sentence in chunker.feed(delta):
                 _speak_sentence(sentence)
 
         # Drain any remaining items from the queue
         while True:
             try:
-                text_queue.get_nowait()
+                pending = text_queue.get_nowait()
+                if isinstance(pending, TTSPlaybackBarrier):
+                    pending.set()
             except queue.Empty:
                 break
 
