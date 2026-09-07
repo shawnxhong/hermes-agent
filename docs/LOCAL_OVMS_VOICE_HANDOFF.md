@@ -28,6 +28,25 @@ development checkout.
 
 ## Implemented behavior
 
+### Default model routing (2026-09-07)
+
+- Default provider/model: `deepseek` / `deepseek-v4-flash`, using
+  `https://api.deepseek.com/v1` and `DEEPSEEK_API_KEY` in the private `.env`.
+- The single `fallback_providers` entry uses `custom` / `qwen3.6-35b-a3b`
+  at `http://localhost:8000/v3` with `chat_completions` and a non-secret
+  `local-ovms` placeholder key. DeepSeek credentials are not sent to OVMS.
+- Retain the 65,536 session context cap and existing compression threshold.
+  The custom-provider model metadata also pins OVMS to 65,536 so fallback
+  activation cannot discover a larger, unsafe context window.
+- Direct DeepSeek API probe returned OK. A separate real Hermes agent switched
+  through `_try_activate_fallback` and its new OVMS client returned
+  `OVMS_FALLBACK_OK`. This checks activation and live fallback inference,
+  without disrupting the primary service to simulate an outage.
+- Configuration rollback copies:
+  `/home/agentdemo/hermes-ovms-setup/backups/20260907_154848-deepseek-default/`.
+- GitHub terminal authentication is now configured through the system keyring;
+  the earlier email/launcher repair commits have been pushed successfully.
+
 - Local OVMS serves `qwen3.6-35b-a3b` through an OpenAI-compatible endpoint.
 - Local keyboard and local voice modes can be switched with the host scripts.
 - Wake word is `Hi Intel`; local ASR, mixed Chinese/English TTS, verbal
