@@ -1534,6 +1534,7 @@ async def _standalone_send(
     if not all([address, password, smtp_host]):
         return {"error": "Email not configured (EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_SMTP_HOST required)"}
 
+    server = None
     try:
         msg = MIMEText(message, "plain", "utf-8")
         msg["From"] = address
@@ -1543,9 +1544,11 @@ async def _standalone_send(
 
         ctx = _tls_context(smtp_tls_verify, smtp_host)
         if smtp_security == "tls":
-            server = smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx)
+            server = smtplib.SMTP_SSL(
+                smtp_host, smtp_port, timeout=SMTP_CONNECT_TIMEOUT, context=ctx
+            )
         else:
-            server = smtplib.SMTP(smtp_host, smtp_port)
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=SMTP_CONNECT_TIMEOUT)
             if smtp_security == "starttls":
                 try:
                     server.starttls(context=ctx)
@@ -1554,7 +1557,6 @@ async def _standalone_send(
                     raise
         server.login(address, password)
         server.send_message(msg)
-        server.quit()
         return {"success": True, "platform": "email", "chat_id": chat_id}
     except Exception as e:
         try:
@@ -1562,6 +1564,17 @@ async def _standalone_send(
             return _e(f"Email send failed: {e}")
         except Exception:
             return {"error": f"Email send failed: {e}"}
+    finally:
+        if server is not None:
+            try:
+                server.quit()
+            except Exception:
+                # DATA may already be accepted: failed QUIT must not cause
+                # a retry and duplicate an otherwise successful delivery.
+                try:
+                    server.close()
+                except Exception:
+                    pass
 
 
 def _is_connected(config) -> bool:

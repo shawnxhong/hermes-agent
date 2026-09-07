@@ -56,6 +56,21 @@ The implementation commits are:
 
 ## Services and configuration
 
+### Personal-network email repair (2026-09-07)
+
+- Use the 163 SMTP authorization token as `EMAIL_PASSWORD`; the web-login
+  password is not used for SMTP. Credentials remain outside the repository.
+- SMTP uses verified implicit TLS on port 465. Deploy the reviewed current
+  `plugins/platforms/email/adapter.py`; the older running copy forced STARTTLS.
+- Standalone SMTP now has a 30-second socket timeout and always closes its
+  connection. Failure during QUIT after accepted DATA does not report failure
+  and trigger duplicate delivery.
+- Clash's active profile prepends exact-domain DIRECT rules for `smtp.163.com`
+  and `imap.163.com`. Its previous catch-all proxy route stalled SMTP.
+- Per-file rollback copies for this repair are under
+  `/home/agentdemo/hermes-ovms-setup/backups/20260907_151949-email-repair/`.
+- Focused email regressions: 60 tests passed using `scripts/run_tests.sh`.
+
 - Gateway: system service `hermes-gateway.service`, enabled at boot.
 - Model server: Docker container `ovms-qwen36`, restart policy
   `unless-stopped`.
@@ -134,4 +149,3 @@ Expected order: immediate verbal acknowledgement, any required tools, exactly
 one email attempt, then one short final TTS utterance. Without an address, the
 agent should speak one clarify question and accept the next answer without the
 wake word.
-
