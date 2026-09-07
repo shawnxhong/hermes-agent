@@ -28,7 +28,21 @@ development checkout.
 
 ## Implemented behavior
 
-### Default model routing (2026-09-07)
+### Current routing and demo intent (2026-09-07)
+
+The user restored local-only inference: default `custom` / `qwen3.6-35b-a3b`
+at `http://localhost:8000/v3`. The fallback chain, `DEEPSEEK_API_KEY` in the
+Hermes `.env`, and DeepSeek's cached credential-pool entry were removed.
+The original user-supplied key file is untouched; protected rollback copies
+remain under `backups/20260907_163823-local-only/` in `hermes-ovms-setup`.
+Retain the 65,536 context cap and existing voice settings.
+
+Read [the demo requirements](LOCAL_DEMO_REQUIREMENTS.md) before scenario skill
+development. Final acceptance uses only local LLM inference, with voice as the
+primary interface and IM as a text-only recovery interface. Wait for the user's
+complete scenario briefing before implementing skills or beginning live tests.
+
+### Historical DeepSeek trial (superseded)
 
 - Default provider/model: `deepseek` / `deepseek-v4-flash`, using
   `https://api.deepseek.com/v1` and `DEEPSEEK_API_KEY` in the private `.env`.
