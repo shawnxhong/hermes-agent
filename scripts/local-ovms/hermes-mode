@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HERMES_BIN="${HERMES_BIN:-$HOME/.local/bin/hermes}"
+
+# Inherit the caller's network settings. Only override them when the caller
+# explicitly provides the existing HERMES_PROXY_URL override.
+if [[ -n "${HERMES_PROXY_URL:-}" ]]; then
+  export http_proxy="$HERMES_PROXY_URL"
+  export https_proxy="$HERMES_PROXY_URL"
+  export HTTP_PROXY="$HERMES_PROXY_URL"
+  export HTTPS_PROXY="$HERMES_PROXY_URL"
+fi
+
+# Keep local OVMS reachable with either HTTP client proxy convention.
+export NO_PROXY="localhost,127.0.0.1,::1${NO_PROXY:+,$NO_PROXY}"
+export no_proxy="localhost,127.0.0.1,::1${no_proxy:+,$no_proxy}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  hermes-mode voice [--run [HERMES_ARGS...]]
+  hermes-mode keyboard [--run [HERMES_ARGS...]]
+  hermes-mode toggle [--run [HERMES_ARGS...]]
+  hermes-mode status
+
+voice     Enable Hi Intel, local ASR, and automatic TTS.
+keyboard  Disable wake word, ASR, and automatic TTS.
+--run     Start a fresh Hermes CLI after changing mode.
+
+For guaranteed memory release, exit the currently running Hermes process
+before switching, then use --run (or hermes-voice/hermes-keyboard).
+EOF
+}
+
+get_bool() {
+  "$HERMES_BIN" config get "$1" 2>/dev/null || printf 'false\n'
+}
+
+show_status() {
+  local wake stt tts mode
+  wake="$(get_bool wake_word.enabled)"
+  stt="$(get_bool stt.enabled)"
+  tts="$(get_bool voice.auto_tts)"
+  mode=keyboard
+  if [[ "$wake" == "true" && "$stt" == "true" && "$tts" == "true" ]]; then
+    mode=voice
+  elif [[ "$wake" != "false" || "$stt" != "false" || "$tts" != "false" ]]; then
+    mode=mixed
+  fi
+  printf 'mode=%s wake_word=%s asr=%s auto_tts=%s context=%s compression_at=%s\n' \
+    "$mode" "$wake" "$stt" "$tts" \
+    "$("$HERMES_BIN" config get model.context_length)" \
+    "$("$HERMES_BIN" config get compression.threshold_tokens)"
+  printf 'max_output_tokens=%s\n' \
+    "$("$HERMES_BIN" config get model.max_tokens)"
+}
+
+mode="${1:-status}"
+shift || true
+
+if [[ "$mode" == "toggle" ]]; then
+  if [[ "$(get_bool wake_word.enabled)" == "true" && \
+        "$(get_bool stt.enabled)" == "true" && \
+        "$(get_bool voice.auto_tts)" == "true" ]]; then
+    mode=keyboard
+  else
+    mode=voice
+  fi
+fi
+
+case "$mode" in
+  status)
+    show_status
+    exit 0
+    ;;
+  voice)
+    "$HERMES_BIN" config set wake_word.enabled true --force >/dev/null
+    "$HERMES_BIN" config set stt.enabled true --force >/dev/null
+    "$HERMES_BIN" config set stt.local.unload_after_idle_seconds 300 --force >/dev/null
+    "$HERMES_BIN" config set voice.auto_tts true --force >/dev/null
+    "$HERMES_BIN" config set model.max_tokens 1024 --force >/dev/null
+    ;;
+  keyboard)
+    "$HERMES_BIN" config set wake_word.enabled false --force >/dev/null
+    "$HERMES_BIN" config set stt.enabled false --force >/dev/null
+    # An already-running process re-reads this value; its cached ASR is then
+    # released on the idle watcher's next check (at most about 30 seconds).
+    "$HERMES_BIN" config set stt.local.unload_after_idle_seconds 1 --force >/dev/null
+    "$HERMES_BIN" config set voice.auto_tts false --force >/dev/null
+    "$HERMES_BIN" config set model.max_tokens 4096 --force >/dev/null
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
+
+show_status
+
+if [[ "${1:-}" == "--run" ]]; then
+  shift
+  exec "$HERMES_BIN" --cli "$@"
+fi
+
+if pgrep -u "$USER" -x hermes >/dev/null 2>&1; then
+  printf '%s\n' 'Configuration changed. Restart the currently running Hermes process to apply the mode completely.'
+else
+  printf 'Start with: hermes-mode %s --run\n' "$mode"
+fi

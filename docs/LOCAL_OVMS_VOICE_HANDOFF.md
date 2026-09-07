@@ -70,6 +70,17 @@ The implementation commits are:
 - Per-file rollback copies for this repair are under
   `/home/agentdemo/hermes-ovms-setup/backups/20260907_151949-email-repair/`.
 - Focused email regressions: 60 tests passed using `scripts/run_tests.sh`.
+- Real deployed `send_message` returned success for the user-designated test
+  recipient with receipt marker `HERMES-SMTP-20260907-01`. This proves SMTP
+  acceptance; recipient inbox receipt still needs recipient confirmation.
+- The canonical host launcher is now `scripts/local-ovms/hermes-mode`, deployed
+  to `/home/agentdemo/.local/bin/hermes-mode`. It inherits caller proxy settings,
+  honors an explicitly supplied `HERMES_PROXY_URL`, and bypasses proxies for
+  localhost/loopback. It no longer defaults to the Intel company proxy.
+- GitHub HTTPS credentials were not migrated to this host. Repair commits are
+  local; push them to `origin local-ovms-voice` once authentication is restored.
+  This repair was deployed with per-file backups before remote push so the
+  user's requested local email restoration could complete.
 
 - Gateway: system service `hermes-gateway.service`, enabled at boot.
 - Model server: Docker container `ovms-qwen36`, restart policy
