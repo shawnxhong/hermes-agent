@@ -2050,6 +2050,12 @@ DEFAULT_CONFIG = {
             "followup_timeout_seconds": 30,
             "playback_timeout_seconds": 120,
         },
+        "followup": {
+            "enabled": False,
+            "timeout_seconds": 30,
+            "resume_seconds": 120,
+            "playback_timeout_seconds": 120,
+        },
         "silence_threshold": 200,     # RMS below this = silence (0-32767)
         "silence_duration": 3.0,      # Seconds of silence before auto-stop
         "barge_in": True,             # Interrupt the agent / stop TTS when the user starts talking

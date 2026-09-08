@@ -1,11 +1,16 @@
 # Local OVMS Voice Demo Handoff
 
-Updated: 2026-09-07  
+Updated: 2026-09-08  
 Host: `agentdemo@10.239.136.211`  
 Repository: `https://github.com/shawnxhong/hermes-agent`  
 Branch: `local-ovms-voice`
 
 ## Start here
+
+Travel demo update: see [TRAVEL_DEMO_STATUS.md](TRAVEL_DEMO_STATUS.md).
+The US-English-first skill is an experimental candidate, not default-enabled.
+Ordinary spoken-question follow-up has focused regression coverage; real-model
+travel tool use and factual grounding still fail some acceptance scenarios.
 
 All future development for this deployment should be performed locally on the
 `.211` host, using the clean checkout at:

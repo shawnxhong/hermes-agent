@@ -5,6 +5,10 @@ description: 将模糊旅行意向分两轮整理为行程与交通建议，适�
 
 # Travel Concierge Skill
 
+> Historical design draft. The US-English-first implementation is now in
+> `skills/productivity/travel-concierge/SKILL.md`; see
+> `docs/TRAVEL_DEMO_STATUS.md` for failing real-model acceptance cases.
+
 把旅行意向整理为可执行的行程和交通建议。典型流程为简短介绍目的地，
 通过普通回复收集关键信息，然后完成规划；不调用 `clarify`。
 只做建议与信息整理，不订票、不付款、不预订住宿。

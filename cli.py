@@ -16495,7 +16495,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             except Exception:
                 pass
 
-        if getattr(self, "_wake_start_new_session", True):
+        from hermes_cli.voice_followup import resume_question_session
+        if getattr(self, "_wake_start_new_session", True) and not resume_question_session(self):
             try:
                 self.new_session(silent=True)
             except Exception as e:
@@ -17854,7 +17855,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # run_conversation persists the original clean user message.
             _voice_prefix = ""
             if voice_input and isinstance(message, str):
-                _voice_prefix = build_voice_turn_prefix()
+                from hermes_cli.voice_followup import settings as followup_settings
+                _voice_prefix = build_voice_turn_prefix(followup_enabled=followup_settings()["enabled"])
 
             def run_agent():
                 nonlocal result
@@ -21844,8 +21846,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     self._turn_summary_begin()
                     app.invalidate()  # Refresh status line
 
+                    _followup_response = None
+                    from hermes_cli.voice_followup import cancel_followup, start_followup
+                    cancel_followup(self)
                     try:
-                        self.chat(user_input, images=submit_images or None, voice_input=is_voice_input)
+                        _followup_response = self.chat(user_input, images=submit_images or None, voice_input=is_voice_input)
                     finally:
                         self._agent_running = False
                         self._spinner_text = ""
@@ -21900,6 +21905,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                             self._maybe_complete_loop_tick_after_turn()
                         except Exception as _loop_exc:
                             logging.debug("loop completion hook failed: %s", _loop_exc)
+
+                        try:
+                            start_followup(self, _followup_response, voice_input=is_voice_input,
+                                           make_message=_VoiceInputMessage)
+                        except Exception:
+                            logger.exception("Could not start voice follow-up")
 
                         # Continuous voice: auto-restart recording after agent responds.
                         # Dispatch to a daemon thread so play_beep (sd.wait) and
