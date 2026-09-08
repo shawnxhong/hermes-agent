@@ -295,30 +295,14 @@ def _send(recipient, body):
 
 
 def _deliver(session, revision, state, recipient, agent):
-    _check(agent)
-    _save(session, revision, state)  # Reject a stale worker before external I/O.
-    fingerprint = hashlib.sha256((session + "\0" + recipient + "\0" + state["body"]).encode()).hexdigest()
-    with _connect() as db:
-        inserted = db.execute("INSERT OR IGNORE INTO deliveries VALUES (?,?)", (fingerprint, "pending")).rowcount
-        if not inserted:
-            return db.execute("SELECT status FROM deliveries WHERE id=?", (fingerprint,)).fetchone()[0]
-    # Durable at-most-once reservation BEFORE SMTP, including ambiguous failures.
-    _check(agent)
-    try:
-        result = _send(recipient, state["body"])
-        status = "accepted" if isinstance(result, dict) and result.get("success") is True else "unconfirmed"
-    except Exception:
-        log.exception("Travel email submission failed")
-        status = "unconfirmed"
-    try:
-        with _connect() as db:
-            db.execute("UPDATE deliveries SET status=? WHERE id=?", (status, fingerprint))
-    except Exception:
-        # SMTP may already have accepted DATA. Keep the durable pending claim,
-        # report uncertainty, and never say nothing was sent or auto-retry.
-        log.exception("Could not persist travel delivery receipt")
-        status = "unconfirmed"
-    return status
+    from hermes_cli.voice_delivery import delivery_fingerprint, submit_once
+    def check():
+        _check(agent)
+        _save(session, revision, state)
+    # Preserve the original DB/table/fingerprint so deployed receipts dedupe
+    # across this refactor; do not migrate or resend old travel submissions.
+    return submit_once(delivery_fingerprint(session,recipient,state['body']),
+                       connect=_connect,send=lambda:_send(recipient,state['body']),check=check)
 
 
 def run_workflow(*, agent, user_message, session_id, input_modality=None, platform=None, **kwargs):
