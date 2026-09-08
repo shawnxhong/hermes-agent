@@ -161,6 +161,11 @@ _install_plugin_debug_handler()
 # ---------------------------------------------------------------------------
 
 VALID_HOOKS: Set[str] = {
+    # Exclusive, synchronous workflow handler before the generic model loop.
+    # Return None to pass, or {handled: True, final_response: str, api_calls: int}.
+    # First handler wins. Runs on the caller thread; handlers must bound their
+    # own I/O and honor agent._interrupt_requested before external writes.
+    "run_turn_workflow",
     "pre_tool_call",
     "post_tool_call",
     "transform_terminal_output",
@@ -395,6 +400,7 @@ VALID_HOOKS: Set[str] = {
 # have its output silently ignored — registration is refused loudly instead.
 # Support for a shell response shape can lift an event out of this set.
 SHELL_UNSUPPORTED_HOOKS: Set[str] = {
+    "run_turn_workflow",
     "transform_api_error_classification",
 }
 
@@ -5700,7 +5706,14 @@ class PluginManager:
                     ret = self._invoke_hook_callback(cb, kwargs)
                 if ret is not None:
                     results.append(ret)
+                    if hook_name == "run_turn_workflow" and isinstance(ret, dict) and ret.get("handled") is True:
+                        break
             except Exception as exc:
+                if hook_name == "run_turn_workflow":
+                    logger.exception("Turn workflow failed; refusing generic-loop fallback")
+                    results.append({"handled": True, "failed": True,
+                                    "final_response": "The workflow could not finish safely. Please try again."})
+                    break
                 logger.warning(
                     "Hook '%s' callback %s raised: %s",
                     hook_name,

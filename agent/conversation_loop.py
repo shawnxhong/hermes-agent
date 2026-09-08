@@ -2037,6 +2037,7 @@ def run_conversation(
     persist_user_display_metadata: Optional[Dict[str, Any]] = None,
     persist_user_platform_id: Optional[str] = None,
     moa_config: Optional[dict[str, Any]] = None,
+    input_modality: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run a complete conversation with tool calling until completion.
@@ -2203,6 +2204,7 @@ def run_conversation(
 
     # Main conversation loop counters (pure locals consumed by the loop below).
     api_call_count = 0
+    _workflow_checked = False
     final_response = None
     interrupted = False
     failed = False
@@ -2308,6 +2310,28 @@ def run_conversation(
             if not agent.quiet_mode:
                 agent._safe_print("\n⚡ Breaking out of tool loop due to interrupt...")
             break
+
+        # Workflow capabilities live in plugins; modality is supplied by the
+        # trusted surface, never inferred from model/user text. Preserve the
+        # same finalizer, transcript and cancellation path as ordinary turns.
+        if not _workflow_checked:
+            _workflow_checked = True
+            from hermes_cli.lifecycle import invoke_hook as _workflow_hook
+            _workflow_results = _workflow_hook(
+                "run_turn_workflow", agent=agent,
+                user_message=persist_user_message if persist_user_message is not None else original_user_message,
+                session_id=agent.session_id, task_id=effective_task_id,
+                input_modality=input_modality, platform=agent.platform,
+            )
+            _handled = next((r for r in _workflow_results if isinstance(r, dict)
+                             and r.get("handled") is True), None)
+            if _handled is not None:
+                api_call_count = max(0, int(_handled.get("api_calls", 0)))
+                interrupted = bool(agent._interrupt_requested)
+                failed = bool(_handled.get("failed", False))
+                final_response = "" if interrupted else str(_handled.get("final_response") or "The workflow could not finish safely.")
+                _turn_exit_reason = "interrupted_by_user" if interrupted else "plugin_workflow"
+                break
 
         # Aggregate input budget for detached auxiliary forks (background
         # review, #93057): compaction bounds each request; this bounds the

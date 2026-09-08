@@ -2,6 +2,13 @@
 
 ## Status
 
+Latest implementation: [controlled voice workflow](TRAVEL_VOICE_WORKFLOW.md).
+The user approved host-owned structured delivery and the default recipient
+`xiaoheng.hong@intel.com`. The new native plugin replaces the unreliable generic
+tool loop for matching CLI voice travel turns. See the linked document for
+current behavior, passing tests and remaining manual acceptance. Earlier
+pure-skill failures below are preserved as historical evidence.
+
 Update: the user explicitly requested default activation for manual testing.
 Install the candidate into `~/.hermes/skills/travel-concierge/SKILL.md` and preload
 its instructions through the existing `agent.system_prompt` configuration, which

@@ -8,6 +8,9 @@ Branch: `local-ovms-voice`
 ## Start here
 
 Travel demo update: see [TRAVEL_DEMO_STATUS.md](TRAVEL_DEMO_STATUS.md).
+Controlled delivery update: [TRAVEL_VOICE_WORKFLOW.md](TRAVEL_VOICE_WORKFLOW.md).
+The user authorized the travel-voice plugin and default recipient
+`xiaoheng.hong@intel.com`; preserve typed/IM isolation and local-only inference.
 The US-English-first candidate is now default-preloaded at the user's request
 for manual testing, using `agent.system_prompt`; it is not yet demo-ready.
 Ordinary spoken-question follow-up has focused regression coverage; real-model

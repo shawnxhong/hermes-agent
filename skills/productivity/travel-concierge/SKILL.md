@@ -8,87 +8,102 @@ metadata:
     tags: [travel, itinerary, voice, united-states]
 ---
 
-# Travel Concierge
+# Travel Concierge Skill
+
+Turn a travel idea into a practical itinerary and transportation advice.
+Give a brief orientation, collect the missing essentials once, then deliver a
+complete plan. Do not book tickets, reserve hotels, or pay for anything.
 
 ## When to Use
 
 Use for travel planning and follow-up details to an existing trip.
 Do not apply to unrelated requests. Execute this skill; never rewrite it.
 
-## Defaults
+## Prerequisites
 
-English and US destinations first when unspecified; follow explicit language
-and destination choices. Use USD, miles, month names and local time zones.
-Never assume the departure city, citizenship, or an email recipient.
-Do not book, buy, change network settings, or promise offline email queueing.
-The host handles verbal acknowledgement and TTS. Never call TTS or `clarify`.
+Prefer English and US destinations when unspecified; honor explicit language
+and destination choices. Never infer departure city or citizenship.
+The local voice demo enables the `travel-voice` native workflow plugin.
+It owns fact collection, bounded research, structured generation and email
+submission. The host also owns acknowledgement, ASR follow-up and TTS.
+Do not call TTS yourself or call `clarify` for routine travel details.
+
+## How to Run
+
+Merge destination, departure city, travel month/date and duration from the user
+and saved trip facts. Resolve "next month" using the host's current date,
+including year rollover; do not treat a relative month as missing information.
+Keep the destination when the next message only provides dates and origin.
+Update corrected facts without silently reversing origin and destination.
+
+## Quick Reference
+
+- First vague request: 2–3 familiar sights, one ordinary final question, STOP.
+- Complete request: skip the introductory question and plan immediately.
+- Voice: the plugin submits details, then returns only a short spoken summary.
+- IM/typed input: full plan in chat; no automatic mail or local audio.
 
 ## Procedure
 
-### 1. Orient and STOP
+### First reply
 
-Merge destination, dates/month, duration and departure city from the conversation.
-If all are known, go directly to step 2.
-Otherwise, on the FIRST travel turn, give 2–3 familiar sights and ONE ordinary
-question asking only for missing month/date, duration and departure city.
-This must be your FINAL answer, not commentary before tools. STOP until the next
-real user message. Zero tool calls. No planning or invented user answers yet.
-For an ambiguous region offer at most two city choices instead of guessing.
+Name 2–3 familiar sights without search or claims about current opening hours.
+Ask ONLY for missing travel month/date, duration and departure city in one
+ordinary FINAL reply ending in `?`. Wait for the next real user message.
+Use at most three sentences and 55 English words. Do not ask about budget,
+hotel class or food unless essential to an explicit request.
+For an ambiguous region, offer at most two city choices instead of guessing.
 
-Example: "San Francisco offers the Golden Gate Bridge, waterfront walks, and
-Alcatraz. When would you like to go, how many days do you have, and which city
-will you travel from?"
+### Planning
 
-Keep this reply under 55 English words, at most three sentences, ending in `?`.
-The host opens one timed ASR window after the spoken question.
+A month is sufficient. After one question, default an unspecified duration to
+an explicitly stated three-day moderate-paced draft. Preserve all volunteered
+constraints. The local voice demo currently supports 1–14 days.
+Group 2–3 nearby activities per day, cover every requested day, avoid duplicate
+activities, and allow time for arrival, departure, transport and rest.
+Give one practical outbound/return mode, airport/station transfers, local
+transportation, critical reservations and uncertainties. Do not invent rail
+connections, exact schedules, fares, availability or source links.
 
-### 2. Research briefly
+### Voice delivery: program-owned
 
-Retain the destination when the follow-up supplies only dates and origin.
-After this one question, default an unspecified duration to a stated three-day
-moderate-paced draft. A month is sufficient; do not demand exact dates, budget,
-hotel or food preferences. If origin is still missing, ask only for it; if the
-user says "just plan it", omit intercity routing and explain that assumption.
+The plugin performs at most TWO native searches, each with three results;
+a failed search stops further searching in that plan. There is no browser,
+terminal, extraction or delegation fallback. The generic model tool loop is
+not used for an intercepted voice travel turn.
+It requests `spoken_summary` and `detailed_plan` as separate structured fields.
+The complete response must finish and pass validation before any email is sent.
+The detail-generation budget is separate from the spoken-word budget.
+At most three local model requests are allowed per turn, including repairs.
 
-Maximum research: TWO web_search calls (limit=3), then STOP research.
-Search 1: the recommended route and journey duration using official sources.
-Do not search fares, deals, prices or exact flights when exact dates are unknown.
-Search 2, only if necessary: a critical reservation or entry constraint using
-an official attraction/NPS/transit source. Never search generic itineraries,
-weather, packing lists, restaurants, or each sight. No third search.
-At most ONE web_extract call for ONE official URL if a critical fact is unclear.
-A failed call consumes its allowance: continue with marked uncertainties.
-Do not retry, use browser/terminal, delegate, or search for a different provider.
-These are skill instructions, not a hard host-enforced tool budget.
+The host uses `travel_voice.default_recipient`, unless the current user
+explicitly supplies another valid address. A request not to email is respected.
+Without a recipient, ask an ordinary final question and retain the plan; an
+email-address answer reuses it without fresh research.
+The existing email adapter sends the detail. A durable submission record
+prevents automatic duplicate sends, including uncertain previous attempts.
+Only the short summary (at most 60 English words/two sentences) and a truthful
+host-generated delivery status reach the final display and TTS. SMTP acceptance
+is not proof of inbox receipt. Do not print or speak the email body, internal
+JSON, tool-call sketches, incomplete fragments or recovery continuations.
 
-### 3. Deliver, then STOP
+### IM and ordinary text
 
-Write a compact COMPLETE plan of 250–350 words: assumptions; 2–3 nearby activities
-per day; recommended outbound and return transport; airport/station transfers;
-local transport; critical reservations; actual source links and uncertainties.
-Recommend ONE intercity mode. Add an alternative only if verified and useful.
-Never invent rail routes, live prices, schedules, availability or citations.
-For this demo omit ALL dollar amounts, frequency counts and exact departure
-times. Do not turn a month into invented dates or "mid-month" assumptions.
-Copy actual https source URLs from search results, not just publisher names.
-Do not add weather, packing lists, long introductions or extra tips.
-Do not infer a year from a month; use host date only when a year is necessary.
+Keep the normal Hermes text workflow. Give the full plan directly in chat,
+with useful formatting, sources and uncertainties; no automatic email or TTS.
+For research, prefer official transport/attraction sources and at most two
+`web_search` calls with `limit=3`. These IM limits are skill guidance, not the
+voice plugin's hard budget. Email only when explicitly requested and available.
 
-VOICE input: put the entire plan in ONE tool call:
-`send_message(action="send", target="email:<address>", message="<complete plan>")`.
-Use only the user's current-conversation address or configured demo recipient.
-Without one, retain the plan and ask one final ordinary question for the address.
-When the address arrives, send the retained plan without researching again.
-After the tool result, give a plain 35–65-word summary, at most three sentences:
-main route, transport, truthful email status. Do not spell out the mailbox,
-read details aloud, use Markdown, or ask another question. On failure, say sending
-was not confirmed; do not resend. SMTP acceptance is not proof of inbox delivery.
+## Pitfalls
 
-IM input: give the full plan and links directly in chat. No automatic email,
-ASR, TTS, or voice-length restriction. Email only if explicitly requested.
+Do not change network settings, claim unverified bookings, promise offline
+email queueing, invent a recipient or claim delivery without a successful result.
+Do not require exact dates merely to produce a useful seasonal draft.
 
 ## Verification
 
-Check vague and complete US requests, partial follow-ups, a changed destination,
-missing email, failed tools and IM. Verify no clarify, bounded tool use, retained
-context, complete mail and short voice replies. Test real microphone separately.
+Replay vague and complete US requests, partial follow-ups, changed destinations,
+missing/overridden recipients, failed search/mail and typed/IM isolation.
+Check complete day coverage, route direction, relative month resolution, tool
+counts, concise speech and truthful delivery. Test actual microphone separately.

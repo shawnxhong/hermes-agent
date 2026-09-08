@@ -1,0 +1,6 @@
+name: travel-voice
+version: 0.2.0
+description: Bounded local voice travel planning and host-owned email delivery.
+author: shawnxhong
+hooks:
+  - run_turn_workflow
