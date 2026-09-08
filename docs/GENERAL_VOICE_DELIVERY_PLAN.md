@@ -5,11 +5,13 @@ This document is the source of truth for subsequent development sessions.
 
 ## Current implementation checkpoint
 
-Update: full-tool workshop and product-launch replays now pass on the staged
-installed runtime. See [stability and latency evidence](GENERAL_VOICE_STABILITY.md)
-for the fixed new-session delivery contract, scoped sampling, measured timings
-and remaining cold-start variation. The release-hold notes below describe the
-earlier Phase 2 checkpoint, not the subsequent stability results.
+Update: full-tool workshop, product-launch, travel and simulated mail-failure
+replays now pass. Commit `061de2a84` is pushed and the reviewed legacy-compatible
+patch is deployed; `voice_delivery.enabled` is true. Installed-code seven-turn
+acceptance passed. See [stability and latency evidence](GENERAL_VOICE_STABILITY.md)
+for timings, backup, limitations and required new-session human voice testing.
+
+### Historical Phase 2 release hold (resolved by the update above)
 
 Phase 2 is implemented, but Phase 3 full-tool acceptance has NOT passed reliably.
 Nothing from Phase 1/2 is deployed or enabled in the live installation at this

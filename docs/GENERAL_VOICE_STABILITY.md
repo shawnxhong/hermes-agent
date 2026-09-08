@@ -1,5 +1,11 @@
 # Full-tool voice stability and latency (2026-09-08)
 
+Deployed and default-enabled after pushing `061de2a84`. Per-file rollback backup:
+`/home/agentdemo/hermes-ovms-setup/backups/20260908_165446-general-voice-stability`.
+The manifest lists changed/new files. Existing model, ASR/TTS/wake, permissions,
+travel and IM configuration were compared against the backup and are unchanged.
+Gateway restarted, email adapter and Feishu reconnected, OVMS health passed.
+
 ## Fix and boundaries
 
 The original native system policy encouraged artifact/tool work even for pure
@@ -49,6 +55,16 @@ model calls (SMTP capture, not real mail latency).
 The five-turn staged travel regression also passed (`nhqrwab3`): existing
 travel strategy, native explanation, artifact adoption and typed resend.
 Planning took 42.82 s including one bounded plan repair; explanation 17.11 s.
+
+The simulated-SMTP-failure seven-turn replay passed (`y6klt_kt`), retaining
+artifacts and reporting unconfirmed delivery without automatic retries.
+Post-deployment **installed-code** seven-turn acceptance passed (`mxfje_88`):
+initial full-context answer 16.33 s, requirements question 1.99 s, 530-word
+workshop 24.75 s, explanation 5.29 s, new welcome draft 12.49 s. Zero unnecessary
+tools, unchanged schemas/system, correct artifacts and capture-only recipients.
+The detailed workshop includes all three activities, a 60-minute total schedule
+and facilitator notes; the welcome message is actual prose. Generated wording
+and unprovided organization-specific assumptions still need human review.
 
 The checker now loads the real CLI toolset resolver and configured preloaded
 travel prompt. It records API duration and token usage separately from total

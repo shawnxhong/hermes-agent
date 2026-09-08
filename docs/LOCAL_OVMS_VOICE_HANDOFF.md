@@ -7,6 +7,12 @@ Branch: `local-ovms-voice`
 
 ## Start here
 
+General voice delivery is now default-enabled (2026-09-08, `061de2a84`). See
+[full-tool stability/deployment evidence](GENERAL_VOICE_STABILITY.md). 240 tests
+passed; installed-code native 21-tool replay passed. Restart the interactive
+voice CLI and start a **new conversation** to load its frozen delivery contract.
+Travel/wake, local-only model, permissions and IM configuration are preserved.
+
 Travel demo update: see [TRAVEL_DEMO_STATUS.md](TRAVEL_DEMO_STATUS.md).
 Controlled delivery update: [TRAVEL_VOICE_WORKFLOW.md](TRAVEL_VOICE_WORKFLOW.md).
 Wake acknowledgement: [LOCAL_WAKE_ACK.md](LOCAL_WAKE_ACK.md), enabled with
