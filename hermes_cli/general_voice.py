@@ -64,6 +64,32 @@ class IncompleteResult(ValueError):
     """A request for more input or promise is not a deliverable."""
 
 
+VOICE_EXECUTION_CONTRACT = """Local voice delivery contract (application capability, not a new tool):
+When the current turn carries host-provided buffered delivery context, the host
+saves your final text and delivers the detailed report. For self-contained prose
+tasks, producing the actual requested text IS completing the work. A workshop
+agenda, welcome message or event plan is not a request to create a local file.
+The final assistant message itself is the host's input: plain prose, not JSON.
+There is no plugin function or Python API to call for delivery. Do not use
+execute_code to build, serialize or print a draft. Write it in the final response.
+Return the complete draft directly. Do not write a file, update memory, create a
+skill, search for templates or send email merely to deliver that draft. Such calls
+do not improve correctness and are not required by tool-use enforcement.
+If the host says requirements are collected, use those facts and produce the
+result now; do not ask again for them. Label nonessential assumptions.
+Use the normal tools and approval path for requested file operations, coding,
+external actions, arithmetic and genuinely necessary research. This contract
+does not authorize extra side effects or weaken any safety/approval rule.
+Simple spoken answers and explanation-only follow-ups are brief. For substantial
+requests, return the real complete content, not a description or promise of it.
+The host handles speech, artifact persistence and truthful email status.
+Typed CLI and IM turns without buffered context retain their ordinary behavior."""
+
+
+def system_section(session_info):
+    return VOICE_EXECUTION_CONTRACT if config() and session_info.get('platform') in {'cli','local'} else ''
+
+
 def _summary(agent,body,language):
     if getattr(agent,'_interrupt_requested',False):
         raise RuntimeError('Summary cancelled')
@@ -208,6 +234,8 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
     wants_detail=route['intent']=='complex' and route['relation']!='followup'
     context={'task_request':task['request'],'facts':task['facts'],
              'previous_result':artifact['body'] if artifact else None}
+    context['requirements_status']='collected; execute now, do not ask again' if task['question_used'] else 'use the supplied scope'
+    context['output_mode']='One direct sentence, at most 35 words. No report or email.' if route['intent']=='simple' else 'Complete requested deliverable as final prose.'
     delivery_rule=('Perform explicitly requested external actions through native tools and original approvals; do not perform unrelated actions or change default settings. '
                    if route['intent'] in {'action','other'} else
                    'Do NOT email this result yourself or change memory/default recipients. ')
@@ -296,7 +324,7 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
         status=store.submit(session,task,recipient,sender=_send,interrupted=lambda:agent._interrupt_requested)
         return {'final_response':summary+' '+_status(status,zh),'api_calls':calls}
     from hermes_cli.voice_response_policy import build_voice_turn_prefix
-    return {'continuation':TurnContinuation(instruction,deliver,max_api_calls=6,
-        max_output_tokens=4096 if wants_detail or route['relation']=='followup' else 1024,
+    return {'continuation':TurnContinuation(instruction,deliver,max_api_calls=6,temperature=0.0,
+        max_output_tokens=512 if route['intent']=='simple' else 4096,
         initial_api_calls=route['api_calls'],before_tool=guard,after_tool=observed,
         input_prefixes=(build_voice_turn_prefix(),build_voice_turn_prefix(followup_enabled=True)))}

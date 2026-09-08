@@ -2010,6 +2010,8 @@ def build_api_kwargs(agent, api_messages: list, tools_for_api: list | None = Non
     policy = current(agent)
     if policy is not None:
         kwargs.update(agent._max_tokens_param(policy.max_output_tokens))
+        if policy.temperature is not None:
+            kwargs['temperature']=policy.temperature
     return merge_opencode_session_headers(
         kwargs,
         getattr(agent, "provider", None),

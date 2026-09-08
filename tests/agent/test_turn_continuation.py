@@ -158,3 +158,17 @@ def test_incomplete_generation_does_not_autocontinue_or_persist_raw_draft(native
     assert result['failed'] and result['turn_exit_reason']=='workflow_incomplete_output'
     assert agent.client.chat.completions.create.call_count==1
     assert 'Incomplete private draft' not in str(db.get_messages(agent.session_id))
+
+
+def test_sampling_is_turn_scoped_without_changing_tool_schemas(native):
+    agent,_,_=native
+    messages=[{'role':'system','content':'Stable'},{'role':'user','content':'Draft'}]
+    baseline=agent._build_api_kwargs(copy.deepcopy(messages))
+    policy=TurnContinuation('Context',lambda **kw:None,temperature=0.0)
+    policy.begin(agent)
+    try:
+        changed=agent._build_api_kwargs(copy.deepcopy(messages))
+        assert changed['temperature']==0.0 and changed['tools']==baseline['tools']
+    finally:policy.close()
+    restored=agent._build_api_kwargs(copy.deepcopy(messages))
+    assert restored==baseline

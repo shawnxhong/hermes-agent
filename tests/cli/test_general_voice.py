@@ -188,3 +188,13 @@ def test_delivery_validation_can_reject_a_metacommentary_result(rig):
     result=complete(run(rig),'The assistant would produce a report after receiving more details.')
     assert result['failed']
     rig[3].assert_not_called()
+
+
+def test_static_system_section_is_scoped_and_task_independent(rig):
+    section=voice.system_section({'platform':'cli','session_id':'one'})
+    complete(run(rig))
+    assert voice.system_section({'platform':'cli','session_id':'two'})==section
+    assert 'producing the actual requested text IS completing the work' in section
+    assert voice.system_section({'platform':'feishu'})==''
+    rig[0].clear()
+    assert voice.system_section({'platform':'cli'})==''

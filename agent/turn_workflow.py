@@ -21,6 +21,7 @@ class TurnContinuation:
     before_tool: object = None
     after_tool: object = None
     input_prefixes: tuple = ()
+    temperature: float | None = None
     _saved: dict = field(default_factory=dict, init=False)
 
     def begin(self, agent):
@@ -28,6 +29,8 @@ class TurnContinuation:
             raise ValueError('Invalid native continuation')
         if not 128 <= self.max_output_tokens <= 8192:
             raise ValueError('Invalid continuation output budget')
+        if self.temperature is not None and (isinstance(self.temperature,bool) or not 0 <= self.temperature <= 2):
+            raise ValueError('Invalid continuation temperature')
         self._agent = agent
         self._session = str(agent.session_id)
         for name in ('stream_delta_callback','_stream_callback','interim_assistant_callback','quiet_mode'):

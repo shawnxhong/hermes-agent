@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Real local model/native harness replay, with captured mail only."""
-import argparse,json,os,shutil,sys,tempfile,time
+import argparse,hashlib,json,os,shutil,sys,tempfile,time
 from pathlib import Path
 import yaml
 
@@ -10,6 +10,8 @@ parser.add_argument('--code-path',type=Path,help='Read-only staged runtime overl
 parser.add_argument('--native-tools',action='store_true',help='Use native default schemas, with a test-only side-effect blocker')
 parser.add_argument('--scenario',choices=['general','general-variant','travel'],default='general')
 parser.add_argument('--email-failure',action='store_true')
+parser.add_argument('--stop-after',type=int)
+parser.add_argument('--temperature',type=float)
 args=parser.parse_args()
 repo=Path(__file__).resolve().parents[2]
 code=args.code_path or (Path('/home/agentdemo/.hermes/hermes-agent') if args.live_code else repo)
@@ -30,6 +32,20 @@ from hermes_state import SessionDB
 from hermes_cli import general_voice
 from hermes_cli.voice_delivery import TaskStore
 from hermes_cli.voice_response_policy import build_voice_turn_prefix
+from hermes_cli.tools_config import _get_platform_tools
+from openai.resources.chat.completions import Completions
+original_create=Completions.create
+api_timings=[]
+def timed_create(self,*a,**kw):
+    started=time.monotonic()
+    result=original_create(self,*a,**kw)
+    row={'seconds':round(time.monotonic()-started,2),'tools':len(kw.get('tools',[])),
+         'schema':kw.get('response_format',{}).get('json_schema',{}).get('name'),
+         'usage':str(getattr(result,'usage',None))}
+    api_timings.append(row)
+    print('API '+json.dumps(row),flush=True)
+    return result
+Completions.create=timed_create
 mail=[]
 def capture(recipient,body):
     mail.append({'recipient':recipient,'body':body})
@@ -45,9 +61,23 @@ def traced_router(*a,**kw):
 general_voice.route_task=traced_router
 general_voice.travel_plugin()._send=capture
 agent=AIAgent(model='qwen3.6-35b-a3b',provider='custom',base_url='http://localhost:8000/v3',api_key='local-ovms',
-    api_mode='chat_completions',quiet_mode=True,max_iterations=12,enabled_toolsets=None if args.native_tools else ['web'],
+    api_mode='chat_completions',quiet_mode=True,max_iterations=12,
+    enabled_toolsets=sorted(_get_platform_tools(cfg,'cli')) if args.native_tools else ['web'],
+    ephemeral_system_prompt=cfg.get('agent',{}).get('system_prompt'),
     skip_memory=True,skip_context_files=True,platform='cli',session_db=SessionDB(home/'sessions.db'))
 delta=[];agent.stream_delta_callback=delta.append
+wires=[]
+original_kwargs=agent._build_api_kwargs
+def traced_kwargs(*a,**kw):
+    result=original_kwargs(*a,**kw)
+    if args.temperature is not None:result['temperature']=args.temperature
+    wires.append({k:result[k] for k in ('messages','tools','tool_choice','temperature','max_tokens','extra_body') if k in result})
+    (home/'wire.json').write_text(json.dumps(wires,ensure_ascii=False,indent=2))
+    print('WIRE '+json.dumps({'tools':len(result.get('tools',[])),'temperature':result.get('temperature'),
+          'context_present':'Current-turn execution context' in str(result.get('messages')),
+          'chars':len(str(result.get('messages')))}),flush=True)
+    return result
+agent._build_api_kwargs=traced_kwargs
 from hermes_cli import plugins
 if args.native_tools:
     def test_side_effect_guard(**kw):
@@ -57,7 +87,7 @@ if args.native_tools:
 for callback in plugins.get_plugin_manager()._hooks.get('run_turn_workflow',[]):
     if 'FACT_PROMPT' in callback.__globals__:
         callback.__globals__['_send']=capture
-cases=[('simple','What is two plus two? Answer briefly.','voice'),
+cases=[('simple','What does RSVP mean? Answer briefly.','voice'),
        ('ask','Help me plan a team workshop.','voice'),
        ('execute','It is for twenty marketing colleagues, for one hour, to practice clear project updates. Include three activities and facilitator notes.','voice'),
        ('explain','Why are interactive exercises useful for this workshop? Please answer briefly.','voice'),
@@ -79,6 +109,7 @@ if args.scenario=='travel':
            ('travel_redirect','Please send the itinerary to another email address.','voice'),
            ('travel_mailbox','791633252@qq.com','text')]
 history=[];receipts=[]
+if args.stop_after:cases=cases[:args.stop_after]
 for name,text,modality in cases:
     offset=len(mail);deltas=len(delta);start=time.monotonic()
     previous_tools=sum(m.get('role')=='tool' for m in history)
@@ -90,8 +121,12 @@ for name,text,modality in cases:
          'calls':result['api_calls'],'seconds':round(time.monotonic()-start,2),'emails':len(mail)-offset,
          'task_id':task['id'] if task else None,'raw_streamed':any(delta[deltas:]),'tools':tool_count}
     receipts.append(row);print(json.dumps(row,ensure_ascii=False),flush=True)
-(home/'receipt.json').write_text(json.dumps({'turns':receipts,'mail':mail,'routes':routes},indent=2,ensure_ascii=False))
+(home/'receipt.json').write_text(json.dumps({'turns':receipts,'mail':mail,'routes':routes,'api_timings':api_timings},indent=2,ensure_ascii=False))
 print('RECEIPT',home/'receipt.json',flush=True)
+if args.stop_after:sys.exit(0)
+system_hashes={hashlib.sha256(json.dumps([m for m in w['messages'] if m['role']=='system'],sort_keys=True).encode()).hexdigest() for w in wires}
+tool_hashes={hashlib.sha256(json.dumps(w.get('tools'),sort_keys=True).encode()).hexdigest() for w in wires}
+assert len(system_hashes)==len(tool_hashes)==1,'System prompt and tool schemas must remain byte-stable across this replay'
 assert all(r['completed'] and not r['raw_streamed'] for r in receipts)
 if args.scenario=='travel':
     assert receipts[0]['reply'].endswith('?') and receipts[0]['emails']==0
