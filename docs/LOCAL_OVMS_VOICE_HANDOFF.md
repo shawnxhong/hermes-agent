@@ -1,6 +1,6 @@
 # Local OVMS Voice Demo Handoff
 
-Updated: 2026-09-08  
+Updated: 2026-09-08
 Host: `agentdemo@10.239.136.211`  
 Repository: `https://github.com/shawnxhong/hermes-agent`  
 Branch: `local-ovms-voice`

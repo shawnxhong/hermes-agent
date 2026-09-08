@@ -59,6 +59,20 @@ Both ASR language hints must be cleared for automatic English/Chinese detection.
 Existing Kokoro command already selects `af_maple` for English language runs.
 Keep the existing ASR-only verbal acknowledgement and TTS output caps.
 
+Deployed the reviewed voice-code hunks and the above ASR/follow-up configuration
+after pushing commit `79ae06f41`. Backup:
+`/home/agentdemo/hermes-ovms-setup/backups/20260908_125629-voice-followup/`.
+The dirty live checkout's other changes were preserved. No gateway restart or
+travel-skill default activation was performed. Restart the interactive CLI to
+load new code. Local model, cloud-key policy, tool discovery and sampling settings
+were not changed globally by this deployment.
+
+Post-deploy checks: the actual follow-up worker transcribed the generated English
+audio file through local Whisper and enqueued a real `_VoiceInputMessage` in the
+same session. Only audio capture was substituted with a file. The host health
+check passed local OVMS inference, device enumeration and wake/ASR/TTS dependency
+checks. Human microphone and speaker end-to-end acceptance remains pending.
+
 ## Automated verification
 
 Run focused regression tests through the repository runner:
