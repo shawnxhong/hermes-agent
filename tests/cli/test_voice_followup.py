@@ -144,3 +144,22 @@ def test_cancel_clears_resume_and_signals_worker(rig):
     cli._voice_followup_cancel=threading.Event()
     followup.cancel_followup(cli)
     assert cli._voice_followup_resume is None and cli._voice_followup_cancel.is_set()
+
+
+def test_final_statement_retains_bounded_wake_context_without_recording(rig,monkeypatch):
+    cli,cfg,_,listen,_,_=rig
+    clock=[10.0];monkeypatch.setattr(followup.time,'monotonic',lambda:clock[0])
+    assert not start(cli,'The itinerary has been submitted for email delivery.')
+    listen.assert_not_called()
+    assert not cli._voice_processing
+    assert followup.resume_question_session(cli)
+    assert not followup.resume_question_session(cli)
+    start(cli,'Done.')
+    clock[0]+=cfg['resume_seconds']+1
+    assert not followup.resume_question_session(cli)
+
+
+def test_typed_reply_does_not_arm_wake_context(rig):
+    cli,*_=rig
+    start(cli,'Done.',voice=False)
+    assert not followup.resume_question_session(cli)

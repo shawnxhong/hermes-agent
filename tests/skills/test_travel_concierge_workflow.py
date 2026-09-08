@@ -211,3 +211,133 @@ def test_cloud_provider_is_not_used(rig,monkeypatch):
     generate=model_answers(monkeypatch,mod,[])
     assert run(rig)['failed']
     generate.assert_not_called();search.assert_not_called();send.assert_not_called()
+
+
+def test_redirect_then_typed_mailbox_reuses_exact_body_without_model_or_memory(rig,monkeypatch):
+    mod,cfg,_,search,send=rig
+    generate=model_answers(monkeypatch,mod,[facts(),plan()])
+    run(rig)
+    body=send.call_args.args[1]
+    answer=run(rig,'Could you also send the email to a different email address? I will type that email address to you.')
+    assert answer['final_response'].endswith('?') and answer['api_calls']==0
+    assert send.call_count==1
+    answer=run(rig,'791633252@qq.com',input_modality='text')
+    assert answer['api_calls']==0 and 'submitted for email delivery' in answer['final_response']
+    assert send.call_args.args==('791633252@qq.com',body)
+    assert send.call_count==2 and generate.call_count==2 and search.call_count==2
+    assert cfg['default_recipient']=='demo@example.com'
+    # Repeating an explicit resend request does not duplicate the submission.
+    run(rig,'Please send the itinerary to 791633252@qq.com.')
+    assert send.call_count==2
+
+
+@pytest.mark.parametrize('modality',['voice','text'])
+def test_missing_mailbox_accepts_only_direct_answer(rig,monkeypatch,modality):
+    mod,cfg,_,search,send=rig;cfg['default_recipient']=''
+    generate=model_answers(monkeypatch,mod,[facts(),plan()])
+    run(rig)
+    assert run(rig,'chosen@example.com',input_modality=modality)['handled']
+    assert generate.call_count==2 and search.call_count==2 and send.call_count==1
+
+
+@pytest.mark.parametrize('message,modality',[
+    ('What is two plus two?','voice'),
+    ('Send an email to manager@example.com about our meeting.','voice'),
+    ('What does a different email address mean?','voice'),
+    ('Please analyze chosen@example.com for a typo.','text'),
+])
+def test_unrelated_task_exits_pending_email_without_interception(rig,monkeypatch,message,modality):
+    mod,cfg,_,search,send=rig
+    generate=model_answers(monkeypatch,mod,[facts(),plan()])
+    run(rig);run(rig,'Could you send it to another email address?')
+    assert run(rig,message,input_modality=modality) is None
+    assert run(rig,'chosen@example.com',input_modality='text') is None
+    assert generate.call_count==2 and send.call_count==1 and search.call_count==2
+    assert not mod._load('trip-session')['active']
+
+
+def test_unrelated_pending_facts_is_released_and_new_trip_uses_default(rig,monkeypatch):
+    mod,cfg,_,search,send=rig
+    first=facts();first.update(origin=None,days=None,travel_month=None)
+    generate=model_answers(monkeypatch,mod,[first,{'intent':'other'},facts(),plan()])
+    run(rig,'Plan a trip. Send details to temporary@example.com.')
+    assert run(rig,'What is two plus two?') is None
+    assert run(rig,'What is three plus three?') is None
+    assert generate.call_count==2
+    run(rig)
+    assert send.call_args.args[0]==cfg['default_recipient']
+
+
+@pytest.mark.parametrize('message',["Don't send the email to another address.","Cancel", "Never mind"])
+def test_cancel_pending_redirect_has_no_send_or_generation(rig,monkeypatch,message):
+    mod,_,_,_,send=rig
+    generate=model_answers(monkeypatch,mod,[facts(),plan()])
+    run(rig);run(rig,'Please forward the itinerary to another email address.')
+    assert 'no additional email' in run(rig,message)['final_response']
+    assert send.call_count==1 and generate.call_count==2
+
+
+def test_typed_and_im_cannot_start_resend_or_cross_sessions(rig,monkeypatch):
+    mod,_,agent,_,send=rig
+    model_answers(monkeypatch,mod,[facts(),plan()])
+    run(rig);run(rig,'Please send it to a different email address.')
+    assert run(rig,'other@example.com',platform='feishu',input_modality='text') is None
+    assert mod.run_workflow(agent=agent,user_message='other@example.com',session_id='other-session',
+                            platform='cli',input_modality='text') is None
+    assert send.call_count==1
+
+
+def test_redirect_failure_keeps_body_and_does_not_retry(rig,monkeypatch):
+    mod,_,_,_,send=rig
+    model_answers(monkeypatch,mod,[facts(),plan()])
+    run(rig);body=send.call_args.args[1]
+    send.return_value={'error':'timeout'}
+    run(rig,'Send it to a different email address.')
+    result=run(rig,'chosen@example.com',input_modality='text')
+    assert 'not confirmed' in result['final_response']
+    run(rig,'Send it to chosen@example.com.')
+    assert send.call_count==2 and mod._load('trip-session')['body']==body
+
+
+def test_new_planning_request_does_not_inherit_resend_recipient(rig,monkeypatch):
+    mod,cfg,_,_,send=rig
+    model_answers(monkeypatch,mod,[facts(),plan(),facts(),plan(7)])
+    run(rig);run(rig,'Send it to chosen@example.com.')
+    # Clear only the fake adapter calls; the durable dedupe ledger remains.
+    send.reset_mock()
+    result=run(rig)
+    assert mod._load('trip-session')['recipient']==cfg['default_recipient']
+    assert 'submitted for email delivery' in result['final_response']
+    send.assert_not_called()  # The same original body/default recipient was already submitted.
+
+
+def test_native_agent_mixed_modality_persists_four_turns_without_generic_tools(rig,monkeypatch,tmp_path):
+    from hermes_cli import plugins
+    from hermes_state import SessionDB
+    from run_agent import AIAgent
+    mod,_,_,search,send=rig
+    first=facts();first.update(origin=None,days=None,travel_month=None)
+    generate=model_answers(monkeypatch,mod,[first,facts(),plan()])
+    manager=plugins.PluginManager()
+    manager._hooks['run_turn_workflow']=[mod.run_workflow]
+    monkeypatch.setattr(plugins,'_plugin_manager',manager)
+    db=SessionDB(tmp_path/'sessions.db')
+    agent=AIAgent(model='local-test',provider='custom',base_url='http://127.0.0.1:1/v1',api_key='test',
+                  api_mode='chat_completions',quiet_mode=True,max_iterations=8,enabled_toolsets=['web','memory'],
+                  skip_memory=True,skip_context_files=True,session_db=db,session_id='mixed-workflow',platform='cli')
+    agent.client.chat.completions.create=Mock(side_effect=AssertionError('No generic inference or memory loop'))
+    delta=Mock();agent.stream_delta_callback=delta
+    history=[]
+    inputs=[('Plan a trip to San Francisco.','voice'),('Next month, seven days, from New York.','voice'),
+            ('Could you send the email to a different email address? I will type it.','voice'),
+            ('chosen@example.com','text')]
+    for message,modality in inputs:
+        result=agent.run_conversation(message,conversation_history=history,input_modality=modality)
+        assert result['completed'] and result['turn_exit_reason']=='plugin_workflow'
+        history=result['messages']
+    assert send.call_count==2 and search.call_count==2 and generate.call_count==3
+    transcript=[r for r in db.get_messages(agent.session_id) if r['role'] in {'user','assistant','tool'}]
+    assert [r['role'] for r in transcript]==['user','assistant']*4
+    assert transcript[-2]['content']=='chosen@example.com'
+    assert not [c for c in delta.call_args_list if c.args and c.args[0]]
+    agent.client.chat.completions.create.assert_not_called()

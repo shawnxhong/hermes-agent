@@ -16,6 +16,11 @@ log = logging.getLogger(__name__)
 TRAVEL = re.compile(r"\b(travel|trip|itinerary|vacation|holiday|visit)\b|\b(?:plan|spend)\b.{0,80}\b(?:days?|weeks?)\b|旅行|旅游|行程", re.I)
 EMAIL = re.compile(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}")
 NO_EMAIL = re.compile(r"\b(?:do not|don't|dont|no|without)\s+(?:send\s+)?(?:an?\s+)?(?:e-?mail)\b|不要发.*邮件|不发邮件", re.I)
+REDIRECT_EMAIL = re.compile(
+    r"\b(?:send|forward|resend)\b.{0,35}\b(?:the|that|this|my)\s+(?:e-?mail|itinerary|travel plan|trip plan)\b"
+    r"|\b(?:send|forward|resend|e-?mail)\s+(?:it|that|this)\b"
+    r"|\b(?:send|forward|resend|e-?mail)\b.{0,60}\b(?:another|different)\s+(?:e-?mail\s+)?address\b"
+    r"|(?:重发|转发|改发).{0,20}(?:邮件|行程|邮箱)|(?:邮件|行程).{0,20}(?:另一个|其他)邮箱", re.I)
 FACT_PROMPT = """Extract travel facts from the current user message and saved facts.
 Return ONLY one complete JSON object. Do not call tools. Do not plan yet.
 Schema: {"intent":"travel" or "other", "destination":string or null,
@@ -318,13 +323,37 @@ def _deliver(session, revision, state, recipient, agent):
 
 def run_workflow(*, agent, user_message, session_id, input_modality=None, platform=None, **kwargs):
     cfg = _config()
-    if not cfg or input_modality != "voice" or platform not in {"cli", "local"} or not isinstance(user_message, str):
+    if not cfg or input_modality not in {"voice", "text"} or platform not in {"cli", "local"} or not isinstance(user_message, str):
         return None
     session = str(session_id or "")
     if not session:
         return None
     state = _load(session)
-    if not TRAVEL.search(user_message) and not state.get("awaiting"):
+    active = state.get("active", True)
+    awaiting_email = active and state.get("awaiting") == "email" and bool(state.get("body"))
+    redirect = active and bool(state.get("body")) and bool(REDIRECT_EMAIL.search(user_message))
+    # Only a direct answer to a pending delivery question may cross from voice
+    # to keyboard. A mailbox in arbitrary text is not permission to send a trip.
+    mailbox_answer = awaiting_email and bool(EMAIL.fullmatch(user_message.strip()))
+    cancel_email = (awaiting_email or redirect) and bool(
+        NO_EMAIL.search(user_message) or re.search(r"\b(?:cancel|never mind|nevermind)\b|\b(?:don't|do not)\s+(?:send|forward|resend)\b|取消", user_message, re.I))
+    def leave_workflow():
+        if state and active:
+            state.update(active=False, awaiting=None)
+            _save(session, uuid.uuid4().hex, state, begin=True)
+        return None
+    if input_modality == "text" and not (mailbox_answer or cancel_email):
+        return leave_workflow()
+    if not (redirect or mailbox_answer or cancel_email or TRAVEL.search(user_message)
+            or (active and state.get("awaiting") == "facts")):
+        return leave_workflow()
+    if cancel_email:
+        state["awaiting"] = None
+        _save(session, uuid.uuid4().hex, state, begin=True)
+        return {"handled": True, "final_response": "Cancelled; no additional email was sent.", "api_calls": 0}
+    if not active:
+        state = {}  # A new task must not inherit a previous task's recipient/facts.
+    if not state and input_modality != "voice":
         return None
     counter = [0]
     def finish(text, failed=False):
@@ -339,9 +368,15 @@ def run_workflow(*, agent, user_message, session_id, input_modality=None, platfo
         _check(agent)
         old = state.get("facts", {})
         addresses = EMAIL.findall(user_message)
-        recipient = addresses[-1] if addresses else state.get("recipient") or cfg.get("default_recipient", "")
+        saved_recipient = state.get("recipient") if (state.get("awaiting") or redirect) else None
+        recipient = addresses[-1] if addresses else saved_recipient or cfg.get("default_recipient", "")
         recipient = recipient if isinstance(recipient, str) and EMAIL.fullmatch(recipient) else ""
-        if state.get("awaiting") == "email" and addresses and state.get("body"):
+        if redirect and not addresses:
+            state["awaiting"] = "email"
+            _save(session, revision, state, begin=True)
+            return finish("请告诉我或输入接收这份行程的邮箱地址？" if state["facts"].get("language") == "zh" else
+                          "You can say it or type it here. Which email address should receive this itinerary?")
+        if (mailbox_answer or redirect) and addresses and state.get("body"):
             state["recipient"] = recipient
             _save(session, revision, state, begin=True)
         else:
@@ -356,7 +391,7 @@ def run_workflow(*, agent, user_message, session_id, input_modality=None, platfo
                         raise
                     fact_payload["validation_feedback"] = str(exc)
             if extracted.get("intent") == "other":
-                return None
+                return leave_workflow()
             if extracted.get("intent") != "travel":
                 raise ValueError("Unrecognized travel intent")
             facts = _facts(extracted, old, user_message, today)

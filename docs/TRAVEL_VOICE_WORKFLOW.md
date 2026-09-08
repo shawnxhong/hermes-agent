@@ -36,7 +36,9 @@ The default travel recipient is explicitly authorized as
   retried, including pending/ambiguous results. Cancellation/stale sessions are
   checked before submission. A started SMTP submission cannot be recalled.
 
-Only genuine CLI voice turns are intercepted. Typed CLI and IM input retain
+Only genuine CLI voice turns start this workflow. A narrowly scoped exception
+accepts a typed mailbox (or cancellation) after the workflow explicitly asks
+where to send the saved itinerary. Other typed CLI and all IM input retain
 normal Hermes behavior: full text, no automatic travel email or TTS. The lexical
 travel router covers travel/trip/itinerary/vacation/holiday/visit, travel-oriented
 “plan/spend ... days/weeks”, Chinese travel terms and answers to a pending trip
@@ -77,6 +79,41 @@ The running local server accepted these requests in real tests; host validation
 still runs even if a server does not enforce a requested schema.
 
 ## Validation
+
+### Recipient follow-up repair (2026-09-08)
+
+The user confirmed the initial two-turn travel flow manually. Their next wake
+started a new session; the completed plugin did not route a request to resend,
+and a typed mailbox bypassed the voice-only hook. The general model then tried
+to replace long-term memory repeatedly instead of submitting the itinerary.
+
+- An ordinary completed voice answer now retains the same session for the
+  configured `voice.followup.resume_seconds` (120 seconds on this host).
+  Only a question auto-opens ASR; a statement does not start recording.
+  Expiry, explicit new session and interruption still prevent stale reuse.
+- In the active travel context, an explicit resend/other-address request asks
+  an ordinary final question or sends directly if an address is present.
+  A direct typed mailbox answer reuses the exact saved body, with zero model
+  calls, searches, or memory operations. SMTP receipt/deduplication remain shared.
+- Changing the recipient affects this delivery, not configuration or long-term
+  memory. New planning requests use the configured default unless overridden.
+- An unrelated local task ends the pending travel context and uses the ordinary
+  agent. Bare mailboxes in other sessions/IM or after task-switching do not send
+  the itinerary. No process-global "latest trip" lookup is introduced.
+- The erroneous QQ-default memory entries created by the failed user turn are
+  backed up and corrected during deployment; unrelated memory is preserved.
+
+The focused suite passes 118 tests, including real AIAgent/SessionDB mixed
+voice/text history. Real Qwen `--followup` replay produced the New York/Vancouver
+four-day plan, asked for a mailbox, captured an identical body for the typed QQ
+address without inference, then answered ordinary arithmetic through the normal
+agent in one call. No real email was submitted by this replay. Receipt:
+`/tmp/hermes-workflow-check-c5bk6174/receipt.json`.
+
+Run with `--followup --live-code` to test the installed core AND installed plugin.
+`--followup` deliberately rejects `--send-real` to avoid repeated test mail.
+
+### Original planning validation
 
 101 focused regressions passed: workflow routing, original voice follow-up,
 acknowledgement/TTS policy, email dedupe, plugin compatibility, hook exceptions,

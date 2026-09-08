@@ -15,7 +15,10 @@ parser.add_argument('--email-failure',action='store_true')
 parser.add_argument('--search-failure',action='store_true')
 parser.add_argument('--complete-request',action='store_true')
 parser.add_argument('--live-code',action='store_true')
+parser.add_argument('--followup',action='store_true',help='Replay NYC planning, typed recipient, then ordinary arithmetic; capture only')
 args=parser.parse_args()
+if args.followup and (args.send_real or args.complete_request):
+    parser.error('--followup is a capture-only multi-turn replay')
 if args.send_real and args.email_failure:
     parser.error('Cannot combine real mail and simulated failure')
 repo=Path(__file__).resolve().parents[2]
@@ -31,7 +34,8 @@ config['plugins']={'enabled':['travel-voice']}
 config['travel_voice']={'enabled':True,'default_recipient':'xiaoheng.hong@intel.com'}
 config['memory']={'enabled':False}
 (home/'config.yaml').write_text(yaml.safe_dump(config))
-shutil.copytree(repo/'scripts/local-ovms/plugins/travel-voice',home/'plugins/travel-voice')
+plugin_source=Path('/home/agentdemo/.hermes/plugins/travel-voice') if args.live_code else repo/'scripts/local-ovms/plugins/travel-voice'
+shutil.copytree(plugin_source,home/'plugins/travel-voice')
 os.environ['HERMES_HOME']=str(home)
 os.environ['NO_PROXY']=os.environ['no_proxy']='localhost,127.0.0.1'
 for key,value in dotenv_values('/home/agentdemo/.hermes/.env').items():
@@ -63,11 +67,18 @@ delta=[];agent.stream_delta_callback=delta.append
 inputs=(["Plan seven days in San Francisco next month, departing from New York."] if args.complete_request else
         ["I'd like to travel to San Francisco. Could you give me some suggestions?",
          "I will go there probably in next month and I will travel there for like seven days and I will be traveling from New York."])
+if args.followup:
+    inputs=["I want to travel to New York. Could you give me some suggestions?",
+            "I will travel there in December and will travel there for like four days and I will be traveling there from Vancouver.",
+            "Could you also send the email to a different email address? I will type that email address to you.",
+            "791633252@qq.com", "What is two plus two? Reply with only the number."]
 history=[];receipts=[]
-for text in inputs:
+for index,text in enumerate(inputs):
     start=time.monotonic();offset=len(calls)
-    result=agent.run_conversation(build_voice_turn_prefix(followup_enabled=True)+text,
-           conversation_history=history,persist_user_message=text,input_modality='voice')
+    modality='text' if args.followup and index==3 else 'voice'
+    message=build_voice_turn_prefix(followup_enabled=True)+text if modality=='voice' else text
+    result=agent.run_conversation(message,
+           conversation_history=history,persist_user_message=text,input_modality=modality)
     history=result['messages']
     receipt={'input':text,'reply':result.get('final_response'),'completed':result.get('completed'),
              'reason':result.get('turn_exit_reason'),'seconds':round(time.monotonic()-start,2),
@@ -77,6 +88,18 @@ for text in inputs:
 report=home/'receipt.json'
 report.write_text(json.dumps(receipts,indent=2,ensure_ascii=False))
 print('RECEIPT',report,flush=True)
+if args.followup:
+    assert all(r['reason']=='plugin_workflow' and r['completed'] for r in receipts[:4])
+    assert receipts[2]['reply'].endswith('?') and not receipts[2]['calls']
+    assert receipts[2]['api_calls']==receipts[3]['api_calls']==0
+    mail=[c for c in calls if c['tool']=='email']
+    assert len(mail)==2 and [m['recipient'] for m in mail]==['xiaoheng.hong@intel.com','791633252@qq.com']
+    assert mail[0]['body']==mail[1]['body'] and all(f'Day {i}\n' in mail[0]['body'] for i in range(1,5))
+    assert sum(c['tool']=='search' for c in calls)<=2
+    assert receipts[4]['reason']!='plugin_workflow' and receipts[4]['reply'].strip().rstrip('.')=='4'
+    assert not receipts[4]['calls'] and receipts[4]['api_calls']==1
+    print('PASS real local four-turn workflow, unchanged captured body, ordinary task released',flush=True)
+    sys.exit(0)
 assert not [d for d in delta if d],'Raw structured output reached the streaming display'
 assert all(r['reason']=='plugin_workflow' and r['completed'] for r in receipts), 'Workflow did not complete'
 if not args.complete_request:

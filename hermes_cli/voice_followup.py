@@ -43,7 +43,7 @@ def resume_question_session(cli):
 
 def start_followup(cli, response, *, voice_input, make_message):
     spoken = prepare_voice_tts_text(response or "")
-    if not voice_input or not spoken.endswith(("?", "？")):
+    if not voice_input or not spoken:
         return False
     cfg = settings()
     if not cfg["enabled"] or not getattr(cli, "_voice_tts", False):
@@ -54,8 +54,13 @@ def start_followup(cli, response, *, voice_input, make_message):
                 or getattr(cli, "_last_turn_interrupted", False)
                 or not cli._pending_input.empty()):
             return False
-        cli._voice_processing = True
         cancel_followup(cli)
+        # A fresh wake shortly after an answer is a continuation too. Only
+        # questions auto-open the microphone; statements merely retain context.
+        cli._voice_followup_resume = (cli.session_id, time.monotonic() + cfg["resume_seconds"])
+        if not spoken.endswith(("?", "？")):
+            return False
+        cli._voice_processing = True
         cancel = threading.Event()
         cli._voice_followup_cancel = cancel
         session = cli.session_id
