@@ -16517,7 +16517,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 pass
         self._voice_continuous = False
         try:
-            self._voice_start_recording()
+            from hermes_cli.voice_wake_ack import start_wake_capture
+            start_wake_capture(self)
         except Exception as e:
             _cprint(f"{_DIM}Wake capture failed: {e}{_RST}")
             # Leave _wake_suspended set; the watchdog resumes once idle.

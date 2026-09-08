@@ -9,6 +9,8 @@ Branch: `local-ovms-voice`
 
 Travel demo update: see [TRAVEL_DEMO_STATUS.md](TRAVEL_DEMO_STATUS.md).
 Controlled delivery update: [TRAVEL_VOICE_WORKFLOW.md](TRAVEL_VOICE_WORKFLOW.md).
+Wake acknowledgement: [LOCAL_WAKE_ACK.md](LOCAL_WAKE_ACK.md), enabled with
+the cached English cue "Hi, I'm here." before command recording.
 The user authorized the travel-voice plugin and default recipient
 `xiaoheng.hong@intel.com`; preserve typed/IM isolation and local-only inference.
 The US-English-first candidate is now default-preloaded at the user's request
