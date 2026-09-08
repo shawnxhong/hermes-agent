@@ -2,6 +2,15 @@
 
 ## Status
 
+Update: the user explicitly requested default activation for manual testing.
+Install the candidate into `~/.hermes/skills/travel-concierge/SKILL.md` and preload
+its instructions through the existing `agent.system_prompt` configuration, which
+is shared by CLI and Gateway. Apply only to travel requests; preserve normal
+behavior for other tasks. This supersedes the default-disabled status below,
+but does NOT supersede the known acceptance failures. No new hard tool budget,
+sampling changes, recipient default or toolset restriction accompanies activation.
+The configured prompt is a snapshot: refresh it when the installed skill changes.
+
 Implemented a candidate Hermes skill at
 `skills/productivity/travel-concierge/SKILL.md`. It supersedes the Chinese-first
 design draft. It is **not demo-ready or enabled by default**: real local Qwen

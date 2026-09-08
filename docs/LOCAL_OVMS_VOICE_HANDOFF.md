@@ -8,7 +8,8 @@ Branch: `local-ovms-voice`
 ## Start here
 
 Travel demo update: see [TRAVEL_DEMO_STATUS.md](TRAVEL_DEMO_STATUS.md).
-The US-English-first skill is an experimental candidate, not default-enabled.
+The US-English-first candidate is now default-preloaded at the user's request
+for manual testing, using `agent.system_prompt`; it is not yet demo-ready.
 Ordinary spoken-question follow-up has focused regression coverage; real-model
 travel tool use and factual grounding still fail some acceptance scenarios.
 
