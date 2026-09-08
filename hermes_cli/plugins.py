@@ -5706,7 +5706,7 @@ class PluginManager:
                     ret = self._invoke_hook_callback(cb, kwargs)
                 if ret is not None:
                     results.append(ret)
-                    if hook_name == "run_turn_workflow" and isinstance(ret, dict) and ret.get("handled") is True:
+                    if hook_name == "run_turn_workflow" and isinstance(ret, dict) and (ret.get("handled") is True or ret.get("continuation") is not None):
                         break
             except Exception as exc:
                 if hook_name == "run_turn_workflow":

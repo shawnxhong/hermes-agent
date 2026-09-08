@@ -2332,6 +2332,20 @@ def run_conversation(
                 final_response = "" if interrupted else str(_handled.get("final_response") or "The workflow could not finish safely.")
                 _turn_exit_reason = "interrupted_by_user" if interrupted else "plugin_workflow"
                 break
+            from agent.turn_workflow import TurnContinuation
+            _continued = next((r.get('continuation') for r in _workflow_results
+                               if isinstance(r,dict) and r.get('continuation') is not None),None)
+            if _continued is not None:
+                if not isinstance(_continued,TurnContinuation):
+                    raise TypeError('Invalid native workflow continuation')
+                _continued.begin(agent)
+
+        from agent.turn_workflow import current as _current_workflow
+        _continuation = _current_workflow(agent)
+        if _continuation is not None and api_call_count >= _continuation.max_api_calls:
+            _turn_exit_reason = 'workflow_execution_budget'
+            failed = True
+            break
 
         # Aggregate input budget for detached auxiliary forks (background
         # review, #93057): compaction bounds each request; this bounds the
@@ -3615,7 +3629,7 @@ def run_conversation(
                     if agent.thinking_callback:
                         agent.thinking_callback("")
 
-                _use_streaming = True
+                _use_streaming = _current_workflow(agent) is None
                 # Provider signaled "stream not supported" on a previous
                 # attempt — switch to non-streaming for the rest of this
                 # session instead of re-failing every retry.
@@ -4172,6 +4186,9 @@ def run_conversation(
                     )
 
                 if finish_reason == "length":
+                    if _current_workflow(agent) is not None:
+                        _current_workflow(agent)._output_rejected = True
+                        break
                     if getattr(response, "id", "") == PARTIAL_STREAM_STUB_ID:
                         agent._vprint(
                             f"{agent.log_prefix}⚠️  Response truncated — stream "
@@ -7404,6 +7421,12 @@ def run_conversation(
             agent._persist_user_message_idx = current_turn_user_idx
             continue
 
+        if _current_workflow(agent) is not None and getattr(_current_workflow(agent), '_output_rejected', False):
+            final_response = ''
+            failed = True
+            _turn_exit_reason = 'workflow_incomplete_output'
+            break
+
         if _retry.restart_with_rebuilt_messages:
             # A stream stall or provider failure was escalated to the
             # fallback chain (10 activation sites in the retry loop set this
@@ -9172,7 +9195,11 @@ def run_conversation(
                 # no side effect follows and _persist_session retries the write.
                 # Full incident narrative: tests/run_agent/test_81641_*.py.
                 try:
-                    agent._flush_messages_to_session_db(messages, conversation_history)
+                    # A buffered workflow has not delivered this draft yet.
+                    # Its finalizer saves the artifact and replaces this tail;
+                    # preserve ordinary eager durability on every other turn.
+                    if _current_workflow(agent) is None:
+                        agent._flush_messages_to_session_db(messages, conversation_history)
                 except Exception:
                     logger.warning(
                         "final text-turn flush failed (session=%s) — reply is "
@@ -9349,6 +9376,11 @@ def run_conversation(
     # Post-loop turn finalization extracted to agent/turn_finalizer.finalize_turn
     # (god-file decomposition Phase 1 step 4). Behavior-neutral: the assembled
     # result dict is returned exactly as before.
+    from agent.turn_workflow import finish as _finish_workflow
+    final_response, failed, _delivery_calls = _finish_workflow(
+        agent, final_response, interrupted=interrupted, failed=failed,
+        reason=_turn_exit_reason, messages=messages)
+    api_call_count += _delivery_calls
     result = finalize_turn(
         agent,
         final_response=final_response,

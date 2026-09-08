@@ -7,7 +7,7 @@ from hermes_cli.voice_task_router import route_task,validate_route,RoutingError
 
 def result(**kw):
     return dict({'intent':'complex','relation':'new','task_summary':'Prepare a workshop',
-                 'question':'Who is the audience?','language':'en'},**kw)
+                 'question':'Who is the audience?','language':'en','domain':'general'},**kw)
 
 
 def agent(responses):
@@ -78,3 +78,27 @@ def test_continuation_before_first_artifact_completes_requirements():
 
 def test_explicit_cancellation_wins_over_uncertain_task_kind():
     assert validate_route(result(intent='other',relation='cancel'),None)['route']=='cancel'
+
+
+def test_explicit_new_task_control_overrides_wrong_model_continuation():
+    a=agent([result(relation='followup',question='')])
+    active={'phase':'result_ready','artifact_version':1}
+    actual=route_task(a,'Now draft a welcome message for new employees.',active,platform='cli',modality='voice')
+    assert actual['relation']=='new' and actual['route']=='execute'
+    a=agent([result(relation='followup',question='')])
+    actual=route_task(a,'Now write a shorter version of it.',active,platform='cli',modality='voice')
+    assert actual['relation']=='followup'
+
+
+def test_explicit_reference_answers_pending_question_despite_new_label():
+    a=agent([result(domain='travel',question='')])
+    active={'phase':'awaiting_details','question_used':True,'request':'Travel to New York'}
+    actual=route_task(a,'I will travel there in December for four days from Vancouver.',active,platform='cli',modality='voice')
+    assert actual['relation']=='answer' and actual['route']=='execute'
+
+
+def test_referential_explanation_preserves_active_artifact():
+    a=agent([result(intent='simple',domain='travel',question='')])
+    active={'phase':'result_ready','artifact_version':1}
+    actual=route_task(a,'Why is flying the best way to get there?',active,platform='cli',modality='voice')
+    assert actual['relation']=='followup' and actual['route']=='simple'

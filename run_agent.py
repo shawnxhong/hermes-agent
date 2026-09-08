@@ -9308,7 +9308,7 @@ class AIAgent:
             set_accounting_context,
         )
         from agent import relay_runtime
-        from agent.conversation_loop import run_conversation
+        from agent.turn_workflow import run_scoped_conversation as run_conversation
         from agent.portal_tags import (
             reset_affinity_scope,
             reset_conversation_context,

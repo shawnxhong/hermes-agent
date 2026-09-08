@@ -2005,7 +2005,11 @@ def build_api_kwargs(agent, api_messages: list, tools_for_api: list | None = Non
     """
     from agent.opencode_affinity import merge_opencode_session_headers
 
-    kwargs = _build_api_kwargs_for_mode(agent, api_messages, tools_for_api)
+    from agent.turn_workflow import current, request_messages
+    kwargs = _build_api_kwargs_for_mode(agent, request_messages(agent, api_messages), tools_for_api)
+    policy = current(agent)
+    if policy is not None:
+        kwargs.update(agent._max_tokens_param(policy.max_output_tokens))
     return merge_opencode_session_headers(
         kwargs,
         getattr(agent, "provider", None),

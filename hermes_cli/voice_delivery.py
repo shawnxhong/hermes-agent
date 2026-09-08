@@ -107,12 +107,14 @@ class TaskStore:
             raise StaleTask('Task revision advanced')
         return dict(id=task_id, revision=revision, **task)
 
-    def ask_once(self, session, task):
+    def ask_once(self, session, task, question=None):
         with self.connect() as db:
             current=self._require(db,session,task['id'],task['revision'])
             if current['question_used']:
                 return None
             current.update(question_used=True,phase='awaiting_details')
+            if isinstance(question,str):
+                current['pending_question']=question
             return self._save(db,current)
 
     def supply_details(self, session, task, facts):
@@ -122,6 +124,7 @@ class TaskStore:
             current=self._require(db,session,task['id'],task['revision'])
             current['facts'].update(facts)
             current['phase']='ready'
+            current.pop('pending_question',None)
             return self._save(db,current)
 
     def publish(self, session, task, *, body, summary):
