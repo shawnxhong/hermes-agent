@@ -212,6 +212,14 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
     def finalize(*,response_text,failed,turn_exit_reason,messages):
         nonlocal task
         count=0
+        if (native_route['intent']=='simple' and response_text.strip()
+                and turn_exit_reason in {'workflow_incomplete_output','text_response(finish_reason=length)'}):
+            try:
+                response_text=base._summary(agent,response_text,task['language'],None,execution_text);count=1
+            except Exception as error:
+                log.warning('Truncated simple answer summarization failed; using bounded fallback: %s',error)
+                response_text=base._fallback_summary(response_text,task['language']);count=1
+            failed=False;turn_exit_reason='text_response(finish_reason=stop)'
         if failed or turn_exit_reason!='text_response(finish_reason=stop)' or not response_text.strip():
             recovered=''
             if retrieval_succeeded and not agent._interrupt_requested:

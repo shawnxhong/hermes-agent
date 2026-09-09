@@ -385,6 +385,14 @@ def test_failed_research_retains_useful_result_with_verification_note(rig):
     assert 'Verification note:' in ContinuityStore().result('s',task['id'])['body']
 
 
+def test_truncated_simple_answer_is_salvaged_without_email(rig):
+    value=run(rig,'Give me brief advice.')
+    result=value['continuation'].finalize(response_text='Useful advice followed by excess detail.',failed=True,
+                                          turn_exit_reason='workflow_incomplete_output',messages=[])
+    assert not result.get('failed') and result['final_response']=='A useful summary.'
+    rig[2].assert_not_called()
+
+
 def test_exhausted_read_only_tool_loop_gets_one_text_only_recovery(rig,monkeypatch):
     rig[1].return_value=decision(detail=True,execution='research')
     recover=Mock(return_value='Recovered report from successful evidence.')

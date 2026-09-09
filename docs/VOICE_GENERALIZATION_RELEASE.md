@@ -37,6 +37,9 @@ external actions return to the native harness with its normal permissions.
   remains bound to that task and cannot capture an intervening new question.
 - The model cannot call `speak`/TTS inside a buffered turn. The host alone plays
   the finalized short response.
+- If a simple answer reaches its output limit after producing useful text, the
+  host salvages only a bounded spoken summary and does not email the truncated
+  body. Complex truncated results still fail closed and are never delivered.
 
 ## Tool convergence and truthfulness
 
@@ -58,7 +61,7 @@ stalled local generation without changing the model, endpoint or thinking mode.
 
 ## Acceptance evidence
 
-- 13 focused files: 213 tests passed, zero failed.
+- 13 focused files: 215 tests passed, zero failed.
 - Exact Melbourne/Sydney/October/five-day replay: useful first answer, complete
   detailed second answer, one captured email, unrelated sky question isolated,
   and a later return to the Melbourne task passed.

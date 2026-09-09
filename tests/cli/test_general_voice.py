@@ -145,6 +145,14 @@ def test_incomplete_execution_never_emails(rig,reason):
     rig[3].assert_not_called();rig[4].assert_not_called()
 
 
+def test_truncated_simple_answer_is_salvaged_as_brief_speech_without_email(rig):
+    rig[2].return_value=routing(intent='simple',route='simple')
+    result=complete(run(rig,'Give me brief advice.'),'Useful advice followed by excess detail.',
+                    failed=True,reason='workflow_incomplete_output')
+    assert not result.get('failed') and result['final_response'].startswith('The report covers')
+    rig[3].assert_not_called();rig[4].assert_called_once()
+
+
 def test_sender_failure_and_summary_failure_are_honest(rig):
     rig[3].return_value={'error':'timeout'};rig[4].side_effect=ValueError('bad summary')
     result=complete(run(rig))

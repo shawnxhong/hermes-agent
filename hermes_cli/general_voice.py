@@ -298,6 +298,14 @@ def execute_native(agent,user_message,session,store,task,route,cfg,*,delivery=No
     def deliver(*,response_text,failed,turn_exit_reason,messages):
         nonlocal task
         zh=task['language']=='zh';calls=0
+        if (route['intent']=='simple' and response_text.strip()
+                and turn_exit_reason in {'workflow_incomplete_output','text_response(finish_reason=length)'}):
+            try:
+                response_text=_summary(agent,response_text,task['language'],None,user_message);calls=1
+            except Exception as exc:
+                log.warning('Truncated simple answer summarization failed; using bounded fallback: %s',exc)
+                response_text=_fallback_summary(response_text,task['language']);calls=1
+            failed=False;turn_exit_reason='text_response(finish_reason=stop)'
         if failed or turn_exit_reason!='text_response(finish_reason=stop)' or not response_text.strip():
             return {'final_response':'任务未完整完成，这次没有自动发送邮件。' if zh else 'I could not complete the task within this turn. No automatic result email was sent.', 'failed':True}
         if agent._interrupt_requested:
