@@ -8,7 +8,8 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--live-code',action='store_true')
 parser.add_argument('--code-path',type=Path,help='Read-only staged runtime overlay to validate before deployment')
 parser.add_argument('--native-tools',action='store_true',help='Use native default schemas, with a test-only side-effect blocker')
-parser.add_argument('--scenario',choices=['general','general-variant','travel','travel-sydney','travel-sydney-fragment','continuity-seoul'],default='general')
+parser.add_argument('--scenario',choices=['general','general-variant','travel','travel-sydney','travel-sydney-fragment','continuity-seoul','continuity-mixed','continuity-travel-mixed'],default='general')
+parser.add_argument('--seed',type=int,default=1,help='Reproducible mixed-topic order')
 parser.add_argument('--continuity',action='store_true')
 parser.add_argument('--email-failure',action='store_true')
 parser.add_argument('--stop-after',type=int)
@@ -137,6 +138,33 @@ if args.scenario=='continuity-seoul':
            ('mailbox','791633252@qq.com','text'),
            ('switch','What does RSVP mean? Answer briefly.','voice'),
            ('return','Return to those Seoul restaurants. Email me the same detailed report.','voice')]
+if args.scenario=='continuity-mixed':
+    import random
+    assert args.continuity
+    cases=[
+        ('meeting','Draft a 150-word agenda for a one-hour project kickoff with six engineers. Include goals, roles and next steps. Use reasonable assumptions; no questions.','voice'),
+        ('memo','Draft a 150-word internal memo announcing that the office will close Friday for maintenance. Staff should work remotely. Use placeholders for unknown names.','voice'),
+        ('shopping','Make a detailed 150-word buying checklist comparing a backpack and a rolling suitcase for weekly train commuting. No brands or current prices; use reasonable assumptions.','voice'),
+        ('rsvp','What does RSVP mean? One sentence please.','voice'),
+        ('sky','Why does the sky look blue? Answer briefly.','voice'),
+        ('math','How many minutes are in two and a half hours? Just the answer.','voice')]
+    random.Random(args.seed).shuffle(cases)
+    cases += [('return_meeting','Return to the project kickoff agenda. Email me that same agenda.','voice'),
+              ('revise_meeting','Change that kickoff agenda to thirty minutes instead of one hour. Keep the same six engineers. Do not email this revision yet.','voice'),
+              ('new_question','What is the difference between a metaphor and a simile? Briefly please.','voice'),
+              ('send_revision','Email me the revised thirty-minute project kickoff agenda.','voice'),
+              ('pending_address','Send that revised agenda to xiaoheng.hong.intel.com.','voice'),
+              ('interrupt_question','How many sides does a hexagon have? Just the answer.','voice'),
+              ('stale_yes','Yes, I mean that. Just send me the email.','voice')]
+if args.scenario=='continuity-travel-mixed':
+    assert args.continuity
+    cases=[('trip_ask','I want to visit New York, traveling from Vancouver. Any suggestions?','voice'),
+           ('interrupt','How many minutes are in two and a half hours? Just the answer.','voice'),
+           ('trip_details','Back to my New York trip: December, for four days.','voice'),
+           ('memo','Draft a short memo announcing Friday office closure for maintenance. Everyone should work from home. Use placeholders for unknown names.','voice'),
+           ('trip_return','Email me the same New York itinerary you prepared.','voice'),
+           ('trip_explain','Why did you recommend those places in New York? Answer briefly; no email.','voice'),
+           ('new_question','What does RSVP mean? Answer briefly.','voice')]
 history=[];receipts=[]
 if args.stop_after:cases=cases[:args.stop_after]
 for name,text,modality in cases:
@@ -169,6 +197,32 @@ if args.scenario=='continuity-seoul':
     assert mail[0]['body']==mail[1]['body'] and mail[1]['recipient']=='791633252@qq.com'
     assert all(len(r['reply'].split())<=85 for r in receipts)
     print('PASS Seoul short result, enriched email, one-shot confirmation, recipient override and old-topic return; mail captured')
+    sys.exit(0)
+if args.scenario=='continuity-mixed':
+    by={r['case']:r for r in receipts}
+    assert len({by[k]['task_id'] for k in ('meeting','memo','shopping','rsvp','sky','math','new_question')})==7,'Independent tasks must not overwrite each other'
+    assert all(by[k]['emails']==1 for k in ('meeting','memo','shopping')),'Complete new complex tasks should execute and email without optional questions'
+    assert all(by[k]['emails']==0 for k in ('rsvp','sky','math','new_question','return_meeting','revise_meeting')),'No inherited email authority or repeated submission'
+    assert all(by[k]['task_id']==by['meeting']['task_id'] for k in ('return_meeting','revise_meeting','send_revision')),'References must return to the right task'
+    assert by['send_revision']['emails']==1 and len(mail)==4
+    assert '30' in mail[-1]['body'] or 'thirty' in mail[-1]['body'].lower(),'Must send revised agenda, not the original'
+    assert all(m['recipient']=='xiaoheng.hong@intel.com' for m in mail)
+    assert by['pending_address']['reply'].endswith('?') and by['pending_address']['emails']==0
+    assert by['pending_address']['task_id']==by['meeting']['task_id'],'Pending delivery must bind the agenda, not merely avoid sending yet'
+    assert by['interrupt_question']['task_id']!=by['meeting']['task_id'] and by['interrupt_question']['emails']==0
+    assert by['stale_yes']['calls']==0 and by['stale_yes']['emails']==0
+    assert all(len(r['reply'].split())<=85 and (r['case']=='pending_address' or not r['reply'].endswith('?')) for r in receipts),'No optional repeated questions or long TTS'
+    print('PASS mixed-topic continuity seed',args.seed,'; mail captured')
+    sys.exit(0)
+if args.scenario=='continuity-travel-mixed':
+    by={r['case']:r for r in receipts}
+    assert by['trip_ask']['reply'].endswith('?') and by['trip_ask']['emails']==0
+    assert all(by[k]['task_id']==by['trip_ask']['task_id'] for k in ('trip_details','trip_return','trip_explain'))
+    assert len({by[k]['task_id'] for k in ('trip_ask','interrupt','memo','new_question')})==4
+    assert by['trip_details']['emails']==1 and by['memo']['emails']==1 and len(mail)==2
+    assert all(by[k]['emails']==0 for k in ('interrupt','trip_return','trip_explain','new_question'))
+    assert all(len(r['reply'].split())<=85 for r in receipts)
+    print('PASS interrupted travel, unrelated draft/question, saved itinerary return; mail captured')
     sys.exit(0)
 if args.scenario.startswith('travel'):
     fragments=[r for r in receipts if r['case']=='fragment']

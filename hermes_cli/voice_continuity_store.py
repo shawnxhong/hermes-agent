@@ -21,6 +21,8 @@ class ContinuityStore(TaskStore):
             db.execute('CREATE TABLE IF NOT EXISTS voice_interactions (id TEXT PRIMARY KEY, session_id TEXT, task_id TEXT, revision TEXT, kind TEXT, payload TEXT, status TEXT, repeats INTEGER)')
             db.execute('CREATE UNIQUE INDEX IF NOT EXISTS one_voice_pending ON voice_interactions(session_id) WHERE status="pending"')
             db.execute('CREATE TABLE IF NOT EXISTS voice_turns (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, request TEXT, reply TEXT)')
+            if 'task_id' not in {row[1] for row in db.execute('PRAGMA table_info(voice_turns)')}:
+                db.execute('ALTER TABLE voice_turns ADD COLUMN task_id TEXT')
             # These are the only legacy ownership relationships we can prove.
             db.execute('INSERT OR IGNORE INTO topic_links SELECT id,task_id,0 FROM sessions WHERE task_id IS NOT NULL')
             yield db
@@ -75,11 +77,13 @@ class ContinuityStore(TaskStore):
 
     def record_turn(self, session, request, reply):
         with self.connect() as db:
-            db.execute('INSERT INTO voice_turns(session_id,request,reply) VALUES (?,?,?)',(session,request[:2000],reply[:2000]))
+            current=self._current(db,session)
+            db.execute('INSERT INTO voice_turns(session_id,request,reply,task_id) VALUES (?,?,?,?)',
+                       (session,request[:2000],reply[:2000],current['id'] if current else None))
 
     def recent_turns(self, session):
         with self.connect() as db:
-            rows=db.execute('SELECT request,reply FROM voice_turns WHERE session_id=? ORDER BY id DESC LIMIT 4',(session,)).fetchall()
+            rows=db.execute('SELECT request,reply,task_id FROM voice_turns WHERE session_id=? ORDER BY id DESC LIMIT 4',(session,)).fetchall()
             return [dict(row) for row in reversed(rows)]
 
     def save_result(self, session, task, *, body, summary, kind='main', parent_version=None, sources=(), detailed=False):

@@ -86,3 +86,14 @@ def test_index_and_recent_turns_are_bounded_and_isolated():
         store.record_turn('s',f'Question {i}',f'Reply {i}')
     assert len(store.topics('s'))==8 and len(store.recent_turns('s'))==4
     assert not store.topics('other') and not store.recent_turns('other')
+
+
+def test_delivery_ack_remembers_selected_topic_after_unrelated_question():
+    store=ContinuityStore();agenda,version=saved(store,request='Meeting agenda')
+    question=store.start('s','What is a metaphor?')
+    store.record_turn('s','What is a metaphor?','A comparison.')
+    store.select('s',agenda['id'])
+    store.record_turn('s','Email the agenda.','The details were submitted.')
+    turns=store.recent_turns('s')
+    assert turns[-2]['task_id']==question['id']
+    assert turns[-1]['task_id']==agenda['id']

@@ -84,7 +84,7 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         if op=='send':op=decision['operation']='resume'
     # By contract, answer means a new question unless filling a pending slot.
     # Never let a stale topic ID turn an unrelated answer into a report revision.
-    if op=='answer' and not pending:
+    if op=='answer' and not pending and decision.get('relation')!='followup':
         decision.update(target='NEW',version=0)
     if op=='native':
         # Original harness owns external action/coding authorization, not this state.
@@ -111,7 +111,7 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         pending=None
     if new:
         task=store.start(session,text,language=decision['language'])
-        task=store.supply_details(session,task,{'initial_email':decision['detail'] and not bool(base.NO_EMAIL.search(text))})
+        task=store.supply_details(session,task,{'initial_email':(decision['detail'] or decision['domain']=='travel') and not bool(base.NO_EMAIL.search(text))})
     else:
         task=store.select(session,decision['target'])
     selected=store.result(session,task['id'],decision['version'] or task.get('artifact_version'))

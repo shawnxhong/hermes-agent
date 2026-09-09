@@ -180,3 +180,29 @@ def test_typed_answer_to_voice_requirements_continues_but_new_task_passes_throug
     router.return_value=decision()
     assert run(rig,'Explain Python lists.','text') is None
     assert ContinuityStore().pending('s') is None
+
+
+def test_return_to_interrupted_requirements_does_not_start_duplicate_topic(rig):
+    _,router,sender=rig
+    router.return_value=decision(detail=True,question='Who is the audience?')
+    run(rig,'Prepare a workshop.')
+    task=ContinuityStore().current('s')
+    router.return_value=decision()
+    done(run(rig,'What does RSVP mean?'),'Please respond.')
+    router.return_value=decision(target=task['id'],relation='followup',detail=True)
+    value=run(rig,'Back to the workshop: twenty colleagues for one hour.')
+    done(value,'A one-hour workshop for twenty colleagues.')
+    assert ContinuityStore().current('s')['id']==task['id']
+    sender.assert_called_once()
+
+
+def test_interrupted_initial_trip_retains_first_result_delivery_intent(rig):
+    _,router,sender=rig
+    router.return_value=decision(domain='travel',detail=False)
+    done(run(rig,'I want to visit New York from Vancouver.'),'Which month and how many days?')
+    task=ContinuityStore().current('s')
+    router.return_value=decision()
+    done(run(rig,'How many minutes are in two hours?'),'120 minutes.')
+    router.return_value=decision(target=task['id'],relation='followup',operation='revise',detail=True,domain='travel')
+    done(run(rig,'Back to New York: four days in December.'),'A four-day New York itinerary.')
+    sender.assert_called_once_with('xiaoheng.hong@intel.com','A four-day New York itinerary.')
