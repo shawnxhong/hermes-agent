@@ -1,11 +1,22 @@
 # Local OVMS Voice Demo Handoff
 
-Updated: 2026-09-08
+Updated: 2026-09-09
 Host: `agentdemo@10.239.136.211`  
 Repository: `https://github.com/shawnxhong/hermes-agent`  
 Branch: `local-ovms-voice`
 
 ## Start here
+
+Current release: `5dc8172ba`, pushed and narrowly deployed; voice continuity is
+enabled. See [release validation and rollback](VOICE_CONTINUITY_RELEASE.md).
+219 focused source/merged-runtime tests passed; installed native/IM/typed isolation,
+mixed-topic and email follow-up replays passed. A real validation email was
+received and confirmed by the user. Qwen/OVMS remains local-only; default recipient
+is `xiaoheng.hong@intel.com`. Existing CLI processes must restart normally and
+start a new conversation. Prior timing fixes remain; startup is silent and the
+answer-window explanation follows the first spoken question.
+
+The checkpoints below are historical where they differ from this release.
 
 General voice delivery is now default-enabled (2026-09-08, `061de2a84`). See
 [full-tool stability/deployment evidence](GENERAL_VOICE_STABILITY.md). 240 tests

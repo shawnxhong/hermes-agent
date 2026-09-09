@@ -143,3 +143,40 @@ still the check for actual microphone/room acoustics and perceived cue timing.
 Rollback: disable `voice_delivery.continuity.enabled` for new processes; restart
 CLI/Gateway. If code rollback is needed, restore only the per-file backup targets.
 Keep the additive state tables and test records; no destructive database reset.
+
+## Deployment and installed verification
+
+Code commit `5dc8172ba` was pushed to the verified existing
+`shawnxhong/hermes-agent:local-ovms-voice` remote before deployment.
+The initial automated push review required destination verification; read-only
+origin/upstream/remote-head checks established the existing destination and the
+retry succeeded. No credential or live configuration file was committed.
+
+Deployed and enabled on 2026-09-09. Nine exact targets, including configuration,
+were backed up under
+`/home/agentdemo/hermes-ovms-setup/backups/20260909T081253Z-voice-continuity/`.
+`manifest.json` records original/deployed hashes and per-file rollback paths.
+All nine deployed hashes and all six existing-file backups were rechecked.
+Only `voice_delivery.continuity.enabled: true` was added to live configuration.
+Default recipient, local Qwen model, permissions, ASR/TTS and IM settings remain.
+
+Gateway restart succeeded; its new process reconnected to Feishu without a new
+traceback. Existing stale systemd metadata was reloaded after confirming runtime
+command/user/environment matched disk; `NeedDaemonReload=no`, service active.
+OVMS remained healthy. No interactive CLI was terminated and no OVMS restart was
+requested.
+
+Installed-code acceptance: three native/typed/IM isolation repetitions, mixed
+seed 7 (13 turns), and Seoul (9 turns) all passed. Receipts:
+`/tmp/hermes-general-voice-9qu59apv/receipt.json` and
+`/tmp/hermes-general-voice-n1j0lk_a/receipt.json`.
+The installed Seoul report passed citation/grounding validation; earlier staged
+research runs exercised the labelled source-notes fallback. These are bounded
+checks, not a guarantee of every real-world factual claim or live availability.
+Accepted receipts and a validation summary are archived in the backup's
+`validation/` directory; ephemeral raw model wires were not archived.
+
+Restart an existing `hermes --cli` / `hermes-voice` process normally and start a
+new conversation to load the release. The remaining human check is microphone /
+room acoustics and perceived cue timing in that new process, not missing software
+deployment. The user already confirmed the real validation email was received.
