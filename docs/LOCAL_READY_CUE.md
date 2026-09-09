@@ -5,7 +5,8 @@ Per-file backup: `/home/agentdemo/hermes-ovms-setup/backups/20260909_104111-voic
 Installed clarify/permission barrier→cue→capture smoke checks passed; unrelated
 configuration was compared against the backup and is unchanged.
 
-A local CLI-only 200 ms, 660 Hz tone plays after the question TTS barrier and
+A local CLI-only 200 ms, 660 Hz tone plays after the question TTS barrier, a
+configurable 650 ms quiet gap, and
 before microphone capture, for ordinary follow-up, clarify and permission.
 No model call, system prompt change, IM sound or new permission policy is added.
 The existing faded/bounded audio player and voice.beep_volume are reused.
@@ -21,6 +22,7 @@ voice:
   ready_cue:
     enabled: true
     intro_enabled: true
+    pre_gap_seconds: 0.65
     intro_text: "After the tone, you can answer directly."
 ```
 
@@ -35,3 +37,12 @@ once-only introduction, question/barrier/cue/capture order in all three paths,
 cancellation, silence and wake regression. Local cue playback returned without
 error, and the cached English introduction generated and played successfully.
 Restart hermes-voice to load this change; no Gateway/model restart is needed.
+
+## Manual-test corrections (2026-09-09)
+
+The automatic wake startup bypasses `/voice on`; its listener startup now also
+runs the introduction before opening the wake microphone, honoring auto-TTS.
+The once flag is set only after successful playback, so failed playback may be
+retried on a later activation. A regression exercises the actual CLI wake-start
+method, not just the standalone intro helper. The quiet gap distinguishes the
+answer cue from the last TTS syllable (range 0–2 seconds).

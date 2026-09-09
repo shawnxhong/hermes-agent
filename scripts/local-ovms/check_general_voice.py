@@ -8,7 +8,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--live-code',action='store_true')
 parser.add_argument('--code-path',type=Path,help='Read-only staged runtime overlay to validate before deployment')
 parser.add_argument('--native-tools',action='store_true',help='Use native default schemas, with a test-only side-effect blocker')
-parser.add_argument('--scenario',choices=['general','general-variant','travel'],default='general')
+parser.add_argument('--scenario',choices=['general','general-variant','travel','travel-sydney','travel-sydney-fragment'],default='general')
 parser.add_argument('--email-failure',action='store_true')
 parser.add_argument('--stop-after',type=int)
 parser.add_argument('--temperature',type=float)
@@ -102,12 +102,17 @@ if args.scenario=='general-variant':
            ('redirect','Please send the report to another email address.','voice'),
            ('mailbox','791633252@qq.com','text'),
            ('new_task','Now create a short internal memo explaining a Friday office closure for maintenance.','voice')]
-if args.scenario=='travel':
+if args.scenario.startswith('travel'):
     cases=[('travel_ask','I want to travel to New York. Could you give me some suggestions?','voice'),
            ('travel_plan','I will travel there in December for four days from Vancouver.','voice'),
            ('travel_explain','Why is flying the best way to get there? Please answer briefly.','voice'),
            ('travel_redirect','Please send the itinerary to another email address.','voice'),
            ('travel_mailbox','791633252@qq.com','text')]
+if args.scenario.startswith('travel-sydney'):
+    cases[0]=('travel_ask','I wanna go travel to Sydney. Could you give me some suggestions?','voice')
+    cases[1]=('travel_plan',"I will be traveling there in December and I will be having like one week and I'll be traveling from Melbourne.",'voice')
+if args.scenario=='travel-sydney-fragment':
+    cases.insert(1,('fragment','Um, my badge is like...','voice'))
 history=[];receipts=[]
 if args.stop_after:cases=cases[:args.stop_after]
 for name,text,modality in cases:
@@ -128,7 +133,10 @@ system_hashes={hashlib.sha256(json.dumps([m for m in w['messages'] if m['role']=
 tool_hashes={hashlib.sha256(json.dumps(w.get('tools'),sort_keys=True).encode()).hexdigest() for w in wires}
 assert len(system_hashes)==len(tool_hashes)==1,'System prompt and tool schemas must remain byte-stable across this replay'
 assert all(r['completed'] and not r['raw_streamed'] for r in receipts)
-if args.scenario=='travel':
+if args.scenario.startswith('travel'):
+    fragments=[r for r in receipts if r['case']=='fragment']
+    assert all(r['calls']==0 and r['emails']==0 and r['reply'].endswith('?') for r in fragments)
+    receipts=[r for r in receipts if r['case']!='fragment']
     assert receipts[0]['reply'].endswith('?') and receipts[0]['emails']==0
     assert receipts[1]['emails']==1 and receipts[2]['emails']==0
     assert receipts[3]['calls']==receipts[4]['calls']==0

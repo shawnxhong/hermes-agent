@@ -14,6 +14,7 @@ def rig(monkeypatch):
                           _voice_beeps_enabled=lambda: False)
     beep = Mock()
     monkeypatch.setattr(voice_mode, 'play_beep', beep)
+    monkeypatch.setattr(cue.time, 'sleep', lambda _: None)
     return cli, config, beep
 
 
@@ -65,3 +66,50 @@ def test_introduction_requires_tts(rig, monkeypatch):
     monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', cache)
     cue.announce_once(cli)
     cache.assert_not_called()
+
+
+def test_wake_start_announces_even_before_voice_mode_is_set(rig, monkeypatch, tmp_path):
+    cli, config, _ = rig
+    cli._voice_mode = cli._voice_tts = False
+    config['voice']['auto_tts'] = True
+    cache = Mock(return_value=tmp_path/'intro.wav')
+    play = Mock(return_value=True)
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', cache)
+    monkeypatch.setattr(voice_mode, 'play_audio_file', play)
+    cue.announce_once(cli, wake_start=True)
+    cue.announce_once(cli, wake_start=True)
+    play.assert_called_once()
+
+
+def test_gap_precedes_tone(rig, monkeypatch):
+    cli, _, beep = rig
+    order = []
+    monkeypatch.setattr(cue.time, 'sleep', lambda seconds: order.append(seconds))
+    beep.side_effect = lambda **kw: order.append('tone')
+    cue.play_ready_cue(cli)
+    assert order == [0.65, 'tone']
+
+
+def test_failed_intro_can_retry_on_next_activation(rig, monkeypatch, tmp_path):
+    cli, _, _ = rig
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: tmp_path/'intro.wav')
+    play = Mock(side_effect=[False, True])
+    monkeypatch.setattr(voice_mode, 'play_audio_file', play)
+    cue.announce_once(cli)
+    assert not getattr(cli, '_voice_ready_intro_done', False)
+    cue.announce_once(cli)
+    assert cli._voice_ready_intro_done
+
+
+def test_real_wake_start_path_announces_before_listener(monkeypatch):
+    from cli import HermesCLI
+    from tools import wake_word
+    cli = HermesCLI.__new__(HermesCLI)
+    cli._start_wake_watchdog = Mock()
+    monkeypatch.setattr(wake_word, 'load_wake_word_config', lambda: {})
+    monkeypatch.setattr(wake_word, 'check_wake_word_requirements', lambda cfg: {'available': True})
+    order = []
+    monkeypatch.setattr(cue, 'announce_once', lambda obj, **kw: order.append(('intro', kw)))
+    monkeypatch.setattr(wake_word, 'start_listening', lambda *a, **kw: order.append(('listen', {})))
+    assert cli._start_wake_word_listener()
+    assert order == [('intro', {'wake_start': True}), ('listen', {})]

@@ -97,6 +97,19 @@ def test_explicit_reference_answers_pending_question_despite_new_label():
     assert actual['relation']=='answer' and actual['route']=='execute'
 
 
+def test_spoken_travel_answer_keeps_strategy_despite_general_new_label():
+    a=agent([result(domain='general',question='What is your budget?')])
+    active={'phase':'awaiting_details','domain':'travel','question_used':True,'request':'Travel to Sydney'}
+    actual=route_task(a,"I will be traveling there in December and I will be having like one week and I'll be traveling from Melbourne.",active,platform='cli',modality='voice')
+    assert actual['relation']=='answer' and actual['domain']=='travel'
+    assert actual['route']=='execute' and not actual['question']
+
+
+def test_answer_label_after_result_is_followup_not_fatal():
+    actual=validate_route(result(relation='answer'),{'phase':'result_ready','artifact_version':1})
+    assert actual['relation']=='followup' and not actual['question']
+
+
 def test_referential_explanation_preserves_active_artifact():
     a=agent([result(intent='simple',domain='travel',question='')])
     active={'phase':'result_ready','artifact_version':1}

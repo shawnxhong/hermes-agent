@@ -73,7 +73,9 @@ def validate_route(value, active):
             and active.get('phase')=='awaiting_details' and not active.get('artifact_version')):
         result['relation']='answer'
     if result['relation']=='answer' and active.get('phase')!='awaiting_details':
-        raise RoutingError('No outstanding task-details question')
+        # A classifier can call a correction an answer. This is continuation,
+        # not permission to change state or a reason to abort the whole turn.
+        result['relation']='followup'
     if result['intent']!='complex' or result['relation']!='new':
         result['question']=''
     if result['question'] and not result['question'].rstrip().endswith(('?','？')):
@@ -95,7 +97,7 @@ def route_task(agent, text, active=None, *, platform, modality):
         return None
     if urlparse(str(getattr(agent,'base_url',''))).hostname not in {'localhost','127.0.0.1','::1'}:
         raise RoutingError('Voice task routing requires the configured local model')
-    selected={k:active.get(k) for k in ('id','request','phase','question_used','pending_question','facts','artifact_version')} if active else None
+    selected={k:active.get(k) for k in ('id','domain','request','phase','question_used','pending_question','facts','artifact_version')} if active else None
     payload={'active_task':selected}
     for attempt in range(2):
         if getattr(agent,'_interrupt_requested',False):
@@ -120,8 +122,11 @@ def route_task(agent, text, active=None, *, platform, modality):
             # that task even if the classifier mistakes complete details for new.
             if (active and active.get('phase')=='awaiting_details' and isinstance(value,dict)
                     and value.get('intent') in {'simple','complex'}
-                    and re.match(r"^(?:it is for|it's for|we have\b|I (?:will|plan to) (?:travel|go) there\b|我们有|我会去那里)",text.strip(),re.I)):
+                    and re.match(r"^(?:it is for|it's for|we have\b|I(?: will| plan to|'ll| am|'m) (?:be )?(?:travel(?:l?ing)?|go(?:ing)?) there\b|我们有|我会去那里)",text.strip(),re.I)):
                 value.update(relation='answer',intent='complex',question='')
+            if (active and active.get('domain')=='travel' and isinstance(value,dict)
+                    and value.get('relation')=='answer' and value.get('intent') in {'simple','complex'}):
+                value['domain']='travel'
             if (active and active.get('artifact_version') and isinstance(value,dict)
                     and value.get('intent') in {'simple','complex'}
                     and re.match(r'^(?:why|how|can you explain|could you explain)\b',text.strip(),re.I)

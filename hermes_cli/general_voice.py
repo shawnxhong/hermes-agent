@@ -189,10 +189,24 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
         return _handled('This voice workflow requires the configured local model.',failed=True)
     active=task
     if not active and legacy:
-        active={'id':'travel','request':'Travel planning: '+json.dumps(legacy.get('facts',{})),
+        active={'id':'travel','domain':'travel','request':'Travel planning: '+json.dumps(legacy.get('facts',{})),
                 'phase':'awaiting_details' if legacy.get('awaiting')=='facts' else 'result_ready',
                 'question_used':True,'facts':legacy.get('facts',{}),'artifact_version':1 if legacy.get('body') else None}
+    # A visibly unfinished short transcript cannot be a complete new task.
+    # Keep the pending answer slot rather than classifying away its context.
+    if (active and active.get('phase')=='awaiting_details' and len(user_message.split())<12
+            and re.search(r'(?:\.{3}|…)\s*$',user_message)):
+        return _handled('抱歉，没有听清。请再说一次你的回答？' if re.search(r'[\u3400-\u9fff]',user_message) else
+                        'Sorry, I did not catch your answer. Could you say it again?')
     route=route_task(agent,user_message,active,platform=platform,modality=input_modality)
+    # An uncertain/fragmented ASR answer is not an independent task. Preserve
+    # the pending question and its facts; do not consume the one-question budget.
+    if route['intent']=='other' and active and active.get('phase')=='awaiting_details':
+        return _handled('抱歉，没有听清。请再说一次你的回答？' if route['language']=='zh' else
+                        'Sorry, I did not catch your answer. Could you say it again?',calls=route['api_calls'])
+    if (legacy.get('awaiting')=='facts' and route['relation']=='answer'
+            and route['intent'] in {'simple','complex'}):
+        route['domain']='travel'
     if route['domain']=='travel' and route['intent'] in {'simple','complex'} and route['relation'] in {'new','answer'} and travel:
         _close(store,session,task)
         if route['relation']=='new' and legacy:

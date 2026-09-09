@@ -55,6 +55,22 @@ def test_requirements_question_once_then_native_execution_same_task(rig):
     assert sender.call_count==1
 
 
+def test_fragmented_asr_preserves_pending_task_and_question(rig):
+    _,agent,router,sender,_=rig
+    router.return_value=routing(route='ask',question='Who is the audience?')
+    run(rig)
+    before=TaskStore().current(agent.session_id)
+    router.return_value=routing(intent='other',relation='new',route='native')
+    answer=run(rig,'Um, my badge is like...')
+    assert answer['final_response'].endswith('?')
+    assert TaskStore().current(agent.session_id)==before
+    sender.assert_not_called()
+    router.return_value=routing(relation='answer')
+    complete(run(rig,'Twenty colleagues.'))
+    assert TaskStore().current(agent.session_id)['id']==before['id']
+    sender.assert_called_once()
+
+
 def test_short_explanation_keeps_artifact_and_does_not_email(rig):
     _,agent,router,sender,_=rig
     complete(run(rig));first=TaskStore().current(agent.session_id)
