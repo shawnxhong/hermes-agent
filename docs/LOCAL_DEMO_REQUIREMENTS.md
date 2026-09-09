@@ -1,5 +1,32 @@
 # Intel / Lenovo local agent demo requirements
 
+## Current requirement update — 2026-09-09
+
+The user cancelled the proposed Qwen3.8 upgrade: retain local
+Qwen3.6-35B-A3B. English-speaking users may ask arbitrary questions and switch
+tasks without following a prescribed demo scenario. The original bounded
+scenario direction below is historical, not a scope restriction.
+
+Prioritize general native Hermes execution; relax task-specific harness
+restrictions rather than add special-case repairs. Skills may guide relevant
+tasks but must not force unrelated work into a workflow. Voice constraints
+govern presentation and interaction, not which subjects can be answered.
+Do not force two turns: answer simple questions directly; ask only essential
+missing details; execute complete requests immediately. Keep spoken follow-ups
+brief too. Complex voice results use short summaries and detailed email;
+simple answers do not require email. IM retains full native text output.
+
+Retain wake acknowledgement, task acknowledgement, first-follow-up explanation,
+question-to-tone gap and ASR answer window; continuity across topic changes;
+default recipient xiaoheng.hong@intel.com and one-off recipient overrides;
+truthful delivery, deduplication, cancellation and necessary permissions.
+Normal operation has network/Brave search. Offline strategy remains deferred
+pending observed tests; no cloud LLM dependency is acceptable.
+
+This update records a requirements review, not a runtime change or acceptance
+claim. See VOICE_MODEL_FIRST_RESET.md for the Melbourne incident. Any earlier
+proposal to upgrade Qwen3.8 before harness work is superseded.
+
 User briefing: 2026-09-07. This is the working baseline for future scenario
 skills and acceptance tests, not a claim that live voice acceptance is complete.
 

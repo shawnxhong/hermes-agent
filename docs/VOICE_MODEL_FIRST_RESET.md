@@ -1,6 +1,10 @@
 # Melbourne failure and model-first reset
 
-Date: 2026-09-09. Status: incident recorded; model identity needs confirmation.
+Date: 2026-09-09. Status: incident recorded; upgrade cancelled by user.
+Latest decision: keep Qwen3.6-35B-A3B and review requirements before relaxing
+task-specific harness restrictions for arbitrary English questions. The
+model-first sequence and model-identity blocker below are historical and
+superseded. See LOCAL_DEMO_REQUIREMENTS.md for the current requirements.
 Previous release validation does not establish general demo readiness.
 
 ## Confirmed incident
