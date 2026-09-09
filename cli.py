@@ -16254,9 +16254,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         except Exception:
             pass
 
-        from hermes_cli.voice_ready_cue import announce_once
-        announce_once(self)
-
         # Voice mode instruction is injected as a user message prefix (not a
         # system prompt change) to avoid invalidating the prompt cache.  See
         # _voice_message_prefix property and its usage in _process_message().
@@ -16411,8 +16408,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
         self._wake_start_new_session = bool(cfg.get("start_new_session", True))
         try:
-            from hermes_cli.voice_ready_cue import announce_once
-            announce_once(self, wake_start=True)
             start_listening(self._on_wake_word, owner=self, config=cfg)
         except Exception as e:
             if announce:

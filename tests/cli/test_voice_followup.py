@@ -58,7 +58,7 @@ def test_answer_is_voice_input_in_same_session(rig):
 
 def test_ready_cue_finishes_before_microphone_opens(rig, monkeypatch):
     cli, _, _, listen, _, beep = rig
-    monkeypatch.setattr('hermes_cli.voice_ready_cue.settings', lambda: {'enabled': True})
+    monkeypatch.setattr('hermes_cli.voice_ready_cue.settings', lambda: {'enabled': True, 'intro_enabled': False})
     events = []
     beep.side_effect = lambda **kw: events.append('cue_done')
     def capture(*args, **kwargs):
@@ -71,7 +71,7 @@ def test_ready_cue_finishes_before_microphone_opens(rig, monkeypatch):
 
 def test_cancel_during_cue_never_opens_microphone(rig, monkeypatch):
     cli, _, _, listen, _, beep = rig
-    monkeypatch.setattr('hermes_cli.voice_ready_cue.settings', lambda: {'enabled': True})
+    monkeypatch.setattr('hermes_cli.voice_ready_cue.settings', lambda: {'enabled': True, 'intro_enabled': False})
     beep.side_effect = lambda **kw: cli._voice_followup_cancel.set()
     assert start(cli)
     listen.assert_not_called()

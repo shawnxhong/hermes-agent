@@ -13,9 +13,11 @@ The existing faded/bounded audio player and voice.beep_volume are reused.
 The cue has its own enable switch, separate from ordinary record/stop beeps.
 When disabled, prior beep behavior is retained.
 
-On the first voice activation in each CLI process, cached local TTS says:
+After the first spoken question in each CLI process, cached local TTS says:
 "After the tone, you can answer directly." It is not repeated on each question.
 The introduction can be disabled or localized without changing the tone.
+It never plays at CLI startup, `/voice on`, or wake-listener startup. The order
+is question → first-use explanation → quiet gap → tone → answer capture.
 
 ```yaml
 voice:
@@ -38,7 +40,7 @@ cancellation, silence and wake regression. Local cue playback returned without
 error, and the cached English introduction generated and played successfully.
 Restart hermes-voice to load this change; no Gateway/model restart is needed.
 
-## Manual-test corrections (2026-09-09)
+## Historical startup correction (superseded)
 
 The automatic wake startup bypasses `/voice on`; its listener startup now also
 runs the introduction before opening the wake microphone, honoring auto-TTS.
@@ -46,3 +48,9 @@ The once flag is set only after successful playback, so failed playback may be
 retried on a later activation. A regression exercises the actual CLI wake-start
 method, not just the standalone intro helper. The quiet gap distinguishes the
 answer cue from the last TTS syllable (range 0–2 seconds).
+
+The user subsequently requested first-question timing rather than startup.
+The explanation now runs inside the shared answer-window cue, after the
+ordinary/clarify/permission TTS barrier and before the quiet gap. Both startup
+calls were removed. Tests verify startup silence and intro→gap→tone on the first
+window, with only gap→tone on later windows; no model/router changes are involved.

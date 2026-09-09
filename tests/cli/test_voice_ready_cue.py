@@ -7,7 +7,7 @@ from tools import voice_mode
 
 
 @pytest.fixture
-def rig(monkeypatch):
+def rig(monkeypatch, tmp_path):
     config = {'voice': {'ready_cue': {'enabled': True}}}
     monkeypatch.setattr('hermes_cli.config.load_config', lambda: config)
     cli = SimpleNamespace(_voice_tts=True, _voice_mode=True,
@@ -15,6 +15,8 @@ def rig(monkeypatch):
     beep = Mock()
     monkeypatch.setattr(voice_mode, 'play_beep', beep)
     monkeypatch.setattr(cue.time, 'sleep', lambda _: None)
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: tmp_path/'intro.wav')
+    monkeypatch.setattr(voice_mode, 'play_audio_file', Mock(return_value=True))
     return cli, config, beep
 
 
@@ -68,17 +70,18 @@ def test_introduction_requires_tts(rig, monkeypatch):
     cache.assert_not_called()
 
 
-def test_wake_start_announces_even_before_voice_mode_is_set(rig, monkeypatch, tmp_path):
-    cli, config, _ = rig
-    cli._voice_mode = cli._voice_tts = False
-    config['voice']['auto_tts'] = True
-    cache = Mock(return_value=tmp_path/'intro.wav')
-    play = Mock(return_value=True)
-    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', cache)
-    monkeypatch.setattr(voice_mode, 'play_audio_file', play)
-    cue.announce_once(cli, wake_start=True)
-    cue.announce_once(cli, wake_start=True)
-    play.assert_called_once()
+def test_first_question_explains_then_gaps_then_cues_only_once(rig, monkeypatch):
+    cli, _, beep = rig
+    order = []
+    def intro(path):
+        order.append('intro')
+        return True
+    monkeypatch.setattr(voice_mode, 'play_audio_file', intro)
+    monkeypatch.setattr(cue.time, 'sleep', lambda seconds: order.append('gap'))
+    beep.side_effect = lambda **kw: order.append('tone')
+    cue.play_ready_cue(cli)
+    cue.play_ready_cue(cli)
+    assert order == ['intro', 'gap', 'tone', 'gap', 'tone']
 
 
 def test_gap_precedes_tone(rig, monkeypatch):
@@ -101,7 +104,7 @@ def test_failed_intro_can_retry_on_next_activation(rig, monkeypatch, tmp_path):
     assert cli._voice_ready_intro_done
 
 
-def test_real_wake_start_path_announces_before_listener(monkeypatch):
+def test_real_wake_start_path_does_not_announce(monkeypatch):
     from cli import HermesCLI
     from tools import wake_word
     cli = HermesCLI.__new__(HermesCLI)
@@ -112,4 +115,4 @@ def test_real_wake_start_path_announces_before_listener(monkeypatch):
     monkeypatch.setattr(cue, 'announce_once', lambda obj, **kw: order.append(('intro', kw)))
     monkeypatch.setattr(wake_word, 'start_listening', lambda *a, **kw: order.append(('listen', {})))
     assert cli._start_wake_word_listener()
-    assert order == [('intro', {'wake_start': True}), ('listen', {})]
+    assert order == [('listen', {})]

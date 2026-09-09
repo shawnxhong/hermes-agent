@@ -23,7 +23,6 @@ def settings():
         gap = 0.65
     return {'enabled': is_truthy_value(raw.get('enabled'), default=False),
             'pre_gap_seconds': gap,
-            'auto_tts': is_truthy_value(voice.get('auto_tts'), default=False) if isinstance(voice, dict) else False,
             'intro_enabled': is_truthy_value(raw.get('intro_enabled'), default=True),
             'text': ' '.join(text.split()[:20])[:120], 'tts': config.get('tts') or {}}
 
@@ -34,6 +33,8 @@ def play_ready_cue(cli):
     try:
         cfg = settings()
         if cfg['enabled']:
+            # All callers arrive after question playback, before capture.
+            announce_once(cli)
             # Separate the cue perceptually from the last TTS syllable.
             time.sleep(cfg.get('pre_gap_seconds', 0.65))
             # Existing bounded player provides click-free fades and user volume.
@@ -44,12 +45,12 @@ def play_ready_cue(cli):
         logger.warning('Answer cue unavailable; continuing voice capture', exc_info=True)
 
 
-def announce_once(cli, *, wake_start=False):
-    """Called on voice activation, before any wake/capture listener is started."""
+def announce_once(cli):
+    """Explain the first answer-window cue, after its question has played."""
     if getattr(cli, '_voice_ready_intro_done', False):
         return
     cfg = settings()
-    if not (getattr(cli, '_voice_tts', False) or (wake_start and cfg['auto_tts'])):
+    if not getattr(cli, '_voice_tts', False):
         return
     if not cfg['enabled'] or not cfg['intro_enabled']:
         return
@@ -57,7 +58,7 @@ def announce_once(cli, *, wake_start=False):
         from hermes_cli.voice_wake_ack import cached_audio
         from tools.voice_mode import play_audio_file
         path = cached_audio(cfg)
-        if (wake_start or cli._voice_mode) and not getattr(cli, '_should_exit', False):
+        if cli._voice_mode and not getattr(cli, '_should_exit', False):
             if play_audio_file(str(path)):
                 cli._voice_ready_intro_done = True
     except Exception:
