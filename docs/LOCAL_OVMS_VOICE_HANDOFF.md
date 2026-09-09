@@ -7,6 +7,12 @@ Branch: `local-ovms-voice`
 
 ## Start here
 
+2026-09-09 manual Melbourne test failed; acceptance is reopened. See
+[incident and model-first reset](VOICE_MODEL_FIRST_RESET.md). User requests
+local Qwen3.8-35B-A3B non-thinking first, then less task-specific harness control.
+Exact model artifact needs confirmation; no runtime changes for this reset.
+Do not add another destination-specific patch.
+
 Current release: `5dc8172ba`, pushed and narrowly deployed; voice continuity is
 enabled. See [release validation and rollback](VOICE_CONTINUITY_RELEASE.md).
 219 focused source/merged-runtime tests passed; installed native/IM/typed isolation,
