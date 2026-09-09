@@ -1,5 +1,14 @@
 # Sydney spoken continuation regression — 2026-09-09
 
+Deployed from `37103951b`; per-file backup:
+`/home/agentdemo/hermes-ovms-setup/backups/20260909_105601-sydney-ready-repair`.
+Installed wake-start ordering and gap settings verified; unrelated configuration
+is unchanged. No Gateway/model restart was required.
+Installed six-turn full 21-tool replay passed as well
+(`/tmp/hermes-general-voice-wkj3g8l4/receipt.json`): fragment recovery, plan,
+native explanation and exact-body resend. Plan took 24.46 s; native explanation
+28.04 s, so no latency improvement is claimed for the full-context follow-up.
+
 The manual sequence exposed a routing-state failure, not an SMTP failure.
 The spoken variant "I will be traveling there ..." was outside the existing
 pending-answer normalization. A generic new-task route could ask for optional
