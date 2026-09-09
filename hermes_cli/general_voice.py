@@ -153,6 +153,10 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
     cfg=config()
     if not cfg or platform not in {'cli','local'} or input_modality not in {'voice','text'} or not isinstance(user_message,str):
         return None
+    from hermes_cli.voice_continuity import enabled, run_continuity
+    if enabled(cfg):
+        return run_continuity(agent=agent,user_message=user_message,session_id=session_id,
+                              input_modality=input_modality,platform=platform)
     session=str(session_id or '')
     if not session:
         return None
@@ -244,12 +248,19 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
             return _handled(route['question'],calls=route['api_calls'])
     if route['relation']=='answer':
         task=store.supply_details(session,task,{'user_details':user_message})
+    return execute_native(agent,user_message,session,store,task,route,cfg)
+
+
+def execute_native(agent,user_message,session,store,task,route,cfg,*,delivery=None,extra_context=None):
+    """Shared original harness, with optional content/delivery finalizer."""
     artifact=store.artifact(session,task['id'])
     wants_detail=route['intent']=='complex' and route['relation']!='followup'
     context={'task_request':task['request'],'facts':task['facts'],
              'previous_result':artifact['body'] if artifact else None}
     context['requirements_status']='collected; execute now, do not ask again' if task['question_used'] else 'use the supplied scope'
     context['output_mode']='One direct sentence, at most 35 words. No report or email.' if route['intent']=='simple' else 'Complete requested deliverable as final prose.'
+    if extra_context:
+        context.update(extra_context)
     delivery_rule=('Perform explicitly requested external actions through native tools and original approvals; do not perform unrelated actions or change default settings. '
                    if route['intent'] in {'action','other'} else
                    'Do NOT email this result yourself or change memory/default recipients. ')
@@ -282,6 +293,8 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
             if name=='web_search':counts['search']+=1
             if counts['total']>6 or counts['search']>4 or seen[key]>1 or name in failed_tools:
                 return {'action':'block','message':'This turn has reached its tool/retry budget. Finish with verified results and state what remains unverified.'}
+            if delivery is not None and name=='clarify' and re.search(r'email address|recipient|mailbox|邮箱|收件',json.dumps(args,ensure_ascii=False),re.I):
+                return {'action':'block','message':'The host already owns recipient selection and confirmation. Do not ask for an email address. Return the requested content.'}
             if name=='send_message' and route['intent'] not in {'action','other'} and str(args.get('target','')).startswith('email:'):
                 return {'action':'block','message':'The host owns this result email. Return the detailed result; do not send or update recipient memory.'}
             if name=='memory' and route['intent'] not in {'action','other'}:
@@ -338,7 +351,7 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
         status=store.submit(session,task,recipient,sender=_send,interrupted=lambda:agent._interrupt_requested)
         return {'final_response':summary+' '+_status(status,zh),'api_calls':calls}
     from hermes_cli.voice_response_policy import build_voice_turn_prefix
-    return {'continuation':TurnContinuation(instruction,deliver,max_api_calls=6,temperature=0.0,
+    return {'continuation':TurnContinuation(instruction,delivery or deliver,max_api_calls=6,temperature=0.0,
         max_output_tokens=512 if route['intent']=='simple' else 4096,
         initial_api_calls=route['api_calls'],before_tool=guard,after_tool=observed,
         input_prefixes=(build_voice_turn_prefix(),build_voice_turn_prefix(followup_enabled=True)))}

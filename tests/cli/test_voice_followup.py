@@ -110,6 +110,16 @@ def test_stale_resume_never_reuses_another_session(rig,case):
     assert not followup.resume_question_session(cli)
 
 
+def test_continuity_wake_does_not_expire_but_voice_exit_ends_it(rig,monkeypatch):
+    cli,*_=rig
+    monkeypatch.setattr('hermes_cli.voice_continuity.enabled',lambda:True)
+    cli._voice_followup_resume=(cli.session_id,0)
+    assert followup.resume_question_session(cli)
+    cli._voice_continuity_ended=True
+    assert not followup.resume_question_session(cli)
+    assert followup.resume_question_session(cli)
+
+
 @pytest.mark.parametrize('transcript',['stop','When are you going?',''])
 def test_stop_echo_or_empty_never_submitted(rig,transcript):
     cli,_,_,_,transcribe,_=rig

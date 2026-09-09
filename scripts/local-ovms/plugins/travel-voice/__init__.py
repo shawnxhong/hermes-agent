@@ -305,7 +305,11 @@ def _deliver(session, revision, state, recipient, agent):
                        connect=_connect,send=lambda:_send(recipient,state['body']),check=check)
 
 
-def run_workflow(*, agent, user_message, session_id, input_modality=None, platform=None, **kwargs):
+def run_workflow(*, agent, user_message, session_id, input_modality=None, platform=None, managed_delivery=False, **kwargs):
+    if not managed_delivery:
+        from hermes_cli.voice_continuity import enabled
+        if enabled():
+            return None  # The continuity coordinator owns this strategy and delivery.
     cfg = _config()
     if not cfg or input_modality not in {"voice", "text"} or platform not in {"cli", "local"} or not isinstance(user_message, str):
         return None
@@ -341,7 +345,10 @@ def run_workflow(*, agent, user_message, session_id, input_modality=None, platfo
         return None
     counter = [0]
     def finish(text, failed=False):
-        return {"handled": True, "final_response": text, "api_calls": counter[0], "failed": failed}
+        result={"handled": True, "final_response": text, "api_calls": counter[0], "failed": failed}
+        if managed_delivery:
+            result['continuity_result']={k:state.get(k) for k in ('facts','awaiting','body','summary')}
+        return result
     # Never let a changed provider silently turn this local-only demo into a
     # cloud workflow. The regular agent is untouched outside this capability.
     host = urlparse(str(getattr(agent, "base_url", ""))).hostname
@@ -408,6 +415,8 @@ def run_workflow(*, agent, user_message, session_id, input_modality=None, platfo
             state.update(body=body, summary=summary)
             _save(session, revision, state)
         zh = state["facts"].get("language") == "zh"
+        if managed_delivery:
+            return finish(state['summary'])
         if NO_EMAIL.search(user_message):
             return finish(state["summary"] + (" 按你的要求，没有发送邮件。" if zh else " As requested, I have not emailed the details."))
         if not recipient:

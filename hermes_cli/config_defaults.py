@@ -2017,6 +2017,7 @@ DEFAULT_CONFIG = {
         },
     },
 
+    "voice_delivery": {"enabled": False, "continuity": {"enabled": False}},
     "voice": {
         "record_key": "ctrl+b",
         "submit_mode": "direct",       # TUI: direct submits immediately; draft leaves an editable transcript

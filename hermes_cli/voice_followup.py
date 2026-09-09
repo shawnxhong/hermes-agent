@@ -36,6 +36,12 @@ def cancel_followup(cli):
 
 
 def resume_question_session(cli):
+    from hermes_cli.voice_continuity import enabled
+    if enabled():
+        cli._voice_followup_resume = None
+        ended = getattr(cli, '_voice_continuity_ended', False)
+        cli._voice_continuity_ended = False
+        return not ended
     pending = getattr(cli, "_voice_followup_resume", None)
     cli._voice_followup_resume = None
     return bool(pending and pending[0] == cli.session_id and time.monotonic() < pending[1])
