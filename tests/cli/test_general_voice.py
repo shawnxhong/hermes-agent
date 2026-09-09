@@ -6,6 +6,22 @@ from hermes_cli import general_voice as voice
 from hermes_cli.voice_delivery import TaskStore
 
 
+@pytest.mark.parametrize('grounded',[True,False])
+def test_summary_checks_grounding_in_the_existing_single_request(grounded):
+    client=Mock()
+    client.with_options.return_value.chat.completions.create.return_value=SimpleNamespace(choices=[SimpleNamespace(
+        finish_reason='stop',message=SimpleNamespace(tool_calls=None,content=json.dumps({'summary':'A supported short answer.','is_deliverable':True,'is_grounded':grounded})))])
+    agent=SimpleNamespace(client=client,model='local',_interrupt_requested=False,_touch_activity=Mock())
+    if grounded:
+        assert voice._summary(agent,'Report.','en',[{'excerpt':'Evidence.'}],'Draft a report.')=='A supported short answer.'
+    else:
+        with pytest.raises(voice.UngroundedResult):voice._summary(agent,'Report.','en',[{'excerpt':'Evidence.'}],'Draft a report.')
+    client.with_options.return_value.chat.completions.create.assert_called_once()
+    messages=client.with_options.return_value.chat.completions.create.call_args.kwargs['messages']
+    assert [m['role'] for m in messages]==['system','user']
+    assert json.loads(messages[1]['content'])['request']=='Draft a report.'
+
+
 def routing(**kw):
     return dict({'intent':'complex','relation':'new','route':'execute','task_summary':'Draft a report',
                  'question':'','language':'en','domain':'general','api_calls':1},**kw)

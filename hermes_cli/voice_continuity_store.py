@@ -113,8 +113,9 @@ class ContinuityStore(TaskStore):
                 row=db.execute('SELECT * FROM artifacts WHERE task_id=? AND version=?',(task_id,version)).fetchone()
             if not row:return None
             result=dict(row)
-            metadata=db.execute('SELECT detailed FROM result_metadata WHERE task_id=? AND version=?',(task_id,result['version'])).fetchone()
+            metadata=db.execute('SELECT detailed,sources FROM result_metadata WHERE task_id=? AND version=?',(task_id,result['version'])).fetchone()
             result['detailed']=bool(metadata['detailed']) if metadata else False
+            result['sources']=json.loads(metadata['sources']) if metadata else []
             return result
 
     def pend(self, session, task, kind, payload):

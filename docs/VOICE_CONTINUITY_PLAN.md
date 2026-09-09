@@ -105,3 +105,13 @@ This is source-checkout verification, not deployment approval. The travel mixed
 sequence has one pass, not three; the remaining release gates and real installed
 ASR/TTS/inbox validation have not been represented as complete. Live continuity
 remains disabled and no old test records were deleted.
+
+## Release-validation follow-through
+
+See `VOICE_CONTINUITY_RELEASE.md` for the remaining-gate evidence and defects
+found in the real installed-runtime overlay, including native/typed ownership,
+bounded recipient repair, interrupted travel completion, and research grounding
+fallback. The user has confirmed receipt of the real validation email; local
+TTS-to-ASR file transcription also succeeded. Source and merged-runtime regression
+coverage is now 219 passing tests. The live flag is not changed by this document;
+deployment status and rollback targets are recorded in the release report.

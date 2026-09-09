@@ -9,7 +9,7 @@ from hermes_cli.voice_continuity_store import ContinuityStore
 
 
 def response(**changes):
-    value=dict(relation='followup',summary='Send the meeting agenda',operation='send',
+    value=dict(execution='content',relation='followup',summary='Send the meeting agenda',operation='send',
                target='T1: Meeting agenda',detail=False,delivery='email',version=0,question='',
                language='en',domain='general')
     value.update(changes)
@@ -58,6 +58,19 @@ def test_routing_rejects_cloud_endpoint_before_request():
     with pytest.raises(ValueError,match='local inference'):
         route(agent,'Hello',ContinuityStore(),'s',None)
     agent.client.with_options.assert_not_called()
+
+
+def test_native_execution_class_cannot_become_a_buffered_content_answer():
+    agent=agent_for(response(execution='coding',relation='independent',operation='answer'))
+    result=route(agent,'Write a Python function.',ContinuityStore(),'s',None)
+    assert result['operation']=='native' and result['delivery']=='none'
+
+
+def test_named_recipient_redirect_cannot_escape_to_native_action():
+    store=ContinuityStore();task=store.start('s','Meeting agenda')
+    agent=agent_for(response(execution='action',operation='native'),response())
+    result=route(agent,'Send the meeting agenda to a new email address.',store,'s',None)
+    assert result['operation']=='send' and result['target']==task['id'] and result['api_calls']==2
 
 
 def test_predicted_new_version_is_repaired_before_native_execution():

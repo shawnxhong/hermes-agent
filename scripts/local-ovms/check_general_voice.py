@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Real local model/native harness replay, with captured mail only."""
-import argparse,hashlib,json,os,shutil,sys,tempfile,time
+import argparse,hashlib,json,os,re,shutil,sys,tempfile,time
 from pathlib import Path
 import yaml
 
@@ -8,7 +8,9 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--live-code',action='store_true')
 parser.add_argument('--code-path',type=Path,help='Read-only staged runtime overlay to validate before deployment')
 parser.add_argument('--native-tools',action='store_true',help='Use native default schemas, with a test-only side-effect blocker')
-parser.add_argument('--scenario',choices=['general','general-variant','travel','travel-sydney','travel-sydney-fragment','continuity-seoul','continuity-mixed','continuity-travel-mixed'],default='general')
+parser.add_argument('--scenario',choices=['general','general-variant','travel','travel-sydney','travel-sydney-fragment','continuity-seoul','continuity-mixed','continuity-travel-mixed','continuity-safety','continuity-failure','continuity-isolation'],default='general')
+parser.add_argument('--generation-failure',action='store_true')
+parser.add_argument('--search-failure',action='store_true')
 parser.add_argument('--seed',type=int,default=1,help='Reproducible mixed-topic order')
 parser.add_argument('--continuity',action='store_true')
 parser.add_argument('--email-failure',action='store_true')
@@ -45,9 +47,12 @@ from hermes_cli.tools_config import _get_platform_tools
 from openai.resources.chat.completions import Completions
 original_create=Completions.create
 api_timings=[]
+fault_active=False
 def timed_create(self,*a,**kw):
     started=time.monotonic()
     result=original_create(self,*a,**kw)
+    if args.generation_failure and fault_active and kw.get('tools') and not kw.get('stream'):
+        for choice in result.choices:choice.finish_reason='length'
     row={'seconds':round(time.monotonic()-started,2),'tools':len(kw.get('tools',[])),
          'schema':kw.get('response_format',{}).get('json_schema',{}).get('name'),
          'usage':str(getattr(result,'usage',None))}
@@ -60,6 +65,18 @@ def capture(recipient,body):
     mail.append({'recipient':recipient,'body':body})
     return {'error':'simulated SMTP failure'} if args.email_failure else {'success':True}
 general_voice._send=capture
+summary_checks=[]
+original_summary=general_voice._summary
+def checked_summary(agent,body,language,evidence=None,task_request=None):
+    record={'body':body,'evidence':evidence,'request':task_request};summary_checks.append(record)
+    try:
+        value=original_summary(agent,body,language,evidence,task_request)
+        record.update(summary=value,valid=True)
+        return value
+    except Exception as error:
+        record.update(valid=False,error=type(error).__name__)
+        raise
+general_voice._summary=checked_summary
 routes=[]
 original_router=general_voice.route_task
 def traced_router(*a,**kw):
@@ -95,12 +112,33 @@ from hermes_cli import plugins
 if args.native_tools:
     from tools.tool_search import TOOL_SEARCH_NAME, TOOL_DESCRIBE_NAME
     def test_side_effect_guard(**kw):
+        if args.search_failure and fault_active and kw['tool_name'] in {'web_search','web_extract'}:
+            return {'action':'block','message':'Simulated search service failure. No verified results are available; do not guess or repeat this operation.'}
         if kw['tool_name'] not in {'web_search','web_extract',TOOL_SEARCH_NAME,TOOL_DESCRIBE_NAME}:
             return {'action':'block','message':'This capture-only test forbids external side effects. Return the requested draft as text.'}
     plugins.get_plugin_manager()._hooks.setdefault('pre_tool_call',[]).append(test_side_effect_guard)
 for callback in plugins.get_plugin_manager()._hooks.get('run_turn_workflow',[]):
     if 'FACT_PROMPT' in callback.__globals__:
         callback.__globals__['_send']=capture
+if args.scenario=='continuity-isolation':
+    from hermes_cli.voice_continuity_store import ContinuityStore
+    store=ContinuityStore();old=store.start(agent.session_id,'A previous restaurant report')
+    store.save_result(agent.session_id,old,body='Earlier saved report.',summary='Earlier summary.',detailed=True)
+    for repeat in range(3):
+        for platform,modality in [('feishu','text'),('feishu','voice'),('cli','text')]:
+            before=len(api_timings)
+            value=general_voice.run_workflow(agent=agent,user_message='Write a detailed project report.',session_id=agent.session_id,input_modality=modality,platform=platform)
+            assert value is None and len(api_timings)==before
+        for text in ['Write a Python function that sorts a list.', 'Fix this Python error: TypeError: list object is not callable.', 'Create a file named example.txt with the text hello.']:
+            value=general_voice.run_workflow(agent=agent,user_message=text,session_id=agent.session_id,input_modality='voice',platform='cli')
+            assert value is None,'Coding/actions must return to the original native harness'
+            before=len(api_timings)
+            for answer in ('Yes','No, cancel.'):
+                assert general_voice.run_workflow(agent=agent,user_message=answer,session_id=agent.session_id,input_modality='voice',platform='cli') is None
+            assert len(api_timings)==before,'Native follow-up confirmations must not be consumed by email continuity'
+    assert not mail
+    print('PASS three installed-routing repetitions: IM/typed zero model calls; coding/actions native pass-through; no external writes')
+    sys.exit(0)
 cases=[('simple','What does RSVP mean? Answer briefly.','voice'),
        ('ask','Help me plan a team workshop.','voice'),
        ('execute','It is for twenty marketing colleagues, for one hour, to practice clear project updates. Include three activities and facilitator notes.','voice'),
@@ -165,9 +203,30 @@ if args.scenario=='continuity-travel-mixed':
            ('trip_return','Email me the same New York itinerary you prepared.','voice'),
            ('trip_explain','Why did you recommend those places in New York? Answer briefly; no email.','voice'),
            ('new_question','What does RSVP mean? Answer briefly.','voice')]
+if args.scenario=='continuity-safety':
+    assert args.continuity
+    cases=[('engineering','Draft a 100-word engineering kickoff agenda for six developers, one hour, on a new app. Use reasonable assumptions.','voice'),
+           ('marketing','Draft a separate 100-word marketing kickoff agenda for a product launch, four marketers, one hour. Use reasonable assumptions.','voice'),
+           ('ambiguous',"Email one of those two agendas to 791633252@qq.com. I haven't decided which one.",'voice'),
+           ('choose','The engineering agenda.','voice'),
+           ('redirect','Send that agenda to another email address.','voice'),
+           ('fragment','Um, my address is...','voice'),
+           ('fragment_again','Um...','voice'),
+           ('stale_yes','Yes','voice'),
+           ('redirect_again','Send the engineering agenda to another email address.','voice'),
+           ('cancel','No, cancel.','voice')]
+if args.scenario=='continuity-failure':
+    assert args.continuity and (args.email_failure or args.generation_failure or args.search_failure)
+    cases=[('failure','Draft a concise but complete 150-word welcome memo for new employees joining an engineering team. Use reasonable assumptions.','voice')]
+    if args.search_failure:
+        cases=[('failure',"Search the web for today's weather forecast in Boston and prepare a detailed report. Only use verified search results; do not guess.",'voice')]
+    if args.email_failure:
+        cases.append(('repeat','Email that same welcome memo to me again.','voice'))
+    cases.append(('recovery','How many minutes are in two hours? Just the answer.','voice'))
 history=[];receipts=[]
 if args.stop_after:cases=cases[:args.stop_after]
 for name,text,modality in cases:
+    fault_active=name=='failure'
     offset=len(mail);deltas=len(delta);start=time.monotonic()
     previous_tools=sum(m.get('role')=='tool' for m in history)
     message=build_voice_turn_prefix(followup_enabled=True)+text if modality=='voice' else text
@@ -178,13 +237,24 @@ for name,text,modality in cases:
          'calls':result['api_calls'],'seconds':round(time.monotonic()-start,2),'emails':len(mail)-offset,
          'task_id':task['id'] if task else None,'raw_streamed':any(delta[deltas:]),'tools':tool_count}
     receipts.append(row);print(json.dumps(row,ensure_ascii=False),flush=True)
-(home/'receipt.json').write_text(json.dumps({'turns':receipts,'mail':mail,'routes':routes,'api_timings':api_timings},indent=2,ensure_ascii=False))
+(home/'receipt.json').write_text(json.dumps({'turns':receipts,'mail':mail,'routes':routes,'api_timings':api_timings,'summary_checks':summary_checks},indent=2,ensure_ascii=False))
 print('RECEIPT',home/'receipt.json',flush=True)
 if args.stop_after:sys.exit(0)
 system_hashes={hashlib.sha256(json.dumps([m for m in w['messages'] if m['role']=='system'],sort_keys=True).encode()).hexdigest() for w in wires}
 tool_hashes={hashlib.sha256(json.dumps(w.get('tools'),sort_keys=True).encode()).hexdigest() for w in wires}
 assert len(system_hashes)==len(tool_hashes)==1,'System prompt and tool schemas must remain byte-stable across this replay'
-assert all(r['completed'] and not r['raw_streamed'] for r in receipts)
+assert all(not r['raw_streamed'] and (r['completed'] or ((args.generation_failure or args.search_failure) and r['case']=='failure')) for r in receipts)
+if args.scenario=='continuity-failure':
+    by={r['case']:r for r in receipts}
+    assert by['recovery']['completed'] and '120' in by['recovery']['reply'] and by['recovery']['emails']==0
+    if args.email_failure:
+        assert len(mail)==1 and by['repeat']['emails']==0
+        assert all('submitted' not in by[k]['reply'].lower() for k in ('failure','repeat'))
+    else:
+        assert not by['failure']['completed'] and not mail
+        assert by['failure']['tools']<=6
+    print('PASS bounded failure, truthful delivery status and independent next-turn recovery; mail captured')
+    sys.exit(0)
 if args.scenario=='continuity-seoul':
     by={r['case']:r for r in receipts}
     assert by['names']['emails']==0 and by['details']['emails']==1
@@ -196,7 +266,24 @@ if args.scenario=='continuity-seoul':
     assert by['yes_again']['emails']==0 and len(mail)==2
     assert mail[0]['body']==mail[1]['body'] and mail[1]['recipient']=='791633252@qq.com'
     assert all(len(r['reply'].split())<=85 for r in receipts)
+    from hermes_cli.voice_continuity_store import ContinuityStore
+    saved=ContinuityStore().result(agent.session_id,by['details']['task_id'])
+    cited={url.rstrip('.,;') for url in re.findall(r'https?://[^\s<>"\]\)]+',mail[0]['body'])}
+    known={url.rstrip('.,;') for url in saved['sources']}
+    assert cited and cited<=known,'Research email links must come from successful tool evidence for this result'
     print('PASS Seoul short result, enriched email, one-shot confirmation, recipient override and old-topic return; mail captured')
+    sys.exit(0)
+if args.scenario=='continuity-safety':
+    by={r['case']:r for r in receipts}
+    assert by['engineering']['task_id']!=by['marketing']['task_id']
+    assert by['ambiguous']['reply'].endswith('?') and by['ambiguous']['emails']==0
+    assert by['choose']['task_id']==by['engineering']['task_id'] and by['choose']['emails']==1
+    assert mail[2]['body']==mail[0]['body'] and mail[2]['recipient']=='791633252@qq.com'
+    assert by['fragment']['calls']==by['fragment_again']['calls']==by['stale_yes']['calls']==0
+    assert not by['fragment_again']['reply'].endswith('?')
+    assert all(by[k]['emails']==0 for k in ('redirect','fragment','fragment_again','stale_yes','redirect_again','cancel'))
+    assert len(mail)==3 and all(len(r['reply'].split())<=85 for r in receipts)
+    print('PASS ambiguous reference, chosen artifact, fragment pause and cancellation; mail captured')
     sys.exit(0)
 if args.scenario=='continuity-mixed':
     by={r['case']:r for r in receipts}
