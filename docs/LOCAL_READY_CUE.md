@@ -1,5 +1,10 @@
 # Spoken answer-window cue
 
+Deployed and enabled on 2026-09-09 from pushed commit `60f0b0bbb`.
+Per-file backup: `/home/agentdemo/hermes-ovms-setup/backups/20260909_104111-voice-ready-cue`.
+Installed clarify/permission barrier→cue→capture smoke checks passed; unrelated
+configuration was compared against the backup and is unchanged.
+
 A local CLI-only 200 ms, 660 Hz tone plays after the question TTS barrier and
 before microphone capture, for ordinary follow-up, clarify and permission.
 No model call, system prompt change, IM sound or new permission policy is added.
