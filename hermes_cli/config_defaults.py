@@ -2027,6 +2027,8 @@ DEFAULT_CONFIG = {
         # at voice-session start) instead of relaying audio through the
         # gateway — lowest-hop path in both directions. false = always relay.
         "client_direct": True,
+        "ready_cue": {"enabled": False, "intro_enabled": True,
+                      "intro_text": "After the tone, you can answer directly."},
         "beep_enabled": True,         # Play record start/stop beeps in CLI voice mode
         "beep_volume": 0.3,           # Beep amplitude multiplier (0.0-1.0, default keeps prior hardcoded value)
         "thinking_sound": True,       # Calm ambient bubble sound while the agent works in voice chat (volume follows beep_volume)

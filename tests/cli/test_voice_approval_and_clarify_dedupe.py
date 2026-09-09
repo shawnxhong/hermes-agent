@@ -48,7 +48,7 @@ def test_cli_unknown_voice_approval_fails_closed():
     assert cli._voice_approval_listening is False
 
 
-def test_cli_opens_approval_listener_only_after_tts_barrier():
+def test_cli_opens_approval_listener_only_after_tts_barrier(monkeypatch):
     from cli import HermesCLI
     from tools.tts_tool import ImmediateTTSUtterance, TTSPlaybackBarrier
 
@@ -71,6 +71,14 @@ def test_cli_opens_approval_listener_only_after_tts_barrier():
         }
     )
 
+    cue_done = threading.Event()
+    def cue(_cli):
+        assert not cli._voice_full_duplex_listener.called
+        cue_done.set()
+    monkeypatch.setattr("hermes_cli.voice_ready_cue.play_ready_cue", cue)
+    def capture(**kw):
+        assert cue_done.is_set(), "Capture before cue"
+    cli._voice_full_duplex_listener.side_effect = capture
     result = {}
 
     def _begin():
@@ -89,11 +97,13 @@ def test_cli_opens_approval_listener_only_after_tts_barrier():
     assert isinstance(barrier, TTSPlaybackBarrier)
     assert not cli._voice_approval_listening
 
+    assert not cue_done.is_set()
     barrier.set()
     worker.join(timeout=1)
     deadline = time.monotonic() + 1
     while not cli._voice_full_duplex_listener.called and time.monotonic() < deadline:
         time.sleep(0.01)
+    assert cue_done.is_set()
     assert result["started"] is True
     assert cli._voice_approval_listening is True
     cli._voice_full_duplex_listener.assert_called_once_with(clarify_only=True)

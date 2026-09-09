@@ -56,6 +56,27 @@ def test_answer_is_voice_input_in_same_session(rig):
     beep.assert_called_once();listen.assert_called_once()
 
 
+def test_ready_cue_finishes_before_microphone_opens(rig, monkeypatch):
+    cli, _, _, listen, _, beep = rig
+    monkeypatch.setattr('hermes_cli.voice_ready_cue.settings', lambda: {'enabled': True})
+    events = []
+    beep.side_effect = lambda **kw: events.append('cue_done')
+    def capture(*args, **kwargs):
+        assert events == ['cue_done']
+        events.append('listen')
+    listen.side_effect = capture
+    assert start(cli)
+    assert events == ['cue_done', 'listen']
+
+
+def test_cancel_during_cue_never_opens_microphone(rig, monkeypatch):
+    cli, _, _, listen, _, beep = rig
+    monkeypatch.setattr('hermes_cli.voice_ready_cue.settings', lambda: {'enabled': True})
+    beep.side_effect = lambda **kw: cli._voice_followup_cancel.set()
+    assert start(cli)
+    listen.assert_not_called()
+
+
 @pytest.mark.parametrize('response,voice',[('When?',False),('Done.',True),('',True)])
 def test_no_window_for_typed_or_final_statement(rig,response,voice):
     cli,_,_,listen,_,_=rig

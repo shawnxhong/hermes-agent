@@ -15226,13 +15226,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._voice_clarify_preparing = False
             return False
 
-        if self._voice_beeps_enabled():
-            try:
-                from tools.voice_mode import play_beep
-
-                play_beep(frequency=880, count=1)
-            except Exception:
-                pass
+        from hermes_cli.voice_ready_cue import play_ready_cue
+        play_ready_cue(self)
 
         self._voice_clarify_response_queue = response_queue
         self._voice_clarify_choices = list(choices or [])
@@ -15349,13 +15344,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._voice_approval_preparing = False
             return False
 
-        if self._voice_beeps_enabled():
-            try:
-                from tools.voice_mode import play_beep
-
-                play_beep(frequency=880, count=1)
-            except Exception:
-                pass
+        from hermes_cli.voice_ready_cue import play_ready_cue
+        play_ready_cue(self)
 
         self._voice_approval_response_queue = response_queue
         self._voice_approval_choices = voice_choices
@@ -16263,6 +16253,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     self._voice_tts = True
         except Exception:
             pass
+
+        from hermes_cli.voice_ready_cue import announce_once
+        announce_once(self)
 
         # Voice mode instruction is injected as a user message prefix (not a
         # system prompt change) to avoid invalidating the prompt cache.  See

@@ -103,8 +103,10 @@ def _capture_followup(cli, spoken, session, cancel, cfg, make_message):
             cancel.wait(0.05)
         if cancelled():
             return
-        if cli._voice_beeps_enabled():
-            voice_mode.play_beep(frequency=880, count=1)
+        from hermes_cli.voice_ready_cue import play_ready_cue
+        play_ready_cue(cli)
+        if cancelled():
+            return
         deadline = time.monotonic() + cfg["timeout_seconds"]
         logger.info("Voice follow-up window opened for session %s", session)
         wav = voice_mode.full_duplex_listen(
