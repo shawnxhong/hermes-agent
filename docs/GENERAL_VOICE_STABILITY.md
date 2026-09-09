@@ -1,5 +1,9 @@
 # Full-tool voice stability and latency (2026-09-08)
 
+Superseded on 2026-09-09 by `VOICE_GENERALIZATION_RELEASE.md`. This file records
+the earlier stricter runtime and its historical evidence; its fixed report
+lengths, tool budgets and travel interception are no longer current behavior.
+
 Deployed and default-enabled after pushing `061de2a84`. Per-file rollback backup:
 `/home/agentdemo/hermes-ovms-setup/backups/20260908_165446-general-voice-stability`.
 The manifest lists changed/new files. Existing model, ASR/TTS/wake, permissions,

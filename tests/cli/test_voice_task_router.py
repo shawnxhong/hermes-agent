@@ -21,7 +21,7 @@ def agent(responses):
 def test_simple_and_complete_requests_never_force_two_rounds():
     assert validate_route(result(intent='simple'),None)['question']==''
     assert validate_route(result(question=''),None)['route']=='execute'
-    assert validate_route(result(),None)['route']=='ask'
+    assert validate_route(result(),None)['route']=='execute'
 
 
 def test_continuation_never_repeats_requirements_question():
@@ -52,6 +52,15 @@ def test_local_routing_uses_structured_nonstreaming_request():
     assert not call['stream'] and 'tools' not in call
     assert call['response_format']['type']=='json_schema'
     assert a.client.with_options.call_args.kwargs['max_retries']==0
+
+
+def test_open_ended_advice_is_presentation_brief_not_a_domain_restriction():
+    a=agent([result(question='')])
+    actual=route_task(a,'Could you give me some suggestions for Melbourne?',platform='cli',modality='voice')
+    assert actual['intent']=='simple' and actual['route']=='simple'
+    a=agent([result(question='')])
+    actual=route_task(a,'Create a detailed Melbourne itinerary.',platform='cli',modality='voice')
+    assert actual['intent']=='complex' and actual['route']=='execute'
 
 
 def test_invalid_json_has_only_one_repair():

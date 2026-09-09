@@ -23,11 +23,9 @@ different topic/deliverable is new. The presence of complete details alone does
 not make a new task. For example "It is for 20 colleagues and lasts one hour"
 after a workshop question is answer.
 task_summary: a brief description grounded in the user's request, not a result.
-question: one brief ordinary question ONLY if a complex NEW task is missing
-essential scope that materially changes the result. Otherwise empty. Do not ask
-for nonessential preferences, exact dates unnecessarily, or information already
-supplied. Never force two rounds. Never repeat a question already used for this
-task. Follow-up explanations usually need no email or new requirements question.
+question: always empty. This router selects task ownership and presentation only.
+The native Hermes answer may ask an ordinary question when an essential fact is
+missing; the host records that question without imposing a fixed turn count.
 language: en by default; zh for Chinese input.
 domain: travel only for destination/itinerary/transport planning; otherwise general.
 An explanation of an existing result is simple, even if the original task was complex.
@@ -47,6 +45,9 @@ SCHEMA = {'type':'object','additionalProperties':False,'properties':{
     'language':{'type':'string','enum':['en','zh']},
     'domain':{'type':'string','enum':['travel','general']}},
     'required':['intent','relation','task_summary','question','language','domain']}
+
+OPEN_ENDED=re.compile(r'\b(?:advice|suggestions?|recommendations?|ideas?)\b',re.I)
+EXPLICIT_DELIVERABLE=re.compile(r'\b(?:detailed?|comprehensive|report|plan|itinerary|draft|proposal|analysis|schedule|comparison|guide|email|send|forward)\b',re.I)
 
 
 class RoutingError(RuntimeError):
@@ -76,15 +77,11 @@ def validate_route(value, active):
         # A classifier can call a correction an answer. This is continuation,
         # not permission to change state or a reason to abort the whole turn.
         result['relation']='followup'
-    if result['intent']!='complex' or result['relation']!='new':
-        result['question']=''
-    if result['question'] and not result['question'].rstrip().endswith(('?','？')):
-        raise RoutingError('Requirements question must be an ordinary final question')
+    result['question']=''
     # Routing is not permission: side-effecting/coding/uncertain tasks go to
     # the native harness, preserving its original approval/tool boundaries.
     result['route']=('cancel' if result['relation']=='cancel' else
                      'native' if result['intent'] in {'coding','action','other'} else
-                     'ask' if result['question'] else
                      'simple' if result['intent']=='simple' else
                      'followup' if result['relation']=='followup' else 'execute')
     return result
@@ -134,6 +131,9 @@ def route_task(agent, text, active=None, *, platform, modality):
                          or re.fullmatch(r'why[?!.\s]*',text.strip(),re.I))):
                 value.update(relation='followup',question='')
             result=validate_route(value,active)
+            if (result['relation']=='new' and result['intent']=='complex'
+                    and OPEN_ENDED.search(text) and not EXPLICIT_DELIVERABLE.search(text)):
+                result.update(intent='simple',route='simple')
             # An explicit task switch is a user control, not a model preference.
             # Keep referential edits ("now update it") with the old artifact.
             switch=re.match(r'^(?:now|next|new task|switch tasks)[,:\s]+(?:please\s+)?(?:draft|write|prepare|plan|research|compare|create)\b',text,re.I)

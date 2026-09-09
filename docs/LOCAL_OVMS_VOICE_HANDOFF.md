@@ -63,6 +63,20 @@ development checkout.
 
 ## Implemented behavior
 
+### General English voice workflow (2026-09-09)
+
+Keep local `custom` / `qwen3.6-35b-a3b`; do not substitute a Qwen3.8 model or
+add a cloud fallback. The default voice path is now domain-general and uses the
+native Hermes answer/tool loop. The harness only owns brief speech, artifact and
+recipient continuity, truthful email delivery, bounded tool convergence and
+cross-task isolation. It does not validate task content.
+
+The live config must not embed the travel skill in `agent.system_prompt`, and
+`travel-voice` must not be enabled by default. The skill/plugin source remains
+for optional future experiments. `providers.custom` mirrors the local OVMS
+endpoint and applies 90-second request/stale timeouts. See
+`VOICE_GENERALIZATION_RELEASE.md` for exact behavior, acceptance and rollback.
+
 ### Current routing and demo intent (2026-09-07)
 
 The user restored local-only inference: default `custom` / `qwen3.6-35b-a3b`

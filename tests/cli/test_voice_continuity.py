@@ -14,7 +14,6 @@ def decision(**kw):
 def rig(monkeypatch):
     cfg={'enabled':True,'continuity':{'enabled':True},'default_recipient':'xiaoheng.hong@intel.com'}
     monkeypatch.setattr(base,'config',lambda:cfg)
-    monkeypatch.setattr(base,'travel_plugin',lambda:None)
     router=Mock(return_value=decision());monkeypatch.setattr(voice,'route',router)
     sender=Mock(return_value={'success':True});monkeypatch.setattr(base,'_send',sender)
     monkeypatch.setattr(base,'_summary',lambda *args:'A useful summary.')
@@ -124,7 +123,7 @@ def test_current_recipient_only_change_cannot_become_a_new_content_task(rig,utte
     sender.assert_called_once()
 
 
-def test_expansion_without_email_saves_and_explanation_keeps_main(rig):
+def test_first_detailed_expansion_auto_emails_and_explanation_keeps_main(rig):
     _,router,sender=rig
     done(run(rig));store=ContinuityStore();task=store.current('s')
     router.return_value=decision(target=task['id'],operation='expand',detail=True)
@@ -133,7 +132,7 @@ def test_expansion_without_email_saves_and_explanation_keeps_main(rig):
     router.return_value=decision(target=task['id'],operation='explain')
     done(run(rig,'Why those choices?'),'Because they suit your request.')
     assert store.current('s')['artifact_version']==main
-    sender.assert_not_called()
+    sender.assert_called_once_with('xiaoheng.hong@intel.com','Expanded content.')
 
 
 def test_return_to_previous_topic_does_not_substitute_latest_topic(rig):
@@ -232,7 +231,7 @@ def test_semantic_denial_cancels_candidate_without_sending(rig):
 def test_typed_answer_to_voice_requirements_continues_but_new_task_passes_through(rig):
     _,router,sender=rig
     router.return_value=decision(detail=True,question='Who is the audience?')
-    run(rig,'Draft a meeting agenda.')
+    done(run(rig,'Draft a meeting agenda.'),'Who is the audience?')
     task=ContinuityStore().current('s')
     router.return_value=decision(target=task['id'],detail=True)
     done(run(rig,'Twenty colleagues.','text'),'Agenda for twenty colleagues.')
@@ -270,6 +269,52 @@ def test_interrupted_initial_trip_retains_first_result_delivery_intent(rig):
     sender.assert_called_once_with('xiaoheng.hong@intel.com','A four-day New York itinerary.')
 
 
+def test_exact_melbourne_followup_uses_native_result_and_emails_it(rig):
+    _,router,sender=rig
+    router.return_value=decision(detail=True,domain='travel')
+    first=run(rig,'I want to go travel to Melbourne. Could you give me some advice on that?')
+    done(first,'Which month, how many days, and where will you travel from?')
+    trip=ContinuityStore().current('s')
+    router.return_value=decision(target=trip['id'],detail=True,domain='travel')
+    second=run(rig,'I will be traveling from Sydney and I will be going there in October this year and I think I have five days')
+    body='A useful five-day Melbourne itinerary with Sydney transport guidance.'
+    result=done(second,body)
+    assert not result.get('failed') and 'submitted' in result['final_response']
+    sender.assert_called_once_with('xiaoheng.hong@intel.com',body)
+
+
+def test_open_ended_advice_keeps_brief_budget_and_avoids_optional_tools(rig):
+    rig[1].return_value=decision(detail=False,domain='travel',execution='research')
+    value=run(rig,'Could you give me some advice about Melbourne?')
+    policy=value['continuation']
+    assert policy.max_api_calls==6 and policy.max_output_tokens==512
+    assert 'Answer from stable knowledge without tools' in policy.context
+    assert policy.before_tool('web_search',{'query':'one'}) is None
+    assert policy.before_tool('web_search',{'query':'two'})['action']=='block'
+
+
+def test_distinct_essential_questions_are_allowed_but_exact_repeat_stops(rig):
+    _,router,sender=rig
+    router.return_value=decision(detail=True)
+    done(run(rig,'Prepare a client workshop.'),'How long should the workshop be?')
+    task=ContinuityStore().current('s')
+    router.return_value=decision(target=task['id'],detail=True)
+    second=run(rig,'One hour.')
+    done(second,'How many people will attend?')
+    pending=ContinuityStore().pending('s')
+    assert pending and pending['payload']['question']=='How many people will attend?'
+    router.return_value=decision(target=task['id'],detail=True)
+    repeated=done(run(rig,'Twenty people.'),'How many people will attend?')
+    assert repeated['failed'] and 'I have your answer' in repeated['final_response']
+    assert ContinuityStore().pending('s') is None and sender.call_count==0
+
+
+def test_router_failure_without_pending_falls_back_to_native_harness(rig):
+    rig[1].side_effect=ValueError('router unavailable')
+    assert run(rig,'Explain photosynthesis.') is None
+    rig[2].assert_not_called()
+
+
 def test_sources_come_from_successful_current_tools_not_generated_urls(rig):
     rig[1].return_value=decision(detail=True)
     value=run(rig);policy=value['continuation']
@@ -279,7 +324,7 @@ def test_sources_come_from_successful_current_tools_not_generated_urls(rig):
     store=ContinuityStore();task=store.current('s')
     assert store.result('s',task['id'])['sources']==['https://source.example/page']
     assert 'invented.example' not in store.result('s',task['id'])['body']
-    assert 'Retrieved factual excerpt.' in store.result('s',task['id'])['body']
+    assert 'https://source.example/page' in store.result('s',task['id'])['body']
 
 
 def test_expansion_retains_own_prior_and_new_evidence_not_other_topic(rig):
@@ -328,46 +373,62 @@ def test_named_result_recipient_question_uses_host_slot(rig):
     assert router.call_count==before and sender.call_count==1
 
 
-def test_failed_research_cannot_email_unverified_generated_details(rig):
-    rig[1].return_value=decision(detail=True)
+def test_failed_research_retains_useful_result_with_verification_note(rig):
+    rig[1].return_value=decision(detail=True,execution='research')
     value=run(rig,'Research a current topic.')
     value['continuation'].after_tool('web_search',{}, {'error':'offline'})
     result=done(value,'Unsupported detailed claims.')
-    assert result['failed'] and 'search failed' in result['final_response']
+    assert not result.get('failed') and 'No automatic email was sent' in result['final_response']
+    assert result['final_response'].startswith('I could not retrieve live sources')
     rig[2].assert_not_called()
+    task=ContinuityStore().current('s')
+    assert 'Verification note:' in ContinuityStore().result('s',task['id'])['body']
 
 
-def test_unsupported_research_emails_only_extractive_notes(rig,monkeypatch):
-    rig[1].return_value=decision(detail=True)
-    validator=Mock(side_effect=base.UngroundedResult('Cross-entity facts'))
+def test_exhausted_read_only_tool_loop_gets_one_text_only_recovery(rig,monkeypatch):
+    rig[1].return_value=decision(detail=True,execution='research')
+    recover=Mock(return_value='Recovered report from successful evidence.')
+    monkeypatch.setattr(base,'_recover_tool_result',recover)
+    value=run(rig,'Research and prepare a detailed report.')
+    value['continuation'].after_tool('web_search',{}, {'url':'https://source.example/','description':'Evidence.'})
+    result=value['continuation'].finalize(response_text='',failed=True,turn_exit_reason='unknown',
+                                          messages=[{'role':'tool','name':'web_search','content':'Evidence.'}])
+    assert not result.get('failed') and 'submitted' in result['final_response']
+    recover.assert_called_once()
+    assert 'Recovered report' in rig[2].call_args.args[1]
+
+
+def test_summarizer_cannot_replace_native_research_with_extractive_notes(rig,monkeypatch):
+    rig[1].return_value=decision(detail=True,execution='research')
+    validator=Mock(side_effect=ValueError('Summary unavailable'))
     monkeypatch.setattr(base,'_summary',validator)
     value=run(rig,'Research the options and email the details.')
     value['continuation'].after_tool('web_search',{}, {'data':{'web':[{'title':'Store A','url':'https://a.example/','description':'Store A is in Boston.'}]}})
     reply=done(value,'Store B is in Boston. https://a.example/')
     body=rig[2].call_args.args[1]
-    assert 'Store B' not in body and 'Store A is in Boston.' in body
-    assert 'Source notes' in body and 'could not be verified' in reply['final_response']
+    assert 'Store B is in Boston.' in body and 'https://a.example/' in body
+    assert 'submitted' in reply['final_response']
     assert validator.call_count==1
 
 
-def test_grounding_failure_without_usable_evidence_cannot_mail(rig,monkeypatch):
-    rig[1].return_value=decision(detail=True)
-    monkeypatch.setattr(base,'_summary',Mock(side_effect=base.UngroundedResult('Unverified')))
+def test_grounding_label_from_summarizer_cannot_veto_native_result(rig,monkeypatch):
+    rig[1].return_value=decision(detail=True,execution='research')
+    monkeypatch.setattr(base,'_summary',Mock(side_effect=ValueError('Summary unavailable')))
     value=run(rig,'Research the options.')
     value['continuation'].after_tool('web_search',{}, {'url':'https://a.example/'})
-    assert done(value,'Unverified specifics. https://a.example/')['failed']
-    rig[2].assert_not_called()
+    assert 'submitted' in done(value,'Unverified specifics. https://a.example/')['final_response']
+    assert 'Unverified specifics.' in rig[2].call_args.args[1]
 
 
-def test_grounding_timeout_delivers_only_labelled_excerpts_not_unchecked_report(rig,monkeypatch):
-    rig[1].return_value=decision(detail=True)
+def test_summary_timeout_retains_native_result_and_observed_sources(rig,monkeypatch):
+    rig[1].return_value=decision(detail=True,execution='research')
     monkeypatch.setattr(base,'_summary',Mock(side_effect=TimeoutError()))
     value=run(rig,'Research the options.')
     value['continuation'].after_tool('web_search',{}, {'url':'https://a.example/','description':'Evidence.'})
     reply=done(value,'Specific claims. https://a.example/')
-    assert 'could not be verified' in reply['final_response']
+    assert 'submitted' in reply['final_response']
     body=rig[2].call_args.args[1]
-    assert 'Specific claims' not in body and 'Source excerpt: Evidence.' in body
+    assert 'Specific claims' in body and 'https://a.example/' in body
 
 
 def test_literal_malformed_mailbox_question_is_a_recipient_slot(rig):
@@ -380,19 +441,16 @@ def test_literal_malformed_mailbox_question_is_a_recipient_slot(rig):
 
 
 @pytest.mark.parametrize('no_email',[False,True])
-def test_interrupted_unfinished_trip_resumes_strategy_without_overriding_delivery_intent(rig,monkeypatch,no_email):
-    travel=SimpleNamespace(run_workflow=Mock(side_effect=[
-        {'final_response':'Which month and how many days?','continuity_result':{'awaiting':'facts'}},
-        {'final_response':'A four-day plan.','continuity_result':{'body':'The complete New York itinerary.','summary':'A four-day plan.'}},
-    ]))
-    monkeypatch.setattr(base,'travel_plugin',lambda:travel)
+def test_interrupted_unfinished_trip_uses_native_harness_and_retains_delivery_intent(rig,no_email):
     rig[1].return_value=decision(detail=True,domain='travel')
-    run(rig,'Plan a trip to New York from Vancouver.'+(' Do not email anything.' if no_email else ''))
+    first=run(rig,'Plan a trip to New York from Vancouver.'+(' Do not email anything.' if no_email else ''))
+    done(first,'Which month and how many days?')
     store=ContinuityStore();trip=store.current('s')
     rig[1].return_value=decision()
     done(run(rig,'What does RSVP mean?'),'Please respond.')
     rig[1].return_value=decision(target=trip['id'],operation='expand',detail=True,domain='travel')
     reply=run(rig,'Back to New York: December, four days.')
-    assert 'continuation' not in reply and travel.run_workflow.call_count==2
+    done(reply,'The complete New York itinerary.')
+    assert 'continuation' in reply
     assert store.result('s',trip['id'])['body']=='The complete New York itinerary.'
     assert rig[2].call_count==(0 if no_email else 1)

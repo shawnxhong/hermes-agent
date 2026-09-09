@@ -8,7 +8,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--live-code',action='store_true')
 parser.add_argument('--code-path',type=Path,help='Read-only staged runtime overlay to validate before deployment')
 parser.add_argument('--native-tools',action='store_true',help='Use native default schemas, with a test-only side-effect blocker')
-parser.add_argument('--scenario',choices=['general','general-variant','travel','travel-sydney','travel-sydney-fragment','continuity-seoul','continuity-mixed','continuity-travel-mixed','continuity-safety','continuity-failure','continuity-isolation'],default='general')
+parser.add_argument('--scenario',choices=['general','general-variant','travel','travel-sydney','travel-sydney-fragment','continuity-seoul','continuity-mixed','continuity-travel-mixed','continuity-melbourne','continuity-safety','continuity-failure','continuity-isolation'],default='general')
 parser.add_argument('--generation-failure',action='store_true')
 parser.add_argument('--search-failure',action='store_true')
 parser.add_argument('--seed',type=int,default=1,help='Reproducible mixed-topic order')
@@ -22,12 +22,16 @@ code=args.code_path or (Path('/home/agentdemo/.hermes/hermes-agent') if args.liv
 sys.path.insert(0,str(code))
 home=Path(tempfile.mkdtemp(prefix='hermes-general-voice-'))
 cfg=yaml.safe_load(Path('/home/agentdemo/.hermes/config.yaml').read_text())
-cfg['plugins']={'enabled':['general-voice','travel-voice']}
+cfg['plugins']={'enabled':['general-voice']}
+cfg['providers']={'custom':{
+    'base_url':'http://localhost:8000/v3','api_key':'local-ovms',
+    'default_model':'qwen3.6-35b-a3b','request_timeout_seconds':90,
+    'stale_timeout_seconds':90}}
 cfg['voice_delivery']={'enabled':True,'default_recipient':'xiaoheng.hong@intel.com'}
 if args.continuity:cfg['voice_delivery']['continuity']={'enabled':True}
 cfg['memory']={'enabled':False}
 (home/'config.yaml').write_text(yaml.safe_dump(cfg))
-for name in ('general-voice','travel-voice'):
+for name in ('general-voice',):
     source=Path('/home/agentdemo/.hermes/plugins')/name if args.live_code else repo/'scripts/local-ovms/plugins'/name
     shutil.copytree(source,home/'plugins'/name)
 os.environ['HERMES_HOME']=str(home)
@@ -89,11 +93,10 @@ if args.continuity:
     from hermes_cli import voice_continuity
     original_router=voice_continuity.route
     voice_continuity.route=traced_router
-general_voice.travel_plugin()._send=capture
 agent=AIAgent(model='qwen3.6-35b-a3b',provider='custom',base_url='http://localhost:8000/v3',api_key='local-ovms',
     api_mode='chat_completions',quiet_mode=True,max_iterations=12,
     enabled_toolsets=sorted(_get_platform_tools(cfg,'cli')) if args.native_tools else ['web'],
-    ephemeral_system_prompt=cfg.get('agent',{}).get('system_prompt'),
+    ephemeral_system_prompt=None,
     skip_memory=True,skip_context_files=True,platform='cli',session_db=SessionDB(home/'sessions.db'))
 delta=[];agent.stream_delta_callback=delta.append
 wires=[]
@@ -117,9 +120,6 @@ if args.native_tools:
         if kw['tool_name'] not in {'web_search','web_extract',TOOL_SEARCH_NAME,TOOL_DESCRIBE_NAME}:
             return {'action':'block','message':'This capture-only test forbids external side effects. Return the requested draft as text.'}
     plugins.get_plugin_manager()._hooks.setdefault('pre_tool_call',[]).append(test_side_effect_guard)
-for callback in plugins.get_plugin_manager()._hooks.get('run_turn_workflow',[]):
-    if 'FACT_PROMPT' in callback.__globals__:
-        callback.__globals__['_send']=capture
 if args.scenario=='continuity-isolation':
     from hermes_cli.voice_continuity_store import ContinuityStore
     store=ContinuityStore();old=store.start(agent.session_id,'A previous restaurant report')
@@ -203,6 +203,12 @@ if args.scenario=='continuity-travel-mixed':
            ('trip_return','Email me the same New York itinerary you prepared.','voice'),
            ('trip_explain','Why did you recommend those places in New York? Answer briefly; no email.','voice'),
            ('new_question','What does RSVP mean? Answer briefly.','voice')]
+if args.scenario=='continuity-melbourne':
+    assert args.continuity
+    cases=[('trip_ask','I want to go travel to Melbourne. Could you give me some advice on that?','voice'),
+           ('trip_details','I will be traveling from Sydney and I will be going there in October this year and I think I have five days','voice'),
+           ('new_question','Why does the sky look blue? Answer briefly.','voice'),
+           ('trip_return','Return to my Melbourne trip and explain the transportation recommendation briefly. Do not email again.','voice')]
 if args.scenario=='continuity-safety':
     assert args.continuity
     cases=[('engineering','Draft a 100-word engineering kickoff agenda for six developers, one hour, on a new app. Use reasonable assumptions.','voice'),
@@ -250,6 +256,10 @@ if args.scenario=='continuity-failure':
     if args.email_failure:
         assert len(mail)==1 and by['repeat']['emails']==0
         assert all('submitted' not in by[k]['reply'].lower() for k in ('failure','repeat'))
+    elif args.search_failure:
+        assert by['failure']['completed'] and not mail
+        assert 'No automatic email was sent' in by['failure']['reply']
+        assert by['failure']['tools']<=2
     else:
         assert not by['failure']['completed'] and not mail
         assert by['failure']['tools']<=6
@@ -311,6 +321,16 @@ if args.scenario=='continuity-travel-mixed':
     assert all(len(r['reply'].split())<=85 for r in receipts)
     print('PASS interrupted travel, unrelated draft/question, saved itinerary return; mail captured')
     sys.exit(0)
+if args.scenario=='continuity-melbourne':
+    by={r['case']:r for r in receipts}
+    assert by['trip_ask']['completed'] and by['trip_ask']['emails']==0
+    assert by['trip_details']['completed'] and by['trip_details']['emails']==1
+    assert by['trip_details']['task_id']==by['trip_ask']['task_id']==by['trip_return']['task_id']
+    assert by['new_question']['task_id']!=by['trip_ask']['task_id'] and by['new_question']['emails']==0
+    assert by['trip_return']['emails']==0 and len(mail)==1
+    assert 'Melbourne' in mail[0]['body'] and all(len(r['reply'].split())<=85 for r in receipts)
+    print('PASS exact Melbourne native itinerary, auto email, unrelated question and topic return; mail captured')
+    sys.exit(0)
 if args.scenario.startswith('travel'):
     fragments=[r for r in receipts if r['case']=='fragment']
     assert all(r['calls']==0 and r['emails']==0 and r['reply'].endswith('?') for r in fragments)
@@ -319,7 +339,7 @@ if args.scenario.startswith('travel'):
     assert receipts[1]['emails']==1 and receipts[2]['emails']==0
     assert receipts[3]['calls']==receipts[4]['calls']==0
     assert len(mail)==2 and mail[0]['body']==mail[1]['body']
-    print('PASS travel strategy, native explanation, adopted artifact and typed resend; mail captured',flush=True)
+    print('PASS native travel execution, explanation, saved artifact and typed resend; mail captured',flush=True)
     sys.exit(0)
 assert receipts[0]['emails']==0 and receipts[1]['emails']==0 and receipts[1]['reply'].endswith('?')
 assert receipts[2]['emails']==1 and receipts[3]['emails']==0

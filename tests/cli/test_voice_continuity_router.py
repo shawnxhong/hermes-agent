@@ -66,6 +66,15 @@ def test_native_execution_class_cannot_become_a_buffered_content_answer():
     assert result['operation']=='native' and result['delivery']=='none'
 
 
+def test_open_ended_advice_is_stably_brief_but_explicit_plan_stays_detailed():
+    brief=route(agent_for(response(relation='independent',target='NEW',operation='answer',detail=True)),
+                'Could you give me some advice about Melbourne?',ContinuityStore(),'s',None)
+    assert brief['detail'] is False
+    detailed=route(agent_for(response(relation='independent',target='NEW',operation='answer',detail=True)),
+                   'Please create a detailed Melbourne itinerary.',ContinuityStore(),'s2',None)
+    assert detailed['detail'] is True
+
+
 def test_named_recipient_redirect_cannot_escape_to_native_action():
     store=ContinuityStore();task=store.start('s','Meeting agenda')
     agent=agent_for(response(execution='action',operation='native'),response())

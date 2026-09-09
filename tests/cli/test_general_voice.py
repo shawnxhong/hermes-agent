@@ -6,20 +6,37 @@ from hermes_cli import general_voice as voice
 from hermes_cli.voice_delivery import TaskStore
 
 
-@pytest.mark.parametrize('grounded',[True,False])
-def test_summary_checks_grounding_in_the_existing_single_request(grounded):
+@pytest.mark.parametrize('evidence',[None,[{'excerpt':'Evidence.'}]])
+def test_summary_formats_speech_without_vetoing_task_content(evidence):
     client=Mock()
     client.with_options.return_value.chat.completions.create.return_value=SimpleNamespace(choices=[SimpleNamespace(
-        finish_reason='stop',message=SimpleNamespace(tool_calls=None,content=json.dumps({'summary':'A supported short answer.','is_deliverable':True,'is_grounded':grounded})))])
+        finish_reason='stop',message=SimpleNamespace(tool_calls=None,content=json.dumps({'summary':'A supported short answer.'})))])
     agent=SimpleNamespace(client=client,model='local',_interrupt_requested=False,_touch_activity=Mock())
-    if grounded:
-        assert voice._summary(agent,'Report.','en',[{'excerpt':'Evidence.'}],'Draft a report.')=='A supported short answer.'
-    else:
-        with pytest.raises(voice.UngroundedResult):voice._summary(agent,'Report.','en',[{'excerpt':'Evidence.'}],'Draft a report.')
+    assert voice._summary(agent,'Report.','en',evidence,'Draft a report.')=='A supported short answer.'
     client.with_options.return_value.chat.completions.create.assert_called_once()
     messages=client.with_options.return_value.chat.completions.create.call_args.kwargs['messages']
     assert [m['role'] for m in messages]==['system','user']
     assert json.loads(messages[1]['content'])['request']=='Draft a report.'
+
+
+def test_fallback_summary_leaves_room_for_delivery_status():
+    value=voice._fallback_summary('word '*90,'en')
+    assert len(value.split())<=45
+
+
+def test_tool_result_recovery_is_text_only_and_bounded():
+    client=Mock()
+    client.with_options.return_value.chat.completions.create.return_value=SimpleNamespace(choices=[SimpleNamespace(
+        finish_reason='stop',message=SimpleNamespace(tool_calls=None,content='Recovered useful result.'))])
+    agent=SimpleNamespace(client=client,model='local',_interrupt_requested=False,_touch_activity=Mock())
+    result=voice._recover_tool_result(agent,'Prepare the report.',[
+        {'role':'tool','name':'web_search','content':'stale evidence'},
+        {'role':'user','content':'Prepare the report.'},
+        {'role':'assistant','content':'ignored'}, {'role':'tool','name':'web_search','content':'verified evidence'}],'en')
+    assert result=='Recovered useful result.'
+    kwargs=client.with_options.return_value.chat.completions.create.call_args.kwargs
+    assert 'tools' not in kwargs and kwargs['max_tokens']==4096
+    assert 'stale evidence' not in kwargs['messages'][1]['content']
 
 
 def routing(**kw):
@@ -31,7 +48,6 @@ def routing(**kw):
 def rig(monkeypatch):
     cfg={'enabled':True,'default_recipient':'default@example.com'}
     monkeypatch.setattr(voice,'config',lambda:cfg)
-    monkeypatch.setattr(voice,'travel_plugin',lambda:None)
     router=Mock(return_value=routing());monkeypatch.setattr(voice,'route_task',router)
     sender=Mock(return_value={'success':True});monkeypatch.setattr(voice,'_send',sender)
     summary=Mock(return_value='The report covers the requested topic and next steps.');monkeypatch.setattr(voice,'_summary',summary)
@@ -57,10 +73,11 @@ def test_complete_task_executes_then_summarizes_and_sends(rig):
     assert summary.call_count==1
 
 
-def test_requirements_question_once_then_native_execution_same_task(rig):
+def test_native_question_then_execution_uses_the_same_task(rig):
     _,agent,router,sender,_=rig
-    router.return_value=routing(route='ask',question='Who is the audience?')
-    assert run(rig)['final_response'].endswith('?')
+    router.return_value=routing(question='Who is the audience?')
+    first_turn=run(rig)
+    assert complete(first_turn,'Who is the audience?')['final_response'].endswith('?')
     first=TaskStore().current(agent.session_id)
     assert first['pending_question']=='Who is the audience?'
     router.return_value=routing(relation='answer')
@@ -73,8 +90,8 @@ def test_requirements_question_once_then_native_execution_same_task(rig):
 
 def test_fragmented_asr_preserves_pending_task_and_question(rig):
     _,agent,router,sender,_=rig
-    router.return_value=routing(route='ask',question='Who is the audience?')
-    run(rig)
+    router.return_value=routing(question='Who is the audience?')
+    complete(run(rig),'Who is the audience?')
     before=TaskStore().current(agent.session_id)
     router.return_value=routing(intent='other',relation='new',route='native')
     answer=run(rig,'Um, my badge is like...')
@@ -155,10 +172,14 @@ def test_new_task_and_interrupt_block_stale_delivery(rig):
 
 def test_tool_budget_and_retries_are_enforced_without_schema_changes(rig):
     policy=run(rig)['continuation']
+    blocked=policy.before_tool('speak',{'text':'a long answer'})
+    assert blocked['action']=='block' and 'host owns voice playback' in blocked['message']
     assert policy.before_tool('web_search',{'query':'one'}) is None
-    assert policy.before_tool('web_search',{'query':'one'})['action']=='block'
+    assert policy.before_tool('web_search',{'query':'one'}) is None
     policy.after_tool('web_search',{},json.dumps({'error':'offline'}))
     assert policy.before_tool('web_search',{'query':'different'})['action']=='block'
+    assert policy.before_tool('web_extract',{'url':'https://guessed.example/'})['action']=='block'
+    assert policy.before_tool('web_search',{'query':'one'})['action']=='block'
     assert policy.before_tool('send_message',{'target':'email:other@example.com'})['action']=='block'
     assert policy.before_tool('memory',{'action':'replace'})['action']=='block'
 
@@ -184,13 +205,11 @@ def test_explanation_cannot_claim_an_email_that_did_not_happen(rig):
     assert rig[3].call_count==1
 
 
-def test_travel_suggestions_keep_tested_strategy_even_if_router_says_simple(rig,monkeypatch):
-    travel=SimpleNamespace(_load=lambda session:{},run_workflow=Mock(return_value={'handled':True,'final_response':'When will you go?','api_calls':1}))
-    monkeypatch.setattr(voice,'travel_plugin',lambda:travel)
+def test_travel_suggestions_use_the_same_native_harness_as_other_questions(rig):
     rig[2].return_value=routing(intent='simple',domain='travel',route='simple')
     result=run(rig,'I want to visit New York. Any suggestions?')
-    assert result['final_response']=='When will you go?' and result['api_calls']==2
-    travel.run_workflow.assert_called_once()
+    assert 'continuation' in result
+    assert 'I want to visit New York' in result['continuation'].context
     rig[3].assert_not_called()
 
 
@@ -211,22 +230,22 @@ def test_long_explanation_is_summarized_without_replacing_or_emailing_report(rig
 
 def test_request_for_more_details_is_not_emailed_as_a_completed_report(rig):
     result=complete(run(rig),'It looks like your message is incomplete. Could you clarify the goal and duration?')
-    assert result['failed']
+    assert result['final_response'].endswith('?') and not result.get('failed')
     rig[3].assert_not_called()
 
 
-def test_delivery_validation_can_reject_a_metacommentary_result(rig):
-    rig[4].side_effect=voice.IncompleteResult('Not a report')
-    result=complete(run(rig),'The assistant would produce a report after receiving more details.')
-    assert result['failed']
-    rig[3].assert_not_called()
+def test_summary_cannot_reject_a_completed_native_result(rig):
+    rig[4].side_effect=ValueError('Summary unavailable')
+    result=complete(run(rig),'The completed report content.')
+    assert 'submitted' in result['final_response']
+    assert rig[3].call_args.args[1]=='The completed report content.'
 
 
 def test_static_system_section_is_scoped_and_task_independent(rig):
     section=voice.system_section({'platform':'cli','session_id':'one'})
     complete(run(rig))
     assert voice.system_section({'platform':'cli','session_id':'two'})==section
-    assert 'producing the actual requested text IS completing the work' in section
+    assert 'does not validate task content or restrict its domain' in section
     assert voice.system_section({'platform':'feishu'})==''
     rig[0].clear()
     assert voice.system_section({'platform':'cli'})==''

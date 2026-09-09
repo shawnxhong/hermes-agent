@@ -115,6 +115,17 @@ class TaskStore:
             current.update(question_used=True,phase='awaiting_details')
             if isinstance(question,str):
                 current['pending_question']=question
+                current['last_question']=question
+            return self._save(db,current)
+
+    def await_details(self, session, task, question):
+        """Record a model-owned essential question without a fixed turn count."""
+        if not isinstance(question,str) or not question.strip():
+            raise ValueError('A nonempty requirements question is required')
+        with self.connect() as db:
+            current=self._require(db,session,task['id'],task['revision'])
+            current.update(question_used=True,phase='awaiting_details',
+                           pending_question=question,last_question=question)
             return self._save(db,current)
 
     def supply_details(self, session, task, facts):

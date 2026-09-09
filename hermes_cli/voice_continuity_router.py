@@ -37,7 +37,10 @@ operation: answer is a NEW self-contained question/task or a reply to pending
 requirements. Once a result exists, related questions must use explain/expand/revise,
 not answer. Resume selects a saved topic without changing its content.
 Other operations: send, native, confirm, deny, cancel, unclear.
-detail: true for a report/plan/draft or requested detailed information, false for brief answers.
+detail: true for an actual report, itinerary, draft, comparison, or explicitly
+requested detailed information. Open-ended advice, initial suggestions, a brief
+explanation, or a names-only answer is false even if the subject could later
+become a detailed task. The host may summarize verbose output independently.
 delivery: email only if the CURRENT user explicitly requests sending this assistant's content.
 Sending generated content is NOT a native action. Booking, purchases, coding, file changes,
 or sending unrelated external messages are native and retain original permissions.
@@ -49,9 +52,10 @@ Explanations and edits refer to existing topics. 'Yes' refers only to pending in
 version: 0 unless the USER explicitly asks for a particular existing numbered
 version. Never predict or increment a version for a requested edit: the host
 creates the new version AFTER execution. Ordinary edits and sends use 0.
-question: empty unless essential scope is absent for a NEW detailed task, or reference
-is genuinely ambiguous. Ask once. Do not ask for email: the HOST has a default and
-handles address confirmation. Never ask optional budget/accommodation for a pending trip.
+question: empty for NEW tasks. The native Hermes answer decides whether an essential
+fact is missing and the host records its ordinary question. Use question only when
+a reference to one of several saved results is genuinely ambiguous. Do not ask for
+email: the HOST has a default and handles address confirmation.
 summary: short task description, not an answer. language en or zh.
 domain: travel only for planning a trip/itinerary. Restaurant recommendations,
 food questions and geography facts are general, even when a city is named.
@@ -83,6 +87,9 @@ SCHEMA={'type':'object','additionalProperties':False,'properties':{
     'language':{'type':'string','enum':['en','zh']},
     'domain':{'type':'string','enum':['general','travel']}},
     'required':['execution','relation','summary','operation','target','detail','delivery','version','question','language','domain']}
+
+OPEN_ENDED=re.compile(r'\b(?:advice|suggestions?|recommendations?|ideas?)\b',re.I)
+EXPLICIT_DELIVERABLE=re.compile(r'\b(?:detailed?|comprehensive|report|plan|itinerary|draft|proposal|analysis|schedule|comparison|guide|email|send|forward)\b',re.I)
 
 
 def route(agent,text,store,session,pending):
@@ -121,6 +128,11 @@ def route(agent,text,store,session,pending):
             if value['relation']=='independent':
                 value.update(target='NEW',version=0)
                 if value['operation']!='native':value['operation']='answer'
+            if (value['target']=='NEW' and value['operation']=='answer'
+                    and OPEN_ENDED.search(text) and not EXPLICIT_DELIVERABLE.search(text)):
+                value['detail']=False
+            if value['target']=='NEW':
+                value['question']=''
             if (value['execution']=='action' and value['target'] in reverse
                     and re.search(r'^(?:please\s+)?(?:(?:could|can|would)\s+you\s+)?(?:also\s+|just\s+)?(?:send|resend|forward|email)\b',text,re.I)
                     and re.search(r'\bto\s+(?:(?:a|an|the)\s+)?(?:new|different|another)\s+(?:email\s+)?address[.!?\s]*$',text,re.I)):
