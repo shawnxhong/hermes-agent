@@ -1,119 +1,236 @@
 #!/usr/bin/env python3
-"""Real local-Qwen skill check in an isolated home; email is always captured."""
+"""Real local-Qwen travel-skill check; every email is captured, never sent."""
 import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
 import time
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--surface', choices=['voice','im'], default='voice')
-parser.add_argument('--search-failure', action='store_true')
-parser.add_argument('--email-failure', action='store_true')
-parser.add_argument('--complete-request', action='store_true')
+parser.add_argument("--surface", choices=["voice", "im"], default="voice")
+parser.add_argument("--search-failure", action="store_true")
+parser.add_argument("--email-failure", action="store_true")
+parser.add_argument("--complete-request", action="store_true")
 args = parser.parse_args()
+if args.surface == "im" and args.email_failure:
+    parser.error("--email-failure applies only to host-owned voice delivery")
+
 repo = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(repo))
-home = Path(tempfile.mkdtemp(prefix='hermes-travel-check-'))
+home = Path(tempfile.mkdtemp(prefix="hermes-travel-skill-check-"))
+
 import yaml
 from dotenv import dotenv_values
-config = yaml.safe_load(Path('/home/agentdemo/.hermes/config.yaml').read_text())
-config['model'] = dict(default='qwen3.6-35b-a3b', provider='custom',
-                      base_url='http://localhost:8000/v3',context_length=65536,max_tokens=2048)
-config['fallback_providers'] = []
-config['platform_toolsets'] = {}
-config['memory'] = {'enabled':False}
-config.setdefault('tools', {}).setdefault('tool_search', {})['enabled'] = 'off'
-config['voice']['followup'] = {'enabled':True}
-(home/'config.yaml').write_text(yaml.safe_dump(config))
-shutil.copytree(repo/'skills/productivity/travel-concierge',home/'skills/travel-concierge')
-os.environ['HERMES_HOME'] = str(home)
-os.environ['NO_PROXY'] = 'localhost,127.0.0.1'
-os.environ['no_proxy'] = 'localhost,127.0.0.1'
-for key,value in dotenv_values('/home/agentdemo/.hermes/.env').items():
-    if key in {'BRAVE_API_KEY','BRAVE_SEARCH_API_KEY'} and value:
-        os.environ[key]=value
-os.environ['EMAIL_ADDRESS']='test-sender@example.com'
-os.environ['EMAIL_PASSWORD']='test-only-never-used'
-os.environ['EMAIL_SMTP_HOST']='invalid.example'
+
+config = yaml.safe_load(Path("/home/agentdemo/.hermes/config.yaml").read_text())
+config["model"] = {
+    "default": "qwen3.6-35b-a3b",
+    "provider": "custom",
+    "base_url": "http://localhost:8000/v3",
+    "context_length": 65536,
+    "max_tokens": 6144,
+}
+config["fallback_providers"] = []
+config["plugins"] = {"enabled": ["general-voice"]}
+config["voice_delivery"] = {
+    "enabled": True,
+    "continuity": {"enabled": True},
+    "default_recipient": "demo@example.com",
+}
+config["memory"] = {"enabled": False}
+config.setdefault("tools", {}).setdefault("tool_search", {})["enabled"] = "off"
+(home / "config.yaml").write_text(yaml.safe_dump(config))
+shutil.copytree(
+    repo / "skills/productivity/travel-concierge",
+    home / "skills/travel-concierge",
+)
+shutil.copytree(
+    repo / "scripts/local-ovms/plugins/general-voice",
+    home / "plugins/general-voice",
+)
+
+os.environ["HERMES_HOME"] = str(home)
+os.environ["NO_PROXY"] = "localhost,127.0.0.1"
+os.environ["no_proxy"] = "localhost,127.0.0.1"
+for key, value in dotenv_values("/home/agentdemo/.hermes/.env").items():
+    if key in {"BRAVE_API_KEY", "BRAVE_SEARCH_API_KEY"} and value:
+        os.environ[key] = value
+os.environ["EMAIL_ADDRESS"] = "test-sender@example.com"
+os.environ["EMAIL_PASSWORD"] = "test-only-never-used"
+os.environ["EMAIL_SMTP_HOST"] = "invalid.example"
+
+from agent.skill_commands import build_preloaded_skills_prompt
+from hermes_cli import plugins
+from hermes_cli.voice_response_policy import build_voice_turn_prefix
 from run_agent import AIAgent
 from tools.registry import registry
-from hermes_cli.voice_response_policy import build_voice_turn_prefix
-from agent.skill_commands import build_preloaded_skills_prompt
-skill_prompt,loaded,missing=build_preloaded_skills_prompt(['travel-concierge'])
-assert loaded==['travel-concierge'] and not missing
+import tools.send_message_tool
 
-calls=[]
+skill_prompt, loaded, missing = build_preloaded_skills_prompt(["travel-concierge"])
+assert loaded == ["travel-concierge"] and not missing
+assert "For an ordinary season-neutral itinerary, prefer stable knowledge" in skill_prompt
+
+model_tools = []
+
+
 def wrap(entry):
-    original=entry.handler
-    def handler(params,**kw):
-        calls.append({'name':entry.name,'args':params})
-        print('TOOL',entry.name,flush=True)
-        if entry.name=='send_message':
-            if params.get('action')!='send' or params.get('target')!='email:demo@example.com':
-                return json.dumps({'error':'Invalid send action or test recipient; nothing sent'})
-            return json.dumps({'error':'Simulated delivery failure'} if args.email_failure else
-                              {'success':True,'platform':'email','test_capture_only':True})
-        if entry.name in {'web_search','web_extract'}:
+    original = entry.handler
+
+    def handler(params, **kwargs):
+        model_tools.append({"name": entry.name, "args": params})
+        print("MODEL_TOOL", entry.name, flush=True)
+        if entry.name == "send_message":
+            return json.dumps(
+                {"error": "The buffered voice host owns result delivery."}
+            )
+        if entry.name in {"web_search", "web_extract"}:
             if args.search_failure:
-                return json.dumps({'error':'Simulated network unavailable. Do not retry.'})
-            # Stop the evaluation from issuing unlimited real network calls.
-            cap=2 if entry.name=='web_search' else 1
-            if sum(c['name']==entry.name for c in calls)>cap:
-                return json.dumps({'error':'Evaluation network-call budget exceeded'})
-            return original(params,**kw)
-        if entry.name in {'skill_view','skills_list'}:
-            return original(params,**kw)
-        return json.dumps({'error':'Tool blocked in isolated skill evaluation'})
+                return json.dumps(
+                    {"error": "Simulated network unavailable. Do not retry."}
+                )
+            cap = 2 if entry.name == "web_search" else 1
+            if sum(call["name"] == entry.name for call in model_tools) > cap:
+                return json.dumps({"error": "Evaluation call budget exceeded."})
+            return original(params, **kwargs)
+        if entry.name in {"skill_view", "skills_list"}:
+            return original(params, **kwargs)
+        return json.dumps({"error": "Tool blocked in isolated skill evaluation."})
+
     return handler
 
-import tools.send_message_tool
-# The test home intentionally has no live gateway. Expose the captured sender
-# as the deployed CLI sees it when its real gateway is running.
-registry.get_entry('send_message').check_fn=lambda:True
-a=AIAgent(model='qwen3.6-35b-a3b',provider='custom',base_url='http://localhost:8000/v3',
-    api_key='local-ovms',api_mode='chat_completions',quiet_mode=True,max_iterations=8,
-    request_overrides={'temperature':0},
-    enabled_toolsets=['web','voice_delivery'] if args.surface=='voice' else ['web'],
-    skip_memory=True,skip_context_files=True,ephemeral_system_prompt=skill_prompt,
-    platform='cli' if args.surface=='voice' else 'feishu')
+
+registry.get_entry("send_message").check_fn = lambda: True
 for entry in registry._snapshot_entries():
-    entry.handler=wrap(entry)
-print('EXPOSED_TOOLS',sorted(a.valid_tool_names),flush=True)
-assert args.surface!='voice' or 'send_message' in a.valid_tool_names
-inputs=(['Plan a three-day trip to San Francisco in October from Seattle. '
-         + ('Email the details to demo@example.com.' if args.surface=='voice' else 'Put the full itinerary here.')]
-        if args.complete_request else
-        ['I would like to visit San Francisco.','In October, for three days, from Seattle. '
-         + ('Email the details to demo@example.com.' if args.surface=='voice' else 'Put the full itinerary here.')])
-history=[];receipts=[]
+    entry.handler = wrap(entry)
+
+manager = plugins.get_plugin_manager()
+callbacks = manager._hooks.get("run_turn_workflow", [])
+assert len(callbacks) == 1, "general-voice workflow was not loaded"
+namespace = callbacks[0].__globals__
+host_mail = []
+
+
+def capture_email(recipient, body):
+    host_mail.append({"recipient": recipient, "body": body})
+    if args.email_failure:
+        return {"error": "Simulated SMTP failure"}
+    return {"success": True, "platform": "email", "test_capture_only": True}
+
+
+namespace["_send"] = capture_email
+
+platform = "cli" if args.surface == "voice" else "feishu"
+toolsets = ["web", "voice_delivery"] if args.surface == "voice" else ["web"]
+agent = AIAgent(
+    model="qwen3.6-35b-a3b",
+    provider="custom",
+    base_url="http://localhost:8000/v3",
+    api_key="local-ovms",
+    api_mode="chat_completions",
+    quiet_mode=True,
+    max_iterations=8,
+    request_overrides={"temperature": 0},
+    enabled_toolsets=toolsets,
+    skip_memory=True,
+    skip_context_files=True,
+    ephemeral_system_prompt=skill_prompt,
+    platform=platform,
+)
+print("EXPOSED_TOOLS", sorted(agent.valid_tool_names), flush=True)
+assert "web_search" in agent.valid_tool_names
+
+inputs = (
+    ["Plan a five-day trip to Melbourne from Sydney."
+     + (" Check current attraction opening status." if args.search_failure else "")]
+    if args.complete_request
+    else [
+        "I want to travel to Melbourne. Could you give me some advice?",
+        "I will be traveling from Sydney and I will have five days."
+        + (" Please check current attraction opening status." if args.search_failure else ""),
+    ]
+)
+history = []
+receipts = []
 for message in inputs:
-    start=time.monotonic();first=len(calls)
-    prefix=build_voice_turn_prefix(followup_enabled=True) if args.surface=='voice' else ''
-    result=a.run_conversation(user_message=prefix+message,conversation_history=history,
-                              persist_user_message=message)
-    history=result.get('messages',[])
-    receipt={'input':message,'reply':result.get('final_response'),
-             'seconds':round(time.monotonic()-start,2),'calls':calls[first:]}
-    receipts.append(receipt);print(json.dumps(receipt,ensure_ascii=False),flush=True)
-report=home/'receipt.json';report.write_text(json.dumps(receipts,indent=2,ensure_ascii=False))
-print('RECEIPT',report,flush=True)
-assert not any(c['name']=='clarify' for c in calls),'Unexpected clarify'
-assert not any(c['name']=='skill_manage' for c in calls),'Model attempted to rewrite the skill'
+    started = time.monotonic()
+    tool_offset = len(model_tools)
+    mail_offset = len(host_mail)
+    modality = "voice" if args.surface == "voice" else "text"
+    presented = (
+        build_voice_turn_prefix(followup_enabled=True) + message
+        if args.surface == "voice"
+        else message
+    )
+    result = agent.run_conversation(
+        user_message=presented,
+        conversation_history=history,
+        persist_user_message=message,
+        input_modality=modality,
+    )
+    history = result.get("messages", [])
+    receipt = {
+        "input": message,
+        "reply": result.get("final_response") or "",
+        "seconds": round(time.monotonic() - started, 2),
+        "reason": result.get("turn_exit_reason"),
+        "model_tools": model_tools[tool_offset:],
+        "host_mail": host_mail[mail_offset:],
+    }
+    receipts.append(receipt)
+    print(json.dumps(receipt, ensure_ascii=False), flush=True)
+
+report = home / "receipt.json"
+report.write_text(json.dumps(receipts, indent=2, ensure_ascii=False))
+print("RECEIPT", report, flush=True)
+
+assert not any(call["name"] == "clarify" for call in model_tools)
+assert not any(call["name"] == "skill_manage" for call in model_tools)
+assert not any(call["name"] == "send_message" for call in model_tools)
+search_count = sum(call["name"] == "web_search" for call in model_tools)
+assert search_count <= (1 if args.search_failure else 3)
+assert sum(call["name"] == "web_extract" for call in model_tools) <= (
+    0 if args.search_failure else 1
+)
+
 if not args.complete_request:
-    assert not any(c['name'] in {'web_search','web_extract','send_message'} for c in receipts[0]['calls']),'Orientation used costly tools'
-    assert receipts[0]['reply'].rstrip().endswith('?'),'First reply is not a final question'
-for name,cap in [('web_search',2),('web_extract',1),('send_message',1)]:
-    assert sum(c['name']==name for c in calls)<=cap, name+' exceeded workflow budget'
-if args.surface=='voice':
-    assert sum(c['name']=='send_message' for c in calls)==1,'Expected captured itinerary email'
-    sent = next(c['args'] for c in calls if c['name']=='send_message')
-    assert sent.get('action')=='send' and sent.get('target')=='email:demo@example.com','Invalid email parameters'
-    assert len(sent.get('message','').split())>=150,'Incomplete itinerary email'
-    assert all(len(r['reply'].split())<=100 for r in receipts),'Voice reply too long'
+    first = receipts[0]
+    assert not first["model_tools"] and not first["host_mail"]
+    assert first["reply"].rstrip().endswith("?")
+    assert len(first["reply"].split()) <= 45
+    assert re.search(r"\b(?:how many days|how long|duration)\b", first["reply"], re.I)
+    assert re.search(r"\b(?:from|depart(?:ing|ure)?)\b", first["reply"], re.I)
+    assert not re.search(r"\b(?:month|date|budget|hotel)\b", first["reply"], re.I)
+
+detail = host_mail[0]["body"] if args.surface == "voice" else receipts[-1]["reply"]
+assert "Sydney" in detail and "Melbourne" in detail
+assert "```" not in detail
+assert re.search(
+    r"(?mi)^\|\s*day\s*\|\s*area(?:\s+or\s+theme)?\s*\|"
+    r"\s*morning\s*\|\s*afternoon\s*\|\s*evening(?:\s+and\s+logistics)?\s*\|",
+    detail,
+)
+assert re.search(r"(?i)transport", detail)
+for day in range(1, 6):
+    assert re.search(rf"(?mi)^\|\s*(?:day\s*)?{day}\s*\|", detail), day
+
+if args.surface == "voice":
+    assert len(host_mail) == 1
+    assert host_mail[0]["recipient"] == "demo@example.com"
+    assert "|" not in receipts[-1]["reply"]
+    assert len(receipts[-1]["reply"].split()) <= 100
+    if args.email_failure:
+        assert "not confirmed" in receipts[-1]["reply"].lower()
+    else:
+        assert "submitted for email delivery" in receipts[-1]["reply"].lower()
 else:
-    assert not any(c['name']=='send_message' for c in calls),'IM unexpectedly emailed'
-print('PASS: structural checks only; review factual grounding and delivery wording manually. Mail captured, not sent.',flush=True)
+    assert not host_mail
+
+print(
+    "PASS: two-stage travel skill, tabular plan, surface-specific delivery; "
+    "mail captured only.",
+    flush=True,
+)

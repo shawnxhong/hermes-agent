@@ -1,144 +1,119 @@
-# US-English Travel Demo — 2026-09-08
+# Travel Concierge Demo — 2026-09-10
 
-## Status
+## Current status
 
-Latest implementation: [controlled voice workflow](TRAVEL_VOICE_WORKFLOW.md).
-The user approved host-owned structured delivery and the default recipient
-`xiaoheng.hong@intel.com`. The new native plugin replaces the unreliable generic
-tool loop for matching CLI voice travel turns. See the linked document for
-current behavior, passing tests and remaining manual acceptance. Earlier
-pure-skill failures below are preserved as historical evidence.
+The active design is a scenario skill over the domain-general voice workflow:
 
-Update: the user explicitly requested default activation for manual testing.
-Install the candidate into `~/.hermes/skills/travel-concierge/SKILL.md` and preload
-its instructions through the existing `agent.system_prompt` configuration, which
-is shared by CLI and Gateway. Apply only to travel requests; preserve normal
-behavior for other tasks. This supersedes the default-disabled status below,
-but does NOT supersede the known acceptance failures. No new hard tool budget,
-sampling changes, recipient default or toolset restriction accompanies activation.
-The configured prompt is a snapshot: refresh it when the installed skill changes.
+- Canonical skill: `skills/productivity/travel-concierge/SKILL.md`
+- Skill version: `0.2.0`
+- Voice workflow: `general-voice`
+- Local model: `custom / qwen3.6-35b-a3b`
+- Default configured recipient: `xiaoheng.hong@intel.com`
 
-Implemented a candidate Hermes skill at
-`skills/productivity/travel-concierge/SKILL.md`. It supersedes the Chinese-first
-design draft. It is **not demo-ready or enabled by default**: real local Qwen
-tests still show tool-budget, factual-grounding and delivery-policy failures.
-Do not represent a passing structural check as acceptance of the itinerary.
+The travel skill remains automatically discoverable. It is not copied into
+`agent.system_prompt`, and the old `travel-voice` plugin remains disabled.
+No travel rule was added to the generic Hermes harness. The domain-general voice
+contract now explicitly defers to any loaded scenario skill's staged intake and
+output contract. Its false-delivery-claim cleanup also preserves original
+newlines so Markdown and other formatted deliverables survive plain-text email.
 
-The skill-creator workflow informed concise instructions, scoped defaults,
-explicit delivery failure behavior and real-model forward tests. This is a
-Hermes skill, not a Codex installation.
+The skill-creator workflow informed the narrow trigger, staged behavior, surface
+separation, and behavioral validation. This is a Hermes skill, not a Codex skill
+installation.
 
-## Intended interaction
+## Interaction contract
 
-English/US-first, while honoring explicit language and destination choices:
+For a new request missing either duration or departure city:
 
-1. User: “I would like to visit San Francisco.”
-2. Brief familiar sights, then one final question for dates/month, duration and
-   departure city. No search or clarify tool on this first turn.
-3. User: “In October, for three days, from Seattle.”
-4. Brief research; compact complete itinerary and transportation advice.
-   Voice: email details to an explicitly supplied recipient, then short speech.
-   IM: details directly in chat, no automatic email or local audio.
+1. Give a tool-free destination overview naming two or three familiar features.
+2. Ask only for the missing duration and departure city in one ordinary final
+   question, using at most two sentences and 45 English words.
+3. Do not ask for month, exact date, budget, hotel class, food, or party size.
 
-No booking, fabricated schedules/fares, inferred recipient or cloud LLM.
-Default demo recipient has not been configured without user confirmation.
+Once destination, duration, and departure city are known:
 
-## Ordinary spoken-question follow-up
+1. Do not repeat or extend the questionnaire.
+2. Produce a title, assumptions, compact transport guidance, a Markdown
+   day-by-day itinerary table, and short reservation/uncertainty notes. Every
+   table row must be on its own line.
+3. Cover every requested day for 1–14-day trips and keep each day geographically
+   coherent. Exact date is optional; without it, label the plan season-neutral
+   and leave live schedule/availability unverified.
+4. Prefer stable knowledge and low latency for an ordinary season-neutral
+   itinerary. Search is most useful when the user explicitly requests current
+   prices, schedules, opening status, availability, or date-specific transport.
+   Prefer focused official-source lookup and stop after a failed result.
 
-`hermes_cli/voice_followup.py` adds an opt-in, generic voice follow-up window.
-After a genuine ASR turn, if the actually capped spoken response ends in `?`
-or `？`, wait for TTS/full-duplex output to finish, beep and capture one answer
-for at most 30 seconds. Reuse the same session and voice-input marker. Do not
-open for typed/IM input, completed statements, busy or interrupted turns.
+A first request that already supplies destination, duration, and origin skips
+the question and goes directly to the tables.
 
-Silence ends the window without repeated listening. A bounded 120-second latch
-allows the next wake word to resume the question's session even when normal
-wake behavior starts a new session. New input cancels the latch. Stop, echo,
-session changes and cancellation do not enqueue stale transcripts.
+## Surface behavior
 
-Defaults remain disabled upstream. Host configuration for testing:
+Buffered local voice returns the complete table to the `general-voice` host.
+The model does not call email or TTS and does not claim delivery. The host stores
+the complete response, submits it to the configured or user-confirmed recipient,
+then speaks only a short summary plus its receipt-derived delivery status.
 
-```yaml
-voice:
-  followup:
-    enabled: true
-    timeout_seconds: 30
-    resume_seconds: 120
-    playback_timeout_seconds: 120
-stt:
-  language: ''
-  local:
-    language: ''
-```
-
-Both ASR language hints must be cleared for automatic English/Chinese detection.
-Existing Kokoro command already selects `af_maple` for English language runs.
-Keep the existing ASR-only verbal acknowledgement and TTS output caps.
-
-Deployed the reviewed voice-code hunks and the above ASR/follow-up configuration
-after pushing commit `79ae06f41`. Backup:
-`/home/agentdemo/hermes-ovms-setup/backups/20260908_125629-voice-followup/`.
-The dirty live checkout's other changes were preserved. No gateway restart or
-travel-skill default activation was performed. Restart the interactive CLI to
-load new code. Local model, cloud-key policy, tool discovery and sampling settings
-were not changed globally by this deployment.
-
-Post-deploy checks: the actual follow-up worker transcribed the generated English
-audio file through local Whisper and enqueued a real `_VoiceInputMessage` in the
-same session. Only audio capture was substituted with a file. The host health
-check passed local OVMS inference, device enumeration and wake/ASR/TTS dependency
-checks. Human microphone and speaker end-to-end acceptance remains pending.
+IM and ordinary typed chat receive the full tables directly. They do not
+automatically email or play local audio. An explicit IM email request retains
+the normal native message-tool and permission behavior.
 
 ## Automated verification
 
-Run focused regression tests through the repository runner:
+Run repository validation:
 
 ```sh
-scripts/run_tests.sh -j2 tests/cli/test_voice_followup.py tests/cli/test_voice_response_policy.py tests/cli/test_voice_clarify.py tests/cli/test_voice_approval_and_clarify_dedupe.py tests/tools/test_voice_tts_echo_guard.py
+scripts/run_tests.sh tests/cli/test_general_voice.py \
+  tests/cli/test_voice_continuity.py \
+  tests/skills/test_authoring_standards.py
 ```
 
-Run real local-model checks using the host's Python environment:
+The repository authoring test is the release gate. The generic skill-creator
+`quick_validate.py` currently rejects `version`, `author`, and `platforms`,
+while this repository requires those fields, so its frontmatter result is
+advisory until the two schemas converge.
+
+Run real local-model checks in isolated temporary Hermes homes:
 
 ```sh
 /home/agentdemo/.hermes/hermes-agent/venv/bin/python scripts/local-ovms/check_travel_skill.py
 /home/agentdemo/.hermes/hermes-agent/venv/bin/python scripts/local-ovms/check_travel_skill.py --surface im
+/home/agentdemo/.hermes/hermes-agent/venv/bin/python scripts/local-ovms/check_travel_skill.py --complete-request
 /home/agentdemo/.hermes/hermes-agent/venv/bin/python scripts/local-ovms/check_travel_skill.py --email-failure
 ```
 
-Each run uses a temporary Hermes home, native skill preloading, only web and
-captured email tools, direct schemas (discovery off), local Qwen, temperature 0,
-2048 output tokens and at most 8 iterations. These are test settings, not global
-production changes. Only Brave credentials are read into the test environment.
-Email never leaves the test: valid sends are captured; incorrect arguments fail.
-The harness caps real network requests while counting ALL attempts. Its cap is
-not a production enforcement mechanism. Receipts are written under `/tmp`.
+These checks preload the canonical skill, use the real local Qwen endpoint and
+the real `general-voice` continuation, and capture host email in memory. They
+never send a real message. Assertions cover tool-free first stage, no redundant
+date/budget question, complete table shape/day coverage, model-owned mail/TTS
+avoidance, short spoken result, truthful failure status, and IM isolation.
+Receipts are written under `/tmp/hermes-travel-skill-check-*/receipt.json`.
 
-Observed results:
+Latest results:
 
-- Focused voice regressions: 57 passed across five files.
-- Real local Kokoro English synthesis → local Whisper automatic-language ASR
-  recognized “in October for three days from Seattle.” File recognition took
-  about 10.6 seconds including model loading; this is not a microphone test.
-- Preloading consistently made the familiar-city first reply short, question-last
-  and tool-free in recent runs (about 4–7 seconds on this host).
-- One voice run passed structural checks: two searches, one correctly addressed
-  captured email, short final reply, second turn about 19 seconds. Manual review
-  still found unsupported prices and source names without URLs. Later skill
-  revisions removed price estimates, but delivery compliance remained unstable.
-- IM stayed text-only and did not email, but attempted four searches instead of
-  two; factual links and rail/route claims also require better grounding.
-- A simulated-email-failure scenario never reached the sender: the model printed
-  the full itinerary instead. This test FAILED; it does not prove failure handling.
-- Earlier runs attempted repeated searches, malformed mail calls or omitted mail.
-  Do not loosen assertions to hide these failures.
+- 1,253 focused repository tests passed.
+- Two-stage buffered voice passed; the first turn was tool-free and the second
+  retained one complete five-day table for a single captured host email:
+  `/tmp/hermes-travel-skill-check-b4trbc0z/receipt.json`.
+- IM passed with a directly renderable table and no automatic email:
+  `/tmp/hermes-travel-skill-check-xfiud4bg/receipt.json`.
+- A complete first request skipped intake and produced the captured table:
+  `/tmp/hermes-travel-skill-check-6w8fw1hz/receipt.json`.
+- Simulated SMTP failure preserved the detail and reported only unconfirmed
+  delivery: `/tmp/hermes-travel-skill-check-u4b5hckp/receipt.json`.
 
-## Remaining acceptance work
+These are structural and workflow checks, not a claim that every unsourced travel
+fact is current. Date-sensitive details still require retrieval or user review.
 
-Pure skill text does not reliably enforce a small MoE model's tool budgets.
-Evaluate a travel-only deterministic budget/tool wrapper before enabling this
-workflow by default; preserve the general agent's existing tools and permissions.
-Also verify source grounding, partial follow-ups, destination changes, missing
-email and failure paths, then actual microphone wake → acknowledgement → question
-playback → answer capture → itinerary email → final playback. File-based audio
-tests and mocked capture lifecycle tests do not prove room acoustics or inbox
-receipt. No new real email has been sent as part of these skill tests.
+Human acceptance still requires a fresh CLI session for wake → acknowledgement
+→ destination question → direct answer capture → short summary/TTS. Inbox receipt
+must be confirmed by the user; SMTP acceptance alone does not prove delivery.
+
+## Historical implementation
+
+`docs/TRAVEL_VOICE_WORKFLOW.md` and
+`scripts/local-ovms/plugins/travel-voice/` document the earlier travel-only
+interceptor. They remain as reference and rollback material but are not enabled
+in the current demo. The overlapping legacy `travel-planning` installation is
+retired to prevent ambiguous automatic selection. Old test trip records are
+intentionally not migrated.

@@ -13,13 +13,30 @@ log = logging.getLogger(__name__)
 REDIRECT = re.compile(r"\b(?:send|resend|forward|email)\s+(?:it|this|that|the (?:report|email|details|plan|itinerary))\b|\b(?:send|resend|forward)\b.{0,60}\b(?:another|different)\s+(?:email\s+)?address\b|(?:重发|转发|改发).{0,20}(?:邮件|报告|行程)|发到另一个邮箱",re.I)
 NO_EMAIL = re.compile(r"\b(?:don't|do not|without|no)\s+(?:send\s+)?(?:an?\s+)?email\b|不要发.*邮件|不发邮件",re.I)
 CANCEL = re.compile(r"^(?:cancel|never mind|nevermind|取消|算了)[.!。！\s]*$",re.I)
-DELIVERY_CLAIM = re.compile(r"\b(?:email\s+(?:was\s+|has\s+been\s+)?sent|(?:sent|emailed|submitted|delivered)\s+(?:the\s+)?(?:email|report|details|itinerary)|(?:I(?:'ve| have)?|we(?:'ve| have)?)\s+(?:emailed|sent|submitted))\b|(?:邮件|详细内容).{0,6}(?:已发送|已提交)|已(?:发送|提交).{0,6}邮件",re.I)
+DELIVERY_CLAIM = re.compile(r"\b(?:email\s+(?:was\s+|has\s+been\s+)?sent|(?:the\s+)?(?:email|report|details|itinerary)\s+(?:was\s+|has\s+been\s+|will\s+be\s+)?(?:sent|emailed|submitted|delivered)|(?:sent|emailed|submitted|delivered)\s+(?:the\s+)?(?:email|report|details|itinerary)|(?:I(?:'ve| have)?|we(?:'ve| have)?)\s+(?:emailed|sent|submitted))\b|(?:邮件|详细内容).{0,6}(?:已发送|已提交)|已(?:发送|提交).{0,6}邮件",re.I)
 
 
 def _strip_delivery_claims(text):
-    # Delivery status is generated exclusively from the host's SMTP receipt.
-    sentences=re.split(r'(?<=[.!?。！？])\s+|\n+',text)
-    return ' '.join(s.strip() for s in sentences if s.strip() and not DELIVERY_CLAIM.search(s))
+    """Remove model-owned delivery claims without flattening formatted prose.
+
+    Delivery status is generated exclusively from the host's SMTP receipt.
+    Preserve untouched physical lines so Markdown tables and other deliverables
+    remain readable in the plain-text email body.
+    """
+    cleaned=[]
+    for raw_line in text.splitlines(keepends=True):
+        line=raw_line.rstrip('\r\n')
+        ending=raw_line[len(line):]
+        if not DELIVERY_CLAIM.search(line):
+            cleaned.append(raw_line)
+            continue
+        indent=line[:len(line)-len(line.lstrip())]
+        sentences=re.split(r'(?<=[.!?。！？])\s+',line.strip())
+        kept=[sentence.strip() for sentence in sentences
+              if sentence.strip() and not DELIVERY_CLAIM.search(sentence)]
+        if kept:
+            cleaned.append(indent+' '.join(kept)+ending)
+    return ''.join(cleaned).strip()
 
 
 def config():
@@ -52,10 +69,12 @@ creates brief speech, retains the complete result and owns result-email delivery
 Do not call speak, TTS, or another playback tool in a buffered turn; the host
 alone speaks the final short response after it has finalized the full result.
 Ask an ordinary question only when an essential missing fact prevents a useful or
-safe answer, and incorporate answers already supplied. Use reasonable labelled
-assumptions for nonessential gaps. Do not claim delivery or send the result email
-yourself; do not create a file merely to pass prose to the host. Explicit file,
-coding and external-action requests retain their native tools and permissions.
+safe answer, and incorporate answers already supplied. A loaded scenario skill
+may define a staged intake and declare particular facts essential; follow that
+task-specific contract. Use reasonable labelled assumptions for nonessential
+gaps. Do not claim delivery or send the result email yourself; do not create a
+file merely to pass prose to the host. Explicit file, coding and external-action
+requests retain their native tools and permissions.
 This presentation contract does not validate task content or restrict its domain.
 Typed CLI and IM turns without buffered context retain ordinary full-text behavior."""
 
@@ -238,8 +257,9 @@ def execute_native(agent,user_message,session,store,task,route,cfg,*,delivery=No
     context['output_mode']=('Answer naturally in at most 100 words. The host formats speech separately.' if route['intent']=='simple'
                             else 'Complete the requested deliverable as final prose; do not shorten it for TTS.')
     if route['intent']=='simple' and OPEN_ENDED.search(user_message) and not EXPLICIT_DELIVERABLE.search(user_message):
-        context['retrieval_guidance']=('This is open-ended general guidance, not a live-fact request. '
-                                       'Answer from stable knowledge without tools and offer to check current details if useful.')
+        context['retrieval_guidance']=('Follow any loaded scenario skill that requires an intake question. '
+                                       'Otherwise this is open-ended general guidance, not a live-fact request: '
+                                       'answer from stable knowledge without tools and offer to check current details if useful.')
     if extra_context:
         context.update(extra_context)
     delivery_rule=('Perform explicitly requested external actions through native tools and original approvals; do not perform unrelated actions or change default settings. '
@@ -247,6 +267,8 @@ def execute_native(agent,user_message,session,store,task,route,cfg,*,delivery=No
                    'Do NOT email this result yourself or change memory/default recipients. ')
     instruction=(
         'Answer the actual current user request using the native tools when useful. '
+        'Follow every loaded scenario skill, including its required intake stage, '
+        'tool step, output format and completion condition; generic brevity guidance does not override it. '
         'This is a buffered voice turn: the host independently formats short speech and delivers substantial results. '
         'Do not call speak, TTS, or another audio playback tool; return text and let the host speak the final summary. '
         +delivery_rule+'Return the full useful result as final prose, not a tool plan. '

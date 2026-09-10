@@ -7,7 +7,7 @@ description: 将模糊旅行意向分两轮整理为行程与交通建议，适�
 
 > Historical design draft. The US-English-first implementation is now in
 > `skills/productivity/travel-concierge/SKILL.md`; see
-> `docs/TRAVEL_DEMO_STATUS.md` for failing real-model acceptance cases.
+> `docs/TRAVEL_DEMO_STATUS.md` for the current behavior and validation.
 
 把旅行意向整理为可执行的行程和交通建议。典型流程为简短介绍目的地，
 通过普通回复收集关键信息，然后完成规划；不调用 `clarify`。

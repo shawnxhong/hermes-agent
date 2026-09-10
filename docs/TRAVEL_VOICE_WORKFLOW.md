@@ -1,5 +1,10 @@
 # Controlled local travel voice workflow
 
+> **Historical implementation (disabled).** The current demo uses the
+> automatically discovered `travel-concierge` skill over the domain-general
+> `general-voice` host. See `TRAVEL_DEMO_STATUS.md`. Do not enable this plugin
+> or embed its skill snapshot in the system prompt for the current deployment.
+
 Implemented for the user's US/English-first, screenless Intel iGPU demo.
 The default travel recipient is explicitly authorized as
 `xiaoheng.hong@intel.com`. SMTP acceptance is not inbox receipt.

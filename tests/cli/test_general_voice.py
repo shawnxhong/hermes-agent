@@ -213,11 +213,27 @@ def test_explanation_cannot_claim_an_email_that_did_not_happen(rig):
     assert rig[3].call_count==1
 
 
+def test_delivery_claim_removal_preserves_markdown_table_lines():
+    body=('The itinerary has been emailed.\n\n'
+          '| Day | Morning | Afternoon |\n'
+          '|---|---|---|\n'
+          '| 1 | Museum | Waterfront |\n'
+          '| 2 | Market | Park |')
+    assert voice._strip_delivery_claims(body)==(
+        '| Day | Morning | Afternoon |\n'
+        '|---|---|---|\n'
+        '| 1 | Museum | Waterfront |\n'
+        '| 2 | Market | Park |')
+    assert voice._strip_delivery_claims('Practice helps. Email sent.')=='Practice helps.'
+
+
 def test_travel_suggestions_use_the_same_native_harness_as_other_questions(rig):
     rig[2].return_value=routing(intent='simple',domain='travel',route='simple')
     result=run(rig,'I want to visit New York. Any suggestions?')
     assert 'continuation' in result
     assert 'I want to visit New York' in result['continuation'].context
+    assert 'Follow every loaded scenario skill' in result['continuation'].context
+    assert 'requires an intake question' in result['continuation'].context
     rig[3].assert_not_called()
 
 
