@@ -77,6 +77,11 @@ case "$mode" in
     ;;
   voice)
     "$HERMES_BIN" config set wake_word.enabled true --force >/dev/null
+    # The sherpa backend maps this shared value to its keyword threshold.
+    # 0.30 is intentionally more permissive than the previous 0.45 demo
+    # setting while retaining a useful margin against ambient conversation.
+    "$HERMES_BIN" config set wake_word.sensitivity 0.30 --force >/dev/null
+    "$HERMES_BIN" config set wake_word.confirmation_frames 2 --force >/dev/null
     "$HERMES_BIN" config set stt.enabled true --force >/dev/null
     "$HERMES_BIN" config set stt.local.unload_after_idle_seconds 300 --force >/dev/null
     "$HERMES_BIN" config set voice.auto_tts true --force >/dev/null
@@ -102,6 +107,10 @@ show_status
 if [[ "${1:-}" == "--run" ]]; then
   shift
   if [[ "$mode" == "voice" ]]; then
+    # stt.enabled controls provider availability, not the interactive CLI's
+    # in-memory voice state. Make the voice launcher opt in explicitly so
+    # Ctrl+B works before the first successful wake-word detection.
+    export HERMES_CLI_VOICE_AUTO_START=1
     exec "$HERMES_BIN" --cli --skills travel-concierge "$@"
   fi
   exec "$HERMES_BIN" --cli "$@"

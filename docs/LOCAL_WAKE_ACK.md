@@ -33,6 +33,24 @@ generates a new entry. No credential values are written into cache filenames.
 This host has pre-generated both suggested cues: English 1.40 seconds, Chinese
 0.87 seconds; repeated cache lookup was about 0.1 ms. No cloud TTS is introduced.
 
+## Voice launcher readiness
+
+`stt.enabled` controls transcription provider availability; it does not enable
+the interactive CLI's in-memory voice state. Therefore a launch could show an
+armed wake listener while Ctrl+B remained inert until the first successful wake.
+`hermes-mode voice --run` now sets a process-local auto-start flag so the CLI
+enters voice mode at its initial prompt. Ordinary `hermes --cli` behavior is
+unchanged.
+
+When Ctrl+B starts manual capture, the CLI pauses an active local wake listener
+before opening the recorder, then its watchdog resumes wake detection after
+continuous capture ends. This prevents the two input streams from competing for
+the same microphone.
+
+The demo launcher also sets `wake_word.sensitivity: 0.30` (previously 0.45)
+and `wake_word.confirmation_frames: 2`. For the configured sherpa provider,
+the lower sensitivity maps to a more permissive keyword threshold.
+
 Validation: native CLI wake callback order, real WAV cache contract, disable,
 failure and cancellation paths, plus existing wake, follow-up, travel, email,
 TTS and plugin regressions. Actual local Kokoro generation and speaker playback

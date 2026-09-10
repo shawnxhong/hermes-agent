@@ -15611,6 +15611,42 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
     # Voice mode methods
     # ====================================================================
 
+    def _maybe_auto_enable_voice_mode(self) -> bool:
+        """Enable the interactive voice runtime for an explicit launcher opt-in.
+
+        ``stt.enabled`` only makes the transcription provider available; it
+        does not turn on this CLI instance's push-to-talk state. Deployment
+        launchers that promise a ready voice UI set this process-local flag so
+        Ctrl+B is usable before the first wake-word detection. Ordinary
+        ``hermes --cli`` sessions retain the existing opt-in behaviour.
+        """
+        from utils import is_truthy_value
+
+        if not is_truthy_value(
+            os.environ.get("HERMES_CLI_VOICE_AUTO_START"), default=False
+        ):
+            return False
+        self._enable_voice_mode()
+        return bool(self._voice_mode)
+
+    def _pause_wake_word_for_manual_capture(self) -> bool:
+        """Yield the local microphone from wake detection to push-to-talk."""
+        if (
+            not getattr(self, "_wake_word_active", False)
+            or getattr(self, "_wake_suspended", False)
+        ):
+            return True
+        try:
+            from tools.wake_word import pause_listening
+
+            if not pause_listening(owner=self):
+                return False
+        except Exception as e:
+            logger.debug("wake word pause for manual capture failed: %s", e)
+            return False
+        self._wake_suspended = True
+        return True
+
     def _voice_start_recording(self):
         """Start capturing audio from the microphone."""
         if getattr(self, '_should_exit', False):
@@ -16537,6 +16573,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         self._agent_running
                         or self._voice_recording
                         or getattr(self, "_voice_processing", False)
+                        or getattr(self, "_voice_continuous", False)
                         or not self._pending_input.empty()
                     )
                     if busy:
@@ -20334,6 +20371,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 if cli_ref._clarify_state or cli_ref._sudo_state or cli_ref._approval_state or cli_ref._slash_confirm_state:
                     return
 
+                # Wake detection and push-to-talk cannot safely hold the same
+                # local PortAudio device. Yield it before starting continuous
+                # recording; the wake watchdog resumes it when that mode ends.
+                if not cli_ref._pause_wake_word_for_manual_capture():
+                    _cprint(f"\n{_DIM}Voice recording could not acquire the microphone.{_RST}")
+                    return
+
                 # Interrupt TTS if playing, so user can start talking.
                 # stop_playback() is fast (just terminates a subprocess);
                 # the stop event drains the streaming pipeline if one is live.
@@ -20363,6 +20407,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                             cli_ref._app.invalidate()
                     except Exception as e:
                         _cprint(f"\n{_DIM}Voice recording failed: {e}{_RST}")
+                        with cli_ref._voice_lock:
+                            cli_ref._voice_continuous = False
 
                 threading.Thread(target=_start_recording, daemon=True).start()
                 event.app.invalidate()
@@ -21577,6 +21623,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         _disable_prompt_toolkit_cpr_warning(app)
         app.after_render += self._pet_flush_kitty_frame
         self._app = app  # Store reference for clarify_callback
+
+        # ``hermes-mode voice --run`` promises that both wake word and manual
+        # push-to-talk are ready at the initial prompt. The provider config
+        # alone cannot satisfy that promise because _voice_mode is process
+        # state, initialized false above.
+        try:
+            self._maybe_auto_enable_voice_mode()
+        except Exception as e:
+            logger.warning("Could not auto-enable CLI voice mode: %s", e)
 
         # ── Fix ghost status-bar lines on terminal resize ──────────────
         # Resize handling: monkey-patch prompt_toolkit's _output_screen_diff
