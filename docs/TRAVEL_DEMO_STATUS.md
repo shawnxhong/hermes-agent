@@ -16,6 +16,10 @@ No travel rule was added to the generic Hermes harness. The domain-general voice
 contract now explicitly defers to any loaded scenario skill's staged intake and
 output contract. Its false-delivery-claim cleanup also preserves original
 newlines so Markdown and other formatted deliverables survive plain-text email.
+Because the local Qwen model does not reliably select a skill from the full
+automatic index, `hermes-mode voice --run` preloads `travel-concierge` through
+Hermes' native `--skills` option. The skill explicitly exits for unrelated
+requests; a cross-task replay verifies ordinary tasks remain ordinary.
 
 The skill-creator workflow informed the narrow trigger, staged behavior, surface
 separation, and behavioral validation. This is a Hermes skill, not a Codex skill
@@ -80,6 +84,7 @@ Run real local-model checks in isolated temporary Hermes homes:
 /home/agentdemo/.hermes/hermes-agent/venv/bin/python scripts/local-ovms/check_travel_skill.py --surface im
 /home/agentdemo/.hermes/hermes-agent/venv/bin/python scripts/local-ovms/check_travel_skill.py --complete-request
 /home/agentdemo/.hermes/hermes-agent/venv/bin/python scripts/local-ovms/check_travel_skill.py --email-failure
+/home/agentdemo/.hermes/hermes-agent/venv/bin/python scripts/local-ovms/check_travel_skill.py --cross-task
 ```
 
 These checks preload the canonical skill, use the real local Qwen endpoint and
@@ -101,6 +106,9 @@ Latest results:
   `/tmp/hermes-travel-skill-check-6w8fw1hz/receipt.json`.
 - Simulated SMTP failure preserved the detail and reported only unconfirmed
   delivery: `/tmp/hermes-travel-skill-check-u4b5hckp/receipt.json`.
+- A same-session switch from the completed trip to ordinary arithmetic returned
+  only `4`, with no tool or mail call:
+  `/tmp/hermes-travel-skill-check-i3tckv__/receipt.json`.
 
 These are structural and workflow checks, not a claim that every unsourced travel
 fact is current. Date-sensitive details still require retrieval or user review.

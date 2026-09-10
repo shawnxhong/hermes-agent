@@ -27,6 +27,7 @@ Usage:
 voice     Enable Hi Intel, local ASR, and automatic TTS.
 keyboard  Disable wake word, ASR, and automatic TTS.
 --run     Start a fresh Hermes CLI after changing mode.
+          Voice mode preloads the travel-concierge scenario skill.
 
 For guaranteed memory release, exit the currently running Hermes process
 before switching, then use --run (or hermes-voice/hermes-keyboard).
@@ -100,6 +101,9 @@ show_status
 
 if [[ "${1:-}" == "--run" ]]; then
   shift
+  if [[ "$mode" == "voice" ]]; then
+    exec "$HERMES_BIN" --cli --skills travel-concierge "$@"
+  fi
   exec "$HERMES_BIN" --cli "$@"
 fi
 

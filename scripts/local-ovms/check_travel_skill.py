@@ -15,6 +15,7 @@ parser.add_argument("--surface", choices=["voice", "im"], default="voice")
 parser.add_argument("--search-failure", action="store_true")
 parser.add_argument("--email-failure", action="store_true")
 parser.add_argument("--complete-request", action="store_true")
+parser.add_argument("--cross-task", action="store_true")
 args = parser.parse_args()
 if args.surface == "im" and args.email_failure:
     parser.error("--email-failure applies only to host-owned voice delivery")
@@ -153,6 +154,8 @@ inputs = (
         + (" Please check current attraction opening status." if args.search_failure else ""),
     ]
 )
+if args.cross_task:
+    inputs.append("What is two plus two? Reply with only the number.")
 history = []
 receipts = []
 for message in inputs:
@@ -205,7 +208,9 @@ if not args.complete_request:
     assert re.search(r"\b(?:from|depart(?:ing|ure)?)\b", first["reply"], re.I)
     assert not re.search(r"\b(?:month|date|budget|hotel)\b", first["reply"], re.I)
 
-detail = host_mail[0]["body"] if args.surface == "voice" else receipts[-1]["reply"]
+travel_index = 0 if args.complete_request else 1
+travel_reply = receipts[travel_index]["reply"]
+detail = host_mail[0]["body"] if args.surface == "voice" else travel_reply
 assert "Sydney" in detail and "Melbourne" in detail
 assert "```" not in detail
 assert re.search(
@@ -220,14 +225,19 @@ for day in range(1, 6):
 if args.surface == "voice":
     assert len(host_mail) == 1
     assert host_mail[0]["recipient"] == "demo@example.com"
-    assert "|" not in receipts[-1]["reply"]
-    assert len(receipts[-1]["reply"].split()) <= 100
+    assert "|" not in travel_reply
+    assert len(travel_reply.split()) <= 100
     if args.email_failure:
-        assert "not confirmed" in receipts[-1]["reply"].lower()
+        assert "not confirmed" in travel_reply.lower()
     else:
-        assert "submitted for email delivery" in receipts[-1]["reply"].lower()
+        assert "submitted for email delivery" in travel_reply.lower()
 else:
     assert not host_mail
+
+if args.cross_task:
+    final = receipts[-1]
+    assert not final["model_tools"] and not final["host_mail"]
+    assert final["reply"].strip().rstrip(".") == "4"
 
 print(
     "PASS: two-stage travel skill, tabular plan, surface-specific delivery; "
