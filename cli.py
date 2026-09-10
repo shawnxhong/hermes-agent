@@ -15629,6 +15629,55 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self._enable_voice_mode()
         return bool(self._voice_mode)
 
+    @staticmethod
+    def _manual_voice_capture_continuous() -> bool:
+        """Return whether push-to-talk should auto-record after each reply."""
+        from utils import is_truthy_value
+
+        return not is_truthy_value(
+            os.environ.get("HERMES_CLI_PTT_ONESHOT"), default=False
+        )
+
+    def _prepare_initial_wake_listener(self) -> bool:
+        """Re-arm the first wake stream and signal when it is genuinely ready."""
+        from utils import is_truthy_value
+
+        if (
+            not is_truthy_value(
+                os.environ.get("HERMES_CLI_WAKE_READY_CUE"), default=False
+            )
+            or getattr(self, "_wake_ready_cue_played", False)
+        ):
+            return True
+
+        from tools.wake_word import pause_listening, resume_listening
+
+        if not pause_listening(owner=self):
+            logger.warning("Initial wake listener could not pause for ready cue")
+            return True
+        self._wake_suspended = True
+        try:
+            # A double high tone is distinct from the single 880 Hz recording
+            # cue. The listener is paused so its own speaker cue cannot enter
+            # the keyword model.
+            from tools.voice_mode import play_beep
+
+            play_beep(frequency=1040, count=2)
+            time.sleep(0.25)
+        except Exception as e:
+            logger.warning("Initial wake ready cue failed: %s", e)
+
+        try:
+            ready = bool(resume_listening(owner=self))
+        except Exception as e:
+            logger.warning("Initial wake listener re-arm failed: %s", e)
+            ready = False
+        if ready:
+            self._wake_suspended = False
+            self._wake_ready_cue_played = True
+            logger.info("Initial wake listener re-armed after ready cue")
+        return ready
+
     def _pause_wake_word_for_manual_capture(self) -> bool:
         """Yield the local microphone from wake detection to push-to-talk."""
         if (
@@ -15686,6 +15735,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             if self._voice_recording:
                 return
             self._voice_recording = True
+
+        if not self._pause_wake_word_for_manual_capture():
+            with self._voice_lock:
+                self._voice_recording = False
+            raise RuntimeError("Wake listener could not yield the microphone")
 
         # Load silence detection params from config. Shape-safe: a
         # hand-edited ``voice: true`` / ``voice: cmd+b`` leaves
@@ -16459,6 +16513,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self._wake_suspended = False
         global _cli_wake_owner
         _cli_wake_owner = self
+        if not self._prepare_initial_wake_listener():
+            self._stop_wake_word_listener(announce=announce)
+            return False
         self._start_wake_watchdog()
         if announce:
             _cprint(f"\n{_ACCENT}Wake word listening{_RST} "
@@ -20371,13 +20428,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 if cli_ref._clarify_state or cli_ref._sudo_state or cli_ref._approval_state or cli_ref._slash_confirm_state:
                     return
 
-                # Wake detection and push-to-talk cannot safely hold the same
-                # local PortAudio device. Yield it before starting continuous
-                # recording; the wake watchdog resumes it when that mode ends.
-                if not cli_ref._pause_wake_word_for_manual_capture():
-                    _cprint(f"\n{_DIM}Voice recording could not acquire the microphone.{_RST}")
-                    return
-
                 # Interrupt TTS if playing, so user can start talking.
                 # stop_playback() is fast (just terminates a subprocess);
                 # the stop event drains the streaming pipeline if one is live.
@@ -20395,7 +20445,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         pass
 
                 with cli_ref._voice_lock:
-                    cli_ref._voice_continuous = True
+                    cli_ref._voice_continuous = cli_ref._manual_voice_capture_continuous()
 
                 # Dispatch to a daemon thread so play_beep(sd.wait),
                 # AudioRecorder.start(lock acquire), and config I/O

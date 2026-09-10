@@ -33,6 +33,50 @@ def test_voice_launcher_flag_enables_runtime_before_first_wake(monkeypatch, valu
     cli._enable_voice_mode.assert_called_once_with()
 
 
+def test_demo_push_to_talk_is_one_shot_but_default_remains_continuous(monkeypatch):
+    monkeypatch.delenv("HERMES_CLI_PTT_ONESHOT", raising=False)
+    assert HermesCLI._manual_voice_capture_continuous() is True
+    monkeypatch.setenv("HERMES_CLI_PTT_ONESHOT", "1")
+    assert HermesCLI._manual_voice_capture_continuous() is False
+
+
+def test_initial_wake_ready_cue_rearms_listener_before_signalling(monkeypatch):
+    from tools import voice_mode, wake_word
+    import cli as cli_module
+
+    monkeypatch.setenv("HERMES_CLI_WAKE_READY_CUE", "1")
+    order = []
+    monkeypatch.setattr(
+        wake_word, "pause_listening",
+        lambda **kwargs: order.append("pause") or True,
+    )
+    monkeypatch.setattr(
+        wake_word, "resume_listening",
+        lambda **kwargs: order.append("resume") or True,
+    )
+    monkeypatch.setattr(
+        voice_mode, "play_beep",
+        lambda **kwargs: order.append(("beep", kwargs)),
+    )
+    monkeypatch.setattr(
+        cli_module.time, "sleep",
+        lambda value: order.append(("sleep", value)),
+    )
+    cli = SimpleNamespace(_wake_suspended=False)
+
+    assert HermesCLI._prepare_initial_wake_listener(cli) is True
+    assert order == [
+        "pause",
+        ("beep", {"frequency": 1040, "count": 2}),
+        ("sleep", 0.25),
+        "resume",
+    ]
+    assert cli._wake_suspended is False
+    assert cli._wake_ready_cue_played is True
+    assert HermesCLI._prepare_initial_wake_listener(cli) is True
+    assert len(order) == 4
+
+
 @pytest.mark.parametrize(
     ("active", "suspended"),
     [(False, False), (False, True), (True, True)],

@@ -111,6 +111,11 @@ if [[ "${1:-}" == "--run" ]]; then
     # in-memory voice state. Make the voice launcher opt in explicitly so
     # Ctrl+B works before the first successful wake-word detection.
     export HERMES_CLI_VOICE_AUTO_START=1
+    # The screenless demo needs an audible boundary after the asynchronous
+    # listener is genuinely ready. Manual push-to-talk is one-shot; ordinary
+    # model questions still use the separate bounded follow-up capture.
+    export HERMES_CLI_WAKE_READY_CUE=1
+    export HERMES_CLI_PTT_ONESHOT=1
     exec "$HERMES_BIN" --cli --skills travel-concierge "$@"
   fi
   exec "$HERMES_BIN" --cli "$@"

@@ -28,7 +28,8 @@ def test_mode_launcher_proxy_environment_and_skills(
         "if sys.argv[1:2] == ['--cli']:\n"
         " values={k:os.environ.get(k) for k in "
         "['http_proxy','https_proxy','HTTP_PROXY','HTTPS_PROXY','NO_PROXY','no_proxy',"
-        "'HERMES_CLI_VOICE_AUTO_START']}\n"
+        "'HERMES_CLI_VOICE_AUTO_START','HERMES_CLI_WAKE_READY_CUE',"
+        "'HERMES_CLI_PTT_ONESHOT']}\n"
         " values['argv']=sys.argv[1:]\n"
         " print(json.dumps(values))\n"
         "elif sys.argv[1:3] == ['config','get']: print('true')\n"
@@ -51,6 +52,10 @@ def test_mode_launcher_proxy_environment_and_skills(
     values = json.loads(result.stdout.splitlines()[-1])
     assert values["argv"] == expected_argv
     assert values["HERMES_CLI_VOICE_AUTO_START"] == expected_voice_auto
+    expected_demo_flag = "1" if mode == "voice" else None
+    assert values["HERMES_CLI_WAKE_READY_CUE"] == expected_demo_flag
+    assert values["HERMES_CLI_PTT_ONESHOT"] == expected_demo_flag
+
     if mode == "voice":
         assert "SET wake_word.sensitivity 0.30 --force" in result.stderr
         assert "SET wake_word.confirmation_frames 2 --force" in result.stderr

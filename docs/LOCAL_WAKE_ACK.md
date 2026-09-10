@@ -42,10 +42,21 @@ armed wake listener while Ctrl+B remained inert until the first successful wake.
 enters voice mode at its initial prompt. Ordinary `hermes --cli` behavior is
 unchanged.
 
+The wake listener initializes asynchronously and, on this demo host, can take
+about 1.2 seconds after CLI startup to open the microphone. The voice launcher
+now requests a one-time double high ready tone. Immediately before the tone the
+CLI pauses the newly opened stream; immediately after the tone and a 250 ms
+speaker-tail guard it re-opens the stream and waits for the listener's real
+ready event. Speak the wake phrase only after this tone. This startup cue does
+not reuse or replay the follow-up instruction speech.
+
 When Ctrl+B starts manual capture, the CLI pauses an active local wake listener
-before opening the recorder, then its watchdog resumes wake detection after
-continuous capture ends. This prevents the two input streams from competing for
-the same microphone.
+before opening the recorder. In the demo launcher Ctrl+B is a one-shot fallback:
+after that turn's TTS, the watchdog resumes wake detection instead of starting
+another recording. An ordinary agent response that explicitly ends with a
+question still uses the separate bounded follow-up module to play its ready cue
+and open exactly one answer window. This prevents both microphone contention and
+the old unconditional post-answer ASR loop.
 
 The demo launcher also sets `wake_word.sensitivity: 0.30` (previously 0.45)
 and `wake_word.confirmation_frames: 2`. For the configured sherpa provider,
