@@ -16,6 +16,7 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 import time
 import wave
 from collections import defaultdict
@@ -143,6 +144,34 @@ def _timestamp() -> str:
     return time.strftime("%Y%m%d-%H%M%S")
 
 
+def _validate_positive_destination(destination: Path) -> None:
+    if destination.is_symlink():
+        raise ValueError(
+            f"refusing to replace symlinked speaker directory: {destination}"
+        )
+    if destination.exists() and not destination.is_dir():
+        raise ValueError(f"speaker destination is not a directory: {destination}")
+
+
+def _replace_positive_batch(staging: Path, destination: Path) -> None:
+    """Install a completed speaker batch, restoring the old one on failure."""
+    _validate_positive_destination(destination)
+    previous = destination.with_name(
+        f".{destination.name}.previous-{os.getpid()}-{time.time_ns()}"
+    )
+    had_previous = destination.exists()
+    if had_previous:
+        os.replace(destination, previous)
+    try:
+        os.replace(staging, destination)
+    except BaseException:
+        if had_previous and previous.exists() and not destination.exists():
+            os.replace(previous, destination)
+        raise
+    if had_previous:
+        shutil.rmtree(previous)
+
+
 def _record_positive(args: argparse.Namespace) -> int:
     if not args.consent:
         raise ValueError("recording requires --consent from every recorded speaker")
@@ -153,15 +182,36 @@ def _record_positive(args: argparse.Namespace) -> int:
     speaker = _safe_label(args.speaker)
     device = _configured_device(cfg, args.device)
     destination = root / "positive" / speaker
-    for index in range(1, args.count + 1):
-        if not args.automatic:
-            input(f"Sample {index}/{args.count}: press Enter, then say the wake phrase once... ")
-        else:
-            print(f"Sample {index}/{args.count}: recording in one second...", flush=True)
-            time.sleep(1)
-        path = destination / f"{_timestamp()}-{index:03d}.wav"
-        _record_clip(path, args.seconds, device, args.channels)
-        print(f"saved {path}")
+    _validate_positive_destination(destination)
+    positive_root = destination.parent
+    positive_root.mkdir(parents=True, exist_ok=True)
+    os.chmod(positive_root, 0o700)
+    previous_count = len(list(destination.glob("*.wav"))) if destination.is_dir() else 0
+    staging = Path(
+        tempfile.mkdtemp(prefix=f".{speaker}-recording-", dir=str(positive_root))
+    )
+    os.chmod(staging, 0o700)
+    try:
+        for index in range(1, args.count + 1):
+            if not args.automatic:
+                input(
+                    f"Sample {index}/{args.count}: press Enter, then say the wake phrase once... "
+                )
+            else:
+                print(f"Sample {index}/{args.count}: recording in one second...", flush=True)
+                time.sleep(1)
+            path = staging / f"{_timestamp()}-{index:03d}.wav"
+            _record_clip(path, args.seconds, device, args.channels)
+            print(f"captured sample {index}/{args.count}")
+        _replace_positive_batch(staging, destination)
+    except BaseException:
+        if staging.exists():
+            shutil.rmtree(staging)
+        raise
+    print(
+        f"installed {args.count} samples for {speaker}; "
+        f"replaced {previous_count} previous samples"
+    )
     return 0
 
 

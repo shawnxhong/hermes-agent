@@ -62,6 +62,69 @@ def test_parameter_grid_uses_current_effective_values():
     ]
 
 
+def _positive_args(root, **overrides):
+    values = {
+        "consent": True,
+        "corpus": root,
+        "speaker": "speaker-1",
+        "device": None,
+        "count": 2,
+        "seconds": 0.1,
+        "channels": 1,
+        "automatic": True,
+    }
+    values.update(overrides)
+    return argparse.Namespace(**values)
+
+
+def test_new_positive_batch_replaces_same_speaker_only_after_success(
+    monkeypatch, tmp_path
+):
+    import tools.wake_word as wake_word
+
+    root = recall._prepare_corpus(tmp_path / "wake-corpus")
+    destination = root / "positive" / "speaker-1"
+    destination.mkdir(parents=True)
+    (destination / "old.wav").write_bytes(b"old")
+    monkeypatch.setattr(wake_word, "load_wake_word_config", lambda: {})
+    monkeypatch.setattr(recall.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(recall, "_timestamp", lambda: "new")
+    monkeypatch.setattr(
+        recall,
+        "_record_clip",
+        lambda path, *_args: path.write_bytes(b"new"),
+    )
+
+    assert recall._record_positive(_positive_args(root)) == 0
+    assert sorted(path.name for path in destination.iterdir()) == [
+        "new-001.wav",
+        "new-002.wav",
+    ]
+    assert all(path.read_bytes() == b"new" for path in destination.iterdir())
+
+
+def test_failed_positive_batch_keeps_previous_speaker_samples(monkeypatch, tmp_path):
+    import tools.wake_word as wake_word
+
+    root = recall._prepare_corpus(tmp_path / "wake-corpus")
+    destination = root / "positive" / "speaker-1"
+    destination.mkdir(parents=True)
+    old = destination / "old.wav"
+    old.write_bytes(b"old")
+    monkeypatch.setattr(wake_word, "load_wake_word_config", lambda: {})
+    monkeypatch.setattr(recall.time, "sleep", lambda _seconds: None)
+
+    def _fail_recording(*_args):
+        raise OSError("microphone disconnected")
+
+    monkeypatch.setattr(recall, "_record_clip", _fail_recording)
+    with pytest.raises(OSError, match="disconnected"):
+        recall._record_positive(_positive_args(root))
+
+    assert old.read_bytes() == b"old"
+    assert [path.name for path in destination.parent.iterdir()] == ["speaker-1"]
+
+
 def test_parameter_grid_rejects_non_finite_or_out_of_range_values():
     cfg = {"sensitivity": 0.30, "sherpa": {}}
     with pytest.raises(ValueError, match="thresholds"):

@@ -80,6 +80,11 @@ recall, aggregate recall, false wakes per hour, latency, level diagnostics, and
 whether the evidence is sufficient. Its parameter grid can be overridden with
 `--thresholds`, `--scores`, `--active-paths`, and `--trailing-blanks`.
 
+Recording `record-positive` again with the same `--speaker` replaces that
+speaker's earlier batch. Replacement happens only after every new sample is
+recorded successfully; cancellation or microphone failure keeps the previous
+batch intact. Other speakers and all negative recordings are unchanged.
+
 Raw audio can be removed after review with the explicit command:
 
 ```bash
