@@ -343,8 +343,26 @@ def _candidate_grid(cfg: dict[str, Any], args: argparse.Namespace):
                     yield threshold, score, active_paths, trailing_blanks
 
 
+def _alias_variants(cfg: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    """Compare the canonical phrase with the configured hidden aliases."""
+    from tools.wake_word import _sherpa_aliases
+
+    sub = cfg.get("sherpa") if isinstance(cfg.get("sherpa"), dict) else {}
+    canonical = " ".join(str(cfg.get("phrase") or "hey hermes").strip().split())
+    aliases = _sherpa_aliases(sub, canonical)
+    variants = [("canonical_only", [])]
+    if aliases:
+        variants.append(("configured_aliases", aliases))
+    return variants
+
+
 def _evaluate_candidate(
-    cfg: dict[str, Any], candidate: tuple[float, float, int, int], files: list[tuple[str, Path]]
+    cfg: dict[str, Any],
+    candidate: tuple[float, float, int, int],
+    files: list[tuple[str, Path]],
+    *,
+    alias_mode: str = "configured",
+    aliases: list[str] | None = None,
 ) -> dict[str, Any]:
     from tools.wake_word import _SherpaKwsEngine
 
@@ -353,6 +371,8 @@ def _evaluate_candidate(
     candidate_cfg["provider"] = "sherpa"
     candidate_cfg["profile_routing"] = False
     sub = candidate_cfg.setdefault("sherpa", {})
+    if aliases is not None:
+        sub["aliases"] = list(aliases)
     sub["keywords_threshold"] = threshold
     sub["keywords_score"] = score
     sub["max_active_paths"] = active_paths
@@ -361,6 +381,7 @@ def _evaluate_candidate(
     engine = _SherpaKwsEngine(candidate_cfg)
     positives: list[dict[str, Any]] = []
     false_wakes = 0
+    negative_samples = 0
     negative_seconds = 0.0
     processing_ms: list[float] = []
     imbalances: list[float] = []
@@ -401,6 +422,7 @@ def _evaluate_candidate(
             else:
                 false_wakes += fires
                 negative_seconds += duration
+                negative_samples += 1
     finally:
         engine.close()
 
@@ -448,6 +470,8 @@ def _evaluate_candidate(
     )
     return {
         "parameters": {
+            "alias_mode": alias_mode,
+            "alias_count": len(sub.get("aliases") or []),
             "keywords_threshold": threshold,
             "keywords_score": score,
             "max_active_paths": active_paths,
@@ -472,7 +496,8 @@ def _evaluate_candidate(
             ),
         },
         "negative": {
-            "false_wakes": false_wakes,
+            "samples": negative_samples,
+            "false_wakes": false_wakes if negative_samples else None,
             "hours": round(negative_hours, 4),
             "false_wakes_per_hour": round(false_rate, 4) if false_rate is not None else None,
         },
@@ -501,8 +526,8 @@ def _evaluate(args: argparse.Namespace) -> int:
     negatives = sorted((root / "negative").glob("*/*.wav"))
     if not positives:
         raise ValueError(f"no positive WAV files found under {root / 'positive'}")
-    if not negatives:
-        raise ValueError(f"no negative WAV files found under {root / 'negative'}")
+    if getattr(args, "positive_only", False):
+        negatives = []
     files = [("positive", path) for path in positives] + [
         ("negative", path) for path in negatives
     ]
@@ -510,33 +535,73 @@ def _evaluate(args: argparse.Namespace) -> int:
     provider = str(cfg.get("provider") or "").strip().lower()
     if provider not in {"sherpa", "sherpa-onnx", "kws", "open"}:
         raise ValueError("evaluation currently supports wake_word.provider: sherpa")
+    grid = list(_candidate_grid(cfg, args))
     candidates = [
-        _evaluate_candidate(cfg, candidate, files)
-        for candidate in _candidate_grid(cfg, args)
-    ]
-    candidates.sort(
-        key=lambda item: (
-            not item["accepted"],
-            -item["positive"]["recall"],
-            item["negative"]["false_wakes_per_hour"]
-            if item["negative"]["false_wakes_per_hour"] is not None
-            else float("inf"),
-            item["processing_ms"]["p95"],
+        _evaluate_candidate(
+            cfg,
+            candidate,
+            files,
+            alias_mode=alias_mode,
+            aliases=aliases,
         )
-    )
+        for alias_mode, aliases in _alias_variants(cfg)
+        for candidate in grid
+    ]
+    if negatives:
+        candidates.sort(
+            key=lambda item: (
+                not item["accepted"],
+                -item["positive"]["recall"],
+                item["negative"]["false_wakes_per_hour"]
+                if item["negative"]["false_wakes_per_hour"] is not None
+                else float("inf"),
+                item["processing_ms"]["p95"],
+            )
+        )
+    else:
+        # Positive-only evidence cannot justify a more permissive detector.
+        # Break recall ties in favor of fewer aliases and stricter thresholds.
+        candidates.sort(
+            key=lambda item: (
+                -item["positive"]["recall"],
+                item["parameters"]["alias_count"],
+                -item["parameters"]["keywords_threshold"],
+                item["processing_ms"]["p95"],
+            )
+        )
+    if candidates[0]["accepted"]:
+        result = "accepted"
+    elif not negatives:
+        result = "positive_only"
+    elif not candidates[0]["evidence_sufficient"]:
+        result = "provisional"
+    else:
+        result = "failed"
     report = {
         "corpus": str(root),
+        "mode": "full" if negatives else "positive_only",
+        "input": {
+            "positive_samples": len(positives),
+            "negative_samples": len(negatives),
+        },
         "target": {
             "recall": TARGET_RECALL,
             "max_false_wakes_per_hour": MAX_FALSE_WAKES_PER_HOUR,
             "max_processing_ms": MAX_PROCESSING_MS,
         },
-        "result": "accepted" if candidates[0]["accepted"] else "provisional_or_failed",
+        "result": result,
+        "limitations": (
+            []
+            if negatives
+            else [
+                "No negative audio was evaluated; false-wake rate and final acceptance are unavailable."
+            ]
+        ),
         "best": candidates[0],
         "candidates": candidates,
     }
     print(json.dumps(report, indent=2, ensure_ascii=False))
-    return 0 if candidates[0]["accepted"] else 1
+    return 0 if result in {"accepted", "positive_only"} else 1
 
 
 def _purge(args: argparse.Namespace) -> int:
@@ -576,6 +641,11 @@ def _parser() -> argparse.ArgumentParser:
 
     evaluate = subparsers.add_parser("evaluate", help="replay WAVs through production Sherpa")
     evaluate.add_argument("--corpus", type=Path, default=_default_corpus())
+    evaluate.add_argument(
+        "--positive-only",
+        action="store_true",
+        help="ignore negative WAVs and produce a provisional recall-only report",
+    )
     evaluate.add_argument("--thresholds", help="comma-separated keywords thresholds")
     evaluate.add_argument("--scores", help="comma-separated keyword scores")
     evaluate.add_argument("--active-paths", help="comma-separated max active paths")

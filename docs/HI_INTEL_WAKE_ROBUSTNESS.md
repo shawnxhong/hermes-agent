@@ -80,6 +80,12 @@ recall, aggregate recall, false wakes per hour, latency, level diagnostics, and
 whether the evidence is sufficient. Its parameter grid can be overridden with
 `--thresholds`, `--scores`, `--active-paths`, and `--trailing-blanks`.
 
+If no negative WAV exists, `evaluate` automatically runs in `positive_only`
+mode and exits successfully after producing the recall report. It compares the
+canonical phrase alone with the configured hidden aliases, but never marks the
+result accepted or reports a false-wake rate. Use `--positive-only` to request
+the same provisional comparison when negative WAVs are already present.
+
 Recording `record-positive` again with the same `--speaker` replaces that
 speaker's earlier batch. Replacement happens only after every new sample is
 recorded successfully; cancellation or microphone failure keeps the previous

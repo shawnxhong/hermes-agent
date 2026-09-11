@@ -1,7 +1,9 @@
 """Tests for the local, private wake-word replay evaluator."""
 
 import argparse
+import copy
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -59,6 +61,18 @@ def test_parameter_grid_uses_current_effective_values():
     }
     assert list(recall._candidate_grid(cfg, _grid_args())) == [
         (pytest.approx(0.17), 1.0, 4, 1)
+    ]
+
+
+def test_alias_variants_include_canonical_control_and_configured_aliases():
+    assert recall._alias_variants(
+        {
+            "phrase": "Hi Intel",
+            "sherpa": {"aliases": ["High Intel", "hi intel", "Hi in tell"]},
+        }
+    ) == [
+        ("canonical_only", []),
+        ("configured_aliases", ["High Intel", "Hi in tell"]),
     ]
 
 
@@ -186,3 +200,58 @@ def test_acceptance_requires_multi_speaker_and_eight_negative_hours(
     )
     assert result["accepted"] is False
     assert result["evidence"]["negative_sufficient"] is False
+
+
+def test_evaluate_without_negatives_reports_positive_only(
+    monkeypatch, tmp_path, capsys
+):
+    import tools.wake_word as wake_word
+
+    root = recall._prepare_corpus(tmp_path / "wake-corpus")
+    positive = root / "positive" / "speaker-1" / "sample.wav"
+    positive.parent.mkdir(parents=True)
+    positive.write_bytes(b"fixture")
+    monkeypatch.setattr(
+        wake_word,
+        "load_wake_word_config",
+        lambda: {
+            "provider": "sherpa",
+            "phrase": "Hi Intel",
+            "sherpa": {"aliases": ["High Intel"]},
+        },
+    )
+    monkeypatch.setattr(
+        recall,
+        "_candidate_grid",
+        lambda _cfg, _args: [(0.17, 1.0, 4, 1)],
+    )
+    template = {
+        "accepted": False,
+        "evidence_sufficient": False,
+        "positive": {"recall": 1.0},
+        "negative": {"false_wakes_per_hour": None},
+        "processing_ms": {"p95": 1.0},
+    }
+
+    def _fake_candidate(_cfg, _candidate, _files, *, alias_mode, aliases):
+        result = copy.deepcopy(template)
+        result["parameters"] = {
+            "alias_mode": alias_mode,
+            "alias_count": len(aliases),
+            "keywords_threshold": 0.17,
+        }
+        return result
+
+    monkeypatch.setattr(recall, "_evaluate_candidate", _fake_candidate)
+    args = _grid_args()
+    args.corpus = root
+    args.positive_only = False
+    assert recall._evaluate(args) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["mode"] == "positive_only"
+    assert report["result"] == "positive_only"
+    assert report["input"] == {"positive_samples": 1, "negative_samples": 0}
+    assert [item["parameters"]["alias_mode"] for item in report["candidates"]] == [
+        "canonical_only",
+        "configured_aliases",
+    ]
