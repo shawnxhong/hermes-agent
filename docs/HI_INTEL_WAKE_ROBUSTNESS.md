@@ -43,8 +43,9 @@ negative audio from the demo room.
 
 ## Initial configuration
 
-The voice launcher enrolls these hidden variants for the active `Hi Intel`
-profile:
+The voice launcher enrolls the one replay-supported hidden variant for the
+active `Hi Intel` profile and gives the small decoder enough search width for
+cross-speaker pronunciation differences:
 
 ```yaml
 wake_word:
@@ -52,13 +53,17 @@ wake_word:
   sherpa:
     aliases:
       - High Intel
-      - Hi in tell
-      - Hi indel
+    max_active_paths: 16
 ```
 
-These variants cover common acoustic/tokenization confusions without teaching
-users a second phrase. The current effective threshold remains unchanged until
-real replay data supports a different value.
+The hidden variant covers the useful acoustic/tokenization confusion without
+teaching users a second phrase. On the initial three-speaker, 30-positive
+corpus, this changed recall from 14/30 (46.7%) to 20/30 (66.7%). A 36-clip
+synthetic near-phrase smoke corpus produced zero Sherpa triggers before and
+after the change, and P95 processing remained about 4.3 ms per 80 ms frame.
+The effective threshold remains unchanged because positive-only evidence
+cannot establish a false-wake rate. Representative room negatives are still
+required before final acceptance.
 
 ## Calibration workflow
 

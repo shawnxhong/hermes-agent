@@ -60,12 +60,14 @@ def test_mode_launcher_proxy_environment_and_skills(
         assert "SET wake_word.sensitivity 0.30 --force" in result.stderr
         assert "SET wake_word.confirmation_frames 2 --force" in result.stderr
         assert (
-            'SET wake_word.sherpa.aliases ["High Intel", "Hi in tell", "Hi indel"] --force'
+            'SET wake_word.sherpa.aliases ["High Intel"] --force'
             in result.stderr
         )
+        assert "SET wake_word.sherpa.max_active_paths 16 --force" in result.stderr
     else:
         assert "wake_word.sensitivity" not in result.stderr
         assert "wake_word.sherpa.aliases" not in result.stderr
+        assert "wake_word.sherpa.max_active_paths" not in result.stderr
     assert values["http_proxy"] == (override or "http://personal.example:7897")
     assert values["HTTPS_PROXY"] == (override or None)
     assert "existing.example" in values["NO_PROXY"].split(",")
