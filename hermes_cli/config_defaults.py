@@ -2100,6 +2100,16 @@ DEFAULT_CONFIG = {
             # Optional path to a sherpa-onnx KWS model directory. Empty =
             # auto-download the small English zipformer model on first use.
             "model_dir": "",
+            # Optional hidden acoustic/tokenization variants for the active
+            # profile's phrase. A match is always reported as the canonical
+            # wake_word.phrase; aliases are never user-visible alternatives.
+            "aliases": [],
+            # null preserves the shared sensitivity -> threshold mapping.
+            # Set directly only after replay calibration (higher = stricter).
+            "keywords_threshold": None,
+            "keywords_score": 1.0,
+            "max_active_paths": 4,
+            "num_trailing_blanks": 1,
         },
         "porcupine": {
             # Built-in keyword ("jarvis", "computer", "bumblebee", ...) or a path

@@ -59,8 +59,20 @@ and open exactly one answer window. This prevents both microphone contention and
 the old unconditional post-answer ASR loop.
 
 The demo launcher also sets `wake_word.sensitivity: 0.30` (previously 0.45)
-and `wake_word.confirmation_frames: 2`. For the configured sherpa provider,
-the lower sensitivity maps to a more permissive keyword threshold.
+and `wake_word.confirmation_frames: 2`. For the configured Sherpa provider,
+the lower sensitivity maps to a more permissive keyword threshold;
+`confirmation_frames` applies only to openWakeWord and is retained for
+cross-provider compatibility.
+
+To improve recognition across US-English speakers without changing what users
+are told to say, the launcher also enrolls `High Intel`, `Hi in tell`, and
+`Hi indel` as hidden Sherpa tokenization variants. A hit on any variant is
+reported and routed as the canonical `hi intel`. Independent Sherpa threshold,
+score, beam-path, and trailing-blank controls plus the private local replay
+workflow are documented in [HI_INTEL_WAKE_ROBUSTNESS.md](HI_INTEL_WAKE_ROBUSTNESS.md).
+The initial aliases passed a real-engine synthetic positive and a confusable
+speech smoke check, but final cross-user recall and eight-hour false-wake
+acceptance still require the consented local corpus.
 
 Validation: native CLI wake callback order, real WAV cache contract, disable,
 failure and cancellation paths, plus existing wake, follow-up, travel, email,

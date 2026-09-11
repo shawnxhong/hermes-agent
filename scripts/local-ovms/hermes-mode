@@ -82,6 +82,11 @@ case "$mode" in
     # setting while retaining a useful margin against ambient conversation.
     "$HERMES_BIN" config set wake_word.sensitivity 0.30 --force >/dev/null
     "$HERMES_BIN" config set wake_word.confirmation_frames 2 --force >/dev/null
+    # Keep "Hi Intel" as the only advertised phrase. These hidden Sherpa
+    # spellings cover common cross-speaker acoustic/tokenization confusions;
+    # every match is canonicalized back to Hi Intel by the detector.
+    "$HERMES_BIN" config set wake_word.sherpa.aliases \
+      '["High Intel", "Hi in tell", "Hi indel"]' --force >/dev/null
     "$HERMES_BIN" config set stt.enabled true --force >/dev/null
     "$HERMES_BIN" config set stt.local.unload_after_idle_seconds 300 --force >/dev/null
     "$HERMES_BIN" config set voice.auto_tts true --force >/dev/null

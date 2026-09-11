@@ -388,6 +388,111 @@ def _install_fake_sherpa(monkeypatch, tmp_path):
     return calls, model_dir
 
 
+def test_sherpa_defaults_preserve_existing_threshold_and_decoder_settings(
+    monkeypatch, tmp_path
+):
+    calls, model_dir = _install_fake_sherpa(monkeypatch, tmp_path)
+    monkeypatch.setattr(ww, "_active_profile_name", lambda: "demo")
+
+    engine = ww._SherpaKwsEngine(
+        {
+            "provider": "sherpa",
+            "phrase": "Hi Intel",
+            "sensitivity": 0.30,
+            "profile_routing": False,
+            "sherpa": {"model_dir": str(model_dir)},
+        }
+    )
+    try:
+        assert calls["text2token"] == [["HI INTEL"]]
+        kwargs = calls["spotter"][0]
+        assert kwargs["keywords_threshold"] == pytest.approx(0.17)
+        assert kwargs["keywords_score"] == 1.0
+        assert kwargs["max_active_paths"] == 4
+        assert kwargs["num_trailing_blanks"] == 1
+    finally:
+        engine.close()
+
+
+def test_sherpa_hidden_alias_matches_canonical_phrase(monkeypatch, tmp_path):
+    calls, model_dir = _install_fake_sherpa(monkeypatch, tmp_path)
+    monkeypatch.setattr(ww, "_active_profile_name", lambda: "demo")
+
+    engine = ww._SherpaKwsEngine(
+        {
+            "provider": "sherpa",
+            "phrase": "  Hi   Intel ",
+            "profile_routing": False,
+            "sherpa": {
+                "model_dir": str(model_dir),
+                "aliases": ["High Intel", " hi intel ", "Hi in tell", ""],
+            },
+        }
+    )
+    try:
+        assert calls["text2token"] == [["HI INTEL", "HIGH INTEL", "HI IN TELL"]]
+        calls["results"].append("HIGH_INTEL")
+        assert engine.process([0] * engine.frame_length) is True
+        assert engine.last_match == ("hi intel", "demo")
+    finally:
+        engine.close()
+
+
+def test_sherpa_explicit_tuning_is_bounded(monkeypatch, tmp_path):
+    calls, model_dir = _install_fake_sherpa(monkeypatch, tmp_path)
+    monkeypatch.setattr(ww, "_active_profile_name", lambda: "demo")
+
+    engine = ww._SherpaKwsEngine(
+        {
+            "provider": "sherpa",
+            "phrase": "Hi Intel",
+            "profile_routing": False,
+            "sherpa": {
+                "model_dir": str(model_dir),
+                "keywords_threshold": 2,
+                "keywords_score": 99,
+                "max_active_paths": 0,
+                "num_trailing_blanks": 99,
+            },
+        }
+    )
+    try:
+        kwargs = calls["spotter"][0]
+        assert kwargs["keywords_threshold"] == 1.0
+        assert kwargs["keywords_score"] == 10.0
+        assert kwargs["max_active_paths"] == 1
+        assert kwargs["num_trailing_blanks"] == 20
+    finally:
+        engine.close()
+
+
+def test_sherpa_aliases_do_not_steal_an_enrolled_profile_phrase(
+    monkeypatch, tmp_path
+):
+    calls, model_dir = _install_fake_sherpa(monkeypatch, tmp_path)
+    monkeypatch.setattr(ww, "_active_profile_name", lambda: "default")
+    monkeypatch.setattr(ww, "enrolled_profile_phrases", lambda: {"coder": "High Intel"})
+
+    engine = ww._SherpaKwsEngine(
+        {
+            "provider": "sherpa",
+            "phrase": "Hi Intel",
+            "profile_routing": True,
+            "sherpa": {
+                "model_dir": str(model_dir),
+                "aliases": ["High Intel"],
+            },
+        }
+    )
+    try:
+        assert calls["text2token"] == [["HI INTEL", "HIGH INTEL"]]
+        calls["results"].append("HIGH_INTEL")
+        assert engine.process([0] * engine.frame_length) is True
+        assert engine.last_match == ("high intel", "coder")
+    finally:
+        engine.close()
+
+
 # ── Multi-profile phrase routing ─────────────────────────────────────────
 
 
@@ -616,6 +721,35 @@ def test_detection_callback_can_pause_and_close_stream(monkeypatch, tmp_path):
     assert ww.is_listening() is False
     assert streams[0].closed is True
     assert ww.stop_listening(owner=owner) is True
+
+
+def test_detection_callback_dispatches_within_half_a_second(monkeypatch, tmp_path):
+    detected_at = []
+    callback_at = []
+    callback_done = threading.Event()
+
+    class _TimedEngine(_FakeEngine):
+        def process(self, frame):
+            if not detected_at:
+                detected_at.append(time.monotonic())
+                return True
+            return False
+
+    _fake_audio(monkeypatch)
+    monkeypatch.setattr(ww, "_build_engine", lambda cfg: _TimedEngine())
+    monkeypatch.setattr(ww, "_lock_path", lambda: tmp_path / "wake.lock")
+    owner = object()
+
+    def _on_wake():
+        callback_at.append(time.monotonic())
+        callback_done.set()
+
+    ww.start_listening(_on_wake, owner=owner, config={})
+    try:
+        assert callback_done.wait(2)
+        assert callback_at[0] - detected_at[0] < 0.5
+    finally:
+        ww.stop_listening(owner=owner)
 
 
 def test_startup_failure_releases_owner_and_machine_lock(monkeypatch, tmp_path):

@@ -628,6 +628,67 @@ _SHERPA_KWS_MODEL_URL = (
 )
 _SHERPA_KWS_MODEL_DIR = "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"
 
+_SHERPA_MAX_ALIASES = 16
+
+
+def _normalize_spoken_phrase(value: Any) -> str:
+    """Collapse whitespace in a configured phrase without changing spelling."""
+    return " ".join(str(value or "").strip().split())
+
+
+def _sherpa_aliases(sub: Dict[str, Any], canonical: str) -> list[str]:
+    """Return bounded, case-insensitively deduplicated hidden aliases."""
+    raw = sub.get("aliases", [])
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, (list, tuple)):
+        return []
+
+    seen = {canonical.casefold()}
+    aliases: list[str] = []
+    for value in raw:
+        phrase = _normalize_spoken_phrase(value)
+        folded = phrase.casefold()
+        if not phrase or folded in seen:
+            continue
+        seen.add(folded)
+        aliases.append(phrase)
+        if len(aliases) >= _SHERPA_MAX_ALIASES:
+            logger.warning(
+                "wake word: ignoring Sherpa aliases after the first %d",
+                _SHERPA_MAX_ALIASES,
+            )
+            break
+    return aliases
+
+
+def _bounded_sherpa_float(
+    sub: Dict[str, Any], key: str, default: float, minimum: float, maximum: float
+) -> float:
+    raw = sub.get(key, default)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        logger.warning("wake word: invalid sherpa.%s=%r; using %s", key, raw, default)
+        return default
+    if value != value:  # NaN
+        return default
+    return max(minimum, min(maximum, value))
+
+
+def _bounded_sherpa_int(
+    sub: Dict[str, Any], key: str, default: int, minimum: int, maximum: int
+) -> int:
+    raw = sub.get(key, default)
+    if isinstance(raw, bool):
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError, OverflowError):
+        logger.warning("wake word: invalid sherpa.%s=%r; using %s", key, raw, default)
+        return default
+    return max(minimum, min(maximum, value))
+
 
 def _sherpa_model_root() -> Path:
     from hermes_constants import get_hermes_home
@@ -686,14 +747,28 @@ class _SherpaKwsEngine(_Engine):
         # on — every other wake-enabled profile's phrase, so ONE listener can
         # wake any profile ("hey hermes" / "hey coder" / ...). display-name →
         # profile is kept for routing the match back.
-        phrase = str(_get(cfg, "phrase") or "hey hermes").strip()
+        phrase = _normalize_spoken_phrase(_get(cfg, "phrase") or "hey hermes")
         own_profile = _active_profile_name()
         phrase_map: Dict[str, str] = {phrase: own_profile}
+        canonical_phrases = {phrase.casefold()}
         if bool(cfg.get("profile_routing", True)):
             for prof, p in enrolled_profile_phrases().items():
-                phrase_map.setdefault(p.strip(), prof)
+                normalized = _normalize_spoken_phrase(p)
+                folded = normalized.casefold()
+                if normalized and folded not in canonical_phrases:
+                    phrase_map[normalized] = prof
+                    canonical_phrases.add(folded)
 
-        phrases = list(phrase_map)
+        # Canonical phrases always win collisions. Hidden aliases apply only
+        # to the active profile and route back to its canonical phrase.
+        entries: list[tuple[str, str, str]] = [
+            (spoken, spoken, profile) for spoken, profile in phrase_map.items()
+        ]
+        for alias in _sherpa_aliases(sub, phrase):
+            if alias.casefold() not in canonical_phrases:
+                entries.append((alias, phrase, own_profile))
+
+        phrases = [spoken for spoken, _canonical, _profile in entries]
         # Runtime tokenization of the arbitrary phrases — the open-vocab core.
         tokens = text2token(
             [p.upper() for p in phrases],
@@ -706,12 +781,18 @@ class _SherpaKwsEngine(_Engine):
         # sherpa keyword entries reject spaces in the @display-name; underscore
         # them and map display → profile for match routing.
         self._display_to_profile: Dict[str, str] = {}
+        self._display_to_match: Dict[str, tuple[str, str]] = {}
+        used_displays: set[str] = set()
         kw = tempfile.NamedTemporaryFile(
             mode="w", suffix=".txt", prefix="hermes-kws-", delete=False, encoding="utf-8"
         )
-        for p, toks in zip(phrases, tokens):
-            display = p.upper().replace(" ", "_")
-            self._display_to_profile[display] = phrase_map[p]
+        for index, ((spoken, canonical, profile), toks) in enumerate(zip(entries, tokens)):
+            display = spoken.upper().replace(" ", "_")
+            if display in used_displays:
+                display = f"HERMES_WAKE_{index}"
+            used_displays.add(display)
+            self._display_to_profile[display] = profile
+            self._display_to_match[display] = (canonical.casefold(), profile)
             kw.write(" ".join(toks) + f" @{display}\n")
         kw.close()
         self._keywords_file = kw.name
@@ -722,7 +803,32 @@ class _SherpaKwsEngine(_Engine):
         # 0.5 lands exactly on sherpa's recommended default (0.25); live TTS
         # matrix testing showed our previous stricter mapping (0.35) missed
         # ~12% of true positives while 0.25 held zero false fires.
-        threshold = 0.05 + 0.4 * _sensitivity(cfg)
+        mapped_threshold = 0.05 + 0.4 * _sensitivity(cfg)
+        configured_threshold = sub.get("keywords_threshold")
+        threshold = (
+            mapped_threshold
+            if configured_threshold is None
+            else _bounded_sherpa_float(
+                sub, "keywords_threshold", mapped_threshold, 0.0, 1.0
+            )
+        )
+        score = _bounded_sherpa_float(sub, "keywords_score", 1.0, 0.0, 10.0)
+        max_active_paths = _bounded_sherpa_int(
+            sub, "max_active_paths", 4, 1, 64
+        )
+        num_trailing_blanks = _bounded_sherpa_int(
+            sub, "num_trailing_blanks", 1, 0, 20
+        )
+        logger.info(
+            "wake word: Sherpa phrases=%d hidden_aliases=%d threshold=%.3f "
+            "score=%.3f active_paths=%d trailing_blanks=%d",
+            len(entries),
+            len(entries) - len(phrase_map),
+            threshold,
+            score,
+            max_active_paths,
+            num_trailing_blanks,
+        )
 
         def _model_file(pattern: str) -> str:
             hits = sorted(d.glob(pattern))
@@ -737,6 +843,9 @@ class _SherpaKwsEngine(_Engine):
             joiner=_model_file("joiner-*[!8].onnx"),
             keywords_file=self._keywords_file,
             keywords_threshold=threshold,
+            keywords_score=score,
+            max_active_paths=max_active_paths,
+            num_trailing_blanks=num_trailing_blanks,
             num_threads=1,
         )
         self._stream = self._spotter.create_stream()
@@ -752,10 +861,13 @@ class _SherpaKwsEngine(_Engine):
             result = self._spotter.get_result(self._stream)
             if result:
                 fired = True
-                display = str(result)
-                self.last_match = (
-                    display.replace("_", " ").lower(),
-                    self._display_to_profile.get(display, ""),
+                display = str(result).strip()
+                self.last_match = self._display_to_match.get(
+                    display,
+                    (
+                        display.replace("_", " ").casefold(),
+                        self._display_to_profile.get(display, ""),
+                    ),
                 )
                 # Reset decoder state so one utterance can't fire repeatedly.
                 self._spotter.reset_stream(self._stream)
