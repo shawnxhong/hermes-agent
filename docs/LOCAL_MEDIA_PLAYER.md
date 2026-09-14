@@ -15,12 +15,16 @@ session with its user systemd manager. Copy the skill directory from
 desktop user's `~/hermes-demo-media/`. No Python packages, credentials or
 model changes are required by the helper. No new boot service is installed.
 
-For reliable local-Qwen routing, preload in a new Hermes session:
+For stronger local-Qwen routing, preload in a new Hermes session:
 `hermes --cli --skills travel-concierge,local-media-player` (or only
 `local-media-player` if travel is not wanted). Normal skill discovery exposes
 its description but was not reliable with the full tool catalog: Qwen sometimes
 skipped skills and tried desktop controls or another player. Adding synonyms
 alone does not guarantee discovery. Native preload changes no harness code.
+Full-tool tests also showed occasional unwanted GUI verification after player
+startup, even with preload. This release broadens language handling but is NOT
+a fully reliable fix for model tool selection. Do not report the full-tool
+English playback acceptance as consistently passing.
 An already-open session retains its original prompt; restart it normally.
 
 Try "Play the demo audio", "Stop the audio", "Play the demo video", or
