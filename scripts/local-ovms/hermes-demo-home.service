@@ -1,0 +1,13 @@
+[Unit]
+Description=Hermes simulated home appliances (local demo only)
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.hermes/plugins/demo-home/simulator.py serve --db %h/.hermes/demo-home/state.sqlite3
+Restart=on-failure
+RestartSec=2
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
