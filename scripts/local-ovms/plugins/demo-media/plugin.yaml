@@ -1,6 +1,6 @@
 name: demo-media
-version: 0.1.0
-description: Bounded local demo media playback without desktop verification loops.
+version: 0.2.0
+description: List and play Desktop media without desktop verification loops.
 author: shawnxhong
 hooks:
   - run_turn_workflow

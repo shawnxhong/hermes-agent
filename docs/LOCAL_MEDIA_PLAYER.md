@@ -1,89 +1,55 @@
-# Local MP3 / MP4 playback demo
+# Desktop media playback
 
-## Current release: bounded media plugin
+Current skill v0.4 lists and plays real media files directly in `~/Desktop`.
+The old demo.mp3/demo.mp4 defaults are no longer required or preferred.
+Adding/removing media files needs no restart; changing plugin code does.
 
-Install `scripts/local-ovms/plugins/demo-media` in the profile's `plugins/`
-directory, enable `demo-media` in `plugins.enabled`, and restart Hermes normally.
-Keep `general-voice` enabled. The native loader orders `demo-media` ahead of
-`general-voice`; installation smoke must verify that order. The migration bundle
-contains the plugin, skill and media, but never a user's config or credentials.
+## Architecture
 
-The media plugin conservatively recognizes potential playback requests. One
-local Qwen call selects mp3/mp4/stop/status or declines the request. A selected
-action invokes the existing helper and returns a truthful brief final response
-through the native `run_turn_workflow` handled-result interface. There is no
-post-playback LLM call, so screenshot verification cannot loop on this path.
-No core monkeypatches, global tool restrictions, or main prompt/toolset swaps.
-Only the narrow action-selection call uses the media schema.
+The existing `demo-media` native plugin recognizes media commands, asks the
+local model once for an action and a user-supplied title fragment, and invokes
+the installed helper. `run_turn_workflow` returns a handled result immediately:
+there is no post-playback model/GUI verification loop. Main harness, model,
+system prompts, general voice delivery and unrelated tasks are unchanged.
 
-Named other files, combined requests, explanations, negation and non-media
-tasks are declined by the media selector and retain native behavior. Bare stop
-applies only immediately after a media task in the same process/session.
-Selection failure is bounded (20s, no retry) and starts no player. This fixed-
-asset shortcut does not intercept explicit requests to troubleshoot a GUI.
-The exposed native `local_media` tool also marks completed operations; its
-extra GUI guard is keyed to exact session/turn and does not affect later tasks.
+`local_media` actions: `list`, `play`, `mp3` (audio), `mp4` (video), `stop`,
+`status`. `target` is an optional filename/title fragment. Missing/ambiguous
+matches start nothing; one matching file starts immediately. The helper scans
+each call, excludes hidden/empty files and symlinks, accepts only supported
+media extensions and never shells out with filenames in command strings.
+The model selector may not invent a replacement title absent from the request.
+After listing, a matching bare name in the next turn is accepted. No persistent
+file inventory, content interpretation, transliteration aliases or downloads.
 
-The skill-only routing limitations below describe the previous release and
-motivate this plugin. Preload is now optional for ordinary default-media
-commands; the enabled plugin handles them even if the model skips skill_view.
+Supported: MP3/WAV/FLAC/OGG/M4A/AAC/OPUS and MP4/MKV/WEBM/MOV/AVI/M4V.
+Nonrecursive Desktop scope; paths outside Desktop and URLs are not accepted by
+this player. Filename matching ignores case and punctuation; distinctive title
+fragments are supported. Multiple matches ask a short ordinary question.
+At most six names appear in the brief response; the tool returns the full list.
 
-This isolated skill/plugin uses a local terminal helper. No changes to
-core, tool definitions, model settings, wake detection or general voice policy.
-Fixed assets: `~/Desktop/demo.mp3` and `~/Desktop/demo.mp4`.
-The MP3 is local Kokoro English narration; MP4 is a 720p title/waveform card
-with that narration. Both are fully offline at playback time.
+## Install / update
 
-## Install / migrate
+Copy `scripts/local-ovms/plugins/demo-media/` to the profile's `plugins/` and
+`scripts/local-ovms/skills/local-media-player/` to `skills/media/`.
+Enable `demo-media` in `plugins.enabled`; keep `general-voice` enabled.
+The native loader orders demo-media first. Restart gateway/CLI normally after
+backing up and updating these files; do not replace core or user configuration.
+Ubuntu needs ffplay (ffmpeg package) and the desktop user's systemd manager.
+Never copy generated demo assets over the user's real Desktop files.
 
-On Ubuntu install ffmpeg if absent (provides ffplay), and use an active desktop
-session with its user systemd manager. Copy the skill directory from
-`scripts/local-ovms/skills/local-media-player` into the actual profile's
-`skills/media/local-media-player`. Copy the two generated assets into the
-desktop user's `~/Desktop/`. No Python packages, credentials or
-model changes are required by the helper. No new boot service is installed.
+Try "List media on Desktop", "Play Dragonfly", "Play nanshannan.mp3",
+"Play the MP4 video", "播放视频", "Stop the video".
+IM commands play on the Ubuntu host, not on the phone.
 
-For stronger local-Qwen routing, preload in a new Hermes session:
-`hermes --cli --skills travel-concierge,local-media-player` (or only
-`local-media-player` if travel is not wanted). Normal skill discovery exposes
-its description but was not reliable with the full tool catalog: Qwen sometimes
-skipped skills and tried desktop controls or another player. Adding synonyms
-alone does not guarantee discovery. Native preload changes no harness code.
-Full-tool tests also showed occasional unwanted GUI verification after player
-startup, even with preload. This release broadens language handling but is NOT
-a fully reliable fix for model tool selection. Do not report the full-tool
-English playback acceptance as consistently passing.
-An already-open session retains its original prompt; restart it normally.
+The owned transient unit is `hermes-demo-media.service`; it auto-exits at EOF.
+Only this player is stopped/replaced, not VLC, browser or TTS processes.
+Selection has a 20-second timeout without retries. Failures are reported, not
+converted to success. Physical audibility and ASR/TTS overlap need manual checks.
 
-Try "Play the demo audio", "Stop the audio", "Play the demo video", or
-"播放视频". Only explicit media tasks use this skill. IM plays media on
-the Ubuntu desktop, not on the phone. Player startup does not prove audibility.
-"play the mp4 video", "MP four video", "put on some music" and Chinese
-equivalents select fixed defaults without asking for a filename. A named
-different file, song/movie or URL is not silently replaced with the demo.
+## Tests
 
-The helper starts a transient `hermes-demo-media.service` owned by the desktop
-user. It exits with the clip and never stops unrelated players. Check with
-`systemctl --user status hermes-demo-media.service`; stop with
-`systemctl --user stop hermes-demo-media.service`.
-
-## Generate assets
-
-Generate `narration.wav` with the existing local Kokoro helper using
-`scripts/local-ovms/media-demo-narration.txt`. Then run:
-
-```bash
-python3 scripts/local-ovms/prepare-media-demo.py --wav /path/to/narration.wav
-```
-
-Generation refuses to overwrite existing MP3/MP4 assets. Deployment preserves
-existing files; back them up before an intentional replacement. Binary media
-is delivered separately from Git, alongside the skill in the migration bundle.
-
-## Scope / limits
-
-- English-first skill with Chinese triggers; no model-generated media paths.
-- This version plays only the fixed demo pair, not arbitrary paths or URLs.
-- Device routing/volume and ASR/TTS coordination are unchanged. A brief spoken
-  acknowledgment may overlap playback; test this on the final microphone setup.
-- Failure or missing desktop/file is reported, not silently converted to success.
+Run `scripts/run_tests.sh tests/skills/test_local_media_player_skill.py tests/skills/test_demo_media_plugin.py -q`.
+Coverage includes listing, partial names, WAV audio, missing/ambiguous files,
+symlink/path rejection, safe argv, tool completion and cross-task isolation.
+Real local-model smoke should include list → title, exact/partial filename,
+missing filename, ambiguous generic audio and stop, checking the owned player.
