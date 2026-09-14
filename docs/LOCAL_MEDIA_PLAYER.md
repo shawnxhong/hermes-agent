@@ -1,6 +1,34 @@
 # Local MP3 / MP4 playback demo
 
-This isolated skill uses native Hermes terminal execution. No changes to
+## Current release: bounded media plugin
+
+Install `scripts/local-ovms/plugins/demo-media` in the profile's `plugins/`
+directory, enable `demo-media` in `plugins.enabled`, and restart Hermes normally.
+Keep `general-voice` enabled. The native loader orders `demo-media` ahead of
+`general-voice`; installation smoke must verify that order. The migration bundle
+contains the plugin, skill and media, but never a user's config or credentials.
+
+The media plugin conservatively recognizes potential playback requests. One
+local Qwen call selects mp3/mp4/stop/status or declines the request. A selected
+action invokes the existing helper and returns a truthful brief final response
+through the native `run_turn_workflow` handled-result interface. There is no
+post-playback LLM call, so screenshot verification cannot loop on this path.
+No core monkeypatches, global tool restrictions, or main prompt/toolset swaps.
+Only the narrow action-selection call uses the media schema.
+
+Named other files, combined requests, explanations, negation and non-media
+tasks are declined by the media selector and retain native behavior. Bare stop
+applies only immediately after a media task in the same process/session.
+Selection failure is bounded (20s, no retry) and starts no player. This fixed-
+asset shortcut does not intercept explicit requests to troubleshoot a GUI.
+The exposed native `local_media` tool also marks completed operations; its
+extra GUI guard is keyed to exact session/turn and does not affect later tasks.
+
+The skill-only routing limitations below describe the previous release and
+motivate this plugin. Preload is now optional for ordinary default-media
+commands; the enabled plugin handles them even if the model skips skill_view.
+
+This isolated skill/plugin uses a local terminal helper. No changes to
 core, tool definitions, model settings, wake detection or general voice policy.
 Fixed assets: `~/hermes-demo-media/demo.mp3` and `demo.mp4` (desktop user's home).
 The MP3 is local Kokoro English narration; MP4 is a 720p title/waveform card
