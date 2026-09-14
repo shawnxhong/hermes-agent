@@ -21,6 +21,19 @@ _recent = OrderedDict()
 _completed = OrderedDict()
 
 
+def outside_default_scope(text):
+    # A model must never substitute a demo for an explicitly named other file.
+    # These conservative exclusions only decline this shortcut; native Hermes
+    # remains free to handle the user's actual request.
+    names = re.findall(r'[\w.-]+\.mp[34]\b', text, re.I)
+    if any(name.casefold() not in {'demo.mp3', 'demo.mp4'} for name in names):
+        return True
+    return bool(re.search(
+        r"https?://|file://|\b(?:named|called|titled|and|then|also|never)\b|"
+        r"\b(?:do\s+not|don['’]t)\b|不要|不用|名为|然后|并且|同时|(?:并.{0,12}(?:发|写|查))",
+        text, re.I))
+
+
 def _remember(mapping, key, value):
     with _lock:
         mapping[key] = value
@@ -91,6 +104,8 @@ def workflow(*, agent, user_message, session_id, **kwargs):
         return None
     with _lock:
         recent = bool(_recent.pop(str(session_id), False))
+    if outside_default_scope(user_message):
+        return None
     candidate = bool(MEDIA.search(user_message) and VERB.search(user_message))
     if not candidate and not (recent and BARE_STOP.fullmatch(user_message.strip())):
         return None
