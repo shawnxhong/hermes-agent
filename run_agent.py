@@ -148,6 +148,7 @@ from tools.browser_tool import cleanup_browser
 
 # Agent internals extracted to agent/ package for modularity
 from agent.memory_manager import sanitize_context
+from agent.control_marker_sanitization import strip_control_marker_echoes
 from agent.memory_provider import is_trivial_prompt
 from agent.error_classifier import FailoverReason
 from agent.redact import redact_sensitive_text
@@ -6617,6 +6618,28 @@ class AIAgent:
 
     def _reset_stream_delivery_tracking(self) -> None:
         """Reset tracking for text delivered during the current model response."""
+        control_scrubber = getattr(self, "_stream_control_marker_scrubber", None)
+
+        def _deliver_tail(tail: str, *, through_control: bool = True) -> None:
+            if through_control:
+                if control_scrubber is not None:
+                    tail = control_scrubber.feed(tail)
+                else:
+                    tail = strip_control_marker_echoes(tail)
+            if not tail:
+                return
+            callbacks = [
+                cb
+                for cb in (self.stream_delta_callback, self._stream_callback)
+                if cb is not None
+            ]
+            for cb in callbacks:
+                try:
+                    cb(tail)
+                except Exception:
+                    pass
+            self._record_streamed_assistant_text(tail)
+
         # Flush any benign partial-tag tail held by the think scrubber
         # first (#17924): an innocent '<' at the end of the stream that
         # turned out not to be a tag prefix should reach the UI.  Then
@@ -6632,28 +6655,16 @@ class AIAgent:
                 ctx_scrubber = getattr(self, "_stream_context_scrubber", None)
                 if ctx_scrubber is not None:
                     think_tail = ctx_scrubber.feed(think_tail)
-                if think_tail:
-                    callbacks = [cb for cb in (self.stream_delta_callback, self._stream_callback) if cb is not None]
-                    for cb in callbacks:
-                        try:
-                            cb(think_tail)
-                        except Exception:
-                            pass
-                    self._record_streamed_assistant_text(think_tail)
+                _deliver_tail(think_tail)
         # Flush any benign partial-tag tail held by the context scrubber so it
         # reaches the UI before we clear state for the next model call.  If
         # the scrubber is mid-span, flush() drops the orphaned content.
         scrubber = getattr(self, "_stream_context_scrubber", None)
         if scrubber is not None:
             tail = scrubber.flush()
-            if tail:
-                callbacks = [cb for cb in (self.stream_delta_callback, self._stream_callback) if cb is not None]
-                for cb in callbacks:
-                    try:
-                        cb(tail)
-                    except Exception:
-                        pass
-                self._record_streamed_assistant_text(tail)
+            _deliver_tail(tail)
+        if control_scrubber is not None:
+            _deliver_tail(control_scrubber.flush(), through_control=False)
         self._current_streamed_assistant_text = ""
 
     def _record_streamed_assistant_text(self, text: str) -> None:
@@ -7014,6 +7025,11 @@ class AIAgent:
             else:
                 # Defensive: legacy callers without the scrubber attribute.
                 text = sanitize_context(text)
+            control_scrubber = getattr(self, "_stream_control_marker_scrubber", None)
+            if control_scrubber is not None:
+                text = control_scrubber.feed(text)
+            else:
+                text = strip_control_marker_echoes(text)
             # Only strip leading newlines on the first delta — mid-stream "\n" is legitimate markdown.
             if not prepended_break and not getattr(
                 self, "_current_streamed_assistant_text", ""
@@ -8642,6 +8658,7 @@ class AIAgent:
         persist_user_display_kind: Optional[str] = None,
         persist_user_display_metadata: Optional[Dict[str, Any]] = None,
         moa_config: Optional[dict[str, Any]] = None,
+        input_modality: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Forwarder — see ``agent.conversation_loop.run_conversation``."""
         # A review deliberately shares this agent's session_id for prompt-cache
@@ -8658,7 +8675,7 @@ class AIAgent:
             set_accounting_context,
         )
         from agent import relay_runtime
-        from agent.conversation_loop import run_conversation
+        from agent.turn_workflow import run_scoped_conversation as run_conversation
         from agent.portal_tags import (
             reset_conversation_context,
             set_conversation_context,
@@ -9016,6 +9033,7 @@ class AIAgent:
                         persist_user_display_kind=persist_user_display_kind,
                         persist_user_display_metadata=persist_user_display_metadata,
                         moa_config=moa_config,
+                        input_modality=input_modality,
                     )
                 finally:
                     # The lease remains held through relay/task finalization, but

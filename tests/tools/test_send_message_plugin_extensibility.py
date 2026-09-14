@@ -188,10 +188,12 @@ def test_cli_and_cron_share_plugin_target_normalization(plugin_platform, monkeyp
     }
 
 
-def test_send_message_remains_host_only(plugin_platform):
+def test_send_message_is_registered_for_explicit_voice_delivery(plugin_platform):
     from tools.registry import registry
 
-    assert registry.get_entry("send_message") is None
+    entry = registry.get_entry("send_message")
+    assert entry is not None
+    assert entry.toolset == "voice_delivery"
 
 
 def test_force_reload_unregisters_profile_owned_platform(plugin_platform, monkeypatch):
@@ -269,4 +271,4 @@ print(json.dumps({"host_send": host_send, "cron": cron,
     payload = json.loads(completed.stdout.strip().splitlines()[-1])
     assert payload["host_send"]["chat_id"] == "@alice@example.com"
     assert payload["cron"]["chat_id"] == "@alice@example.com"
-    assert payload["model_registered"] is False
+    assert payload["model_registered"] is True

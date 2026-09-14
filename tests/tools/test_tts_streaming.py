@@ -6,12 +6,14 @@ synth path are all mocked. Covers the registry/resolver, provider availability,
 the chunked-streamer playback path, and the universal per-sentence sync fallback.
 """
 
+import json
 import os
 import queue
 import sys
 import tempfile
 import threading
 import time
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -171,6 +173,44 @@ def _sd_mock():
     out = MagicMock()
     sd.OutputStream.return_value = out
     return sd, out
+
+
+def test_sync_playback_barrier_waits_for_prior_audio(monkeypatch):
+    """The clarify microphone barrier must not fire before playback ends."""
+    from tools import tts_tool
+
+    playback_started = threading.Event()
+    release_playback = threading.Event()
+
+    def _fake_synth(*, text, output_path, **_kwargs):
+        Path(output_path).write_bytes(b"audio")
+        return json.dumps({"success": True, "file_path": output_path})
+
+    def _fake_play(_path):
+        playback_started.set()
+        assert release_playback.wait(2)
+
+    monkeypatch.setattr(ts, "resolve_streaming_provider", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(tts_tool, "text_to_speech_tool", _fake_synth)
+    monkeypatch.setattr("tools.voice_mode.play_audio_file", _fake_play)
+
+    barrier = tts_tool.TTSPlaybackBarrier()
+    q = queue.Queue()
+    q.put(tts_tool.ImmediateTTSUtterance("Please answer."))
+    q.put(barrier)
+    q.put(None)
+    stop, done = threading.Event(), threading.Event()
+    worker = threading.Thread(
+        target=tts_tool.stream_tts_to_speaker, args=(q, stop, done), daemon=True
+    )
+    worker.start()
+
+    assert playback_started.wait(2)
+    assert not barrier.wait(0.05)
+    release_playback.set()
+    assert barrier.wait(2)
+    worker.join(timeout=2)
+    assert done.is_set()
 
 
 # ── Dispatch: universal per-sentence sync fallback ───────────────────────
@@ -958,3 +998,58 @@ def test_sync_pipeline_cleans_temp_files(monkeypatch):
     assert created, "expected temp files to be created via mkstemp"
     leftovers = [p for p in created if os.path.exists(p)]
     assert not leftovers, f"temp files not cleaned: {leftovers}"
+
+
+def test_sync_pipeline_plays_actual_path_returned_by_command_provider(monkeypatch):
+    """Command providers may replace the requested .mp3 suffix with .wav."""
+    from tools import tts_tool
+
+    generated = []
+    played = []
+
+    def fake_synth(text, output_path):
+        del text
+        actual_path = str(Path(output_path).with_suffix(".wav"))
+        Path(actual_path).write_bytes(b"RIFF" + b"x" * 100)
+        generated.append(actual_path)
+        return json.dumps({"success": True, "file_path": actual_path})
+
+    monkeypatch.setattr(tts_tool, "text_to_speech_tool", fake_synth)
+    fake_vm = MagicMock()
+    fake_vm.play_audio_file.side_effect = lambda path: played.append(path)
+    monkeypatch.setitem(sys.modules, "tools.voice_mode", fake_vm)
+
+    q = _drain_queue(["Command provider sentence. "])
+    stop, done = threading.Event(), threading.Event()
+    with patch("tools.tts_streaming.resolve_streaming_provider", return_value=None):
+        tts_tool.stream_tts_to_speaker(q, stop, done)
+
+    assert generated, "expected the command provider to generate one WAV"
+    assert played == generated
+    assert done.is_set()
+    assert all(not os.path.exists(path) for path in generated)
+
+
+def test_immediate_utterance_bypasses_short_sentence_buffer(monkeypatch):
+    """A brief verbal ack is synthesized before the end sentinel arrives."""
+    from tools import tts_tool
+
+    synthesized = []
+
+    def fake_synth(text, output_path):
+        synthesized.append(text)
+        Path(output_path).write_bytes(b"x" * 100)
+
+    monkeypatch.setattr(tts_tool, "text_to_speech_tool", fake_synth)
+    fake_vm = MagicMock()
+    monkeypatch.setitem(sys.modules, "tools.voice_mode", fake_vm)
+
+    q = queue.Queue()
+    q.put(tts_tool.ImmediateTTSUtterance("好的，我来查一下。"))
+    q.put(None)
+    stop, done = threading.Event(), threading.Event()
+    with patch("tools.tts_streaming.resolve_streaming_provider", return_value=None):
+        tts_tool.stream_tts_to_speaker(q, stop, done)
+
+    assert synthesized == ["好的，我来查一下。"]
+    assert done.is_set()

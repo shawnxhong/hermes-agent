@@ -854,6 +854,33 @@ class AudioRecorder:
         self._peak_rms: int = 0
         # Live audio level (read by UI for visual feedback)
         self._current_rms: int = 0
+        self._end_phrase_detector = None
+        self._end_phrase_unavailable = False
+        self.stop_reason = None
+
+    def prepare_endpoint(self):
+        from tools.voice_endpoint import settings, EndPhraseDetector
+        cfg = settings()
+        if not cfg or self._end_phrase_unavailable:
+            return False
+        if self._end_phrase_detector is None:
+            try:
+                self._end_phrase_detector = EndPhraseDetector(cfg)
+            except Exception:
+                self._end_phrase_unavailable = True
+                logger.warning('Recording-end keyword unavailable; using silence fallback', exc_info=True)
+        return self._end_phrase_detector is not None
+
+    def _endpoint_stop(self):
+        with self._lock:
+            if not self._recording:
+                return
+            cb = self._on_silence_stop
+            self._on_silence_stop = None
+            if cb:
+                self.stop_reason = 'end_phrase'
+        if cb:
+            threading.Thread(target=cb, daemon=True).start()
 
     def _max_duration_reached(self, elapsed: float) -> bool:
         """Whether the configured hard recording-length cap has elapsed.
@@ -906,6 +933,8 @@ class AudioRecorder:
             if not self._recording:
                 return
             self._frames.append(indata.copy())
+            if self._end_phrase_detector is not None:
+                self._end_phrase_detector.feed(indata)
 
             # Compute RMS for level display and silence detection
             rms = int(np.sqrt(np.mean(indata.astype(np.float64) ** 2)))
@@ -1080,7 +1109,18 @@ class AudioRecorder:
             self._on_silence_stop = on_silence_stop
         # Ensure the persistent stream is alive (no-op after first call).
         self._sample_rate = _default_input_samplerate(sd)
-        self._ensure_stream()
+        self.stop_reason = None
+        if on_silence_stop is not None and self.prepare_endpoint():
+            try:
+                self._end_phrase_detector.start(self._endpoint_stop, self._sample_rate, self._silence_threshold)
+            except Exception:
+                logger.warning('Recording-end worker unavailable; using silence fallback', exc_info=True)
+        try:
+            self._ensure_stream()
+        except Exception:
+            if self._end_phrase_detector is not None:
+                self._end_phrase_detector.stop()
+            raise
 
         with self._lock:
             self._recording = True
@@ -1119,6 +1159,8 @@ class AudioRecorder:
         Returns:
             Path to the WAV file, or ``None`` if no audio was captured.
         """
+        if self._end_phrase_detector is not None:
+            self._end_phrase_detector.stop()
         with self._lock:
             if not self._recording:
                 return None
@@ -1158,6 +1200,8 @@ class AudioRecorder:
 
         The underlying stream is kept alive for reuse.
         """
+        if self._end_phrase_detector is not None:
+            self._end_phrase_detector.stop()
         with self._lock:
             self._recording = False
             self._frames = []
@@ -1167,6 +1211,9 @@ class AudioRecorder:
 
     def shutdown(self) -> None:
         """Release the audio stream.  Call when voice mode is disabled."""
+        if self._end_phrase_detector is not None:
+            self._end_phrase_detector.close()
+            self._end_phrase_detector = None
         with self._lock:
             self._recording = False
             self._frames = []
@@ -1428,6 +1475,9 @@ def transcribe_recording(wav_path: str, model: Optional[str] = None) -> Dict[str
     # regex, and swallowing them here would make saying "bye" (when configured
     # as a stop phrase) silently fail to end the voice chat.
     if result.get("success"):
+        from tools.voice_endpoint import strip_end_phrase
+        result = dict(result)
+        result['transcript'] = strip_end_phrase(result.get('transcript', ''))
         raw_transcript = result.get("transcript", "")
         if is_whisper_hallucination(raw_transcript) and not is_voice_stop_phrase(
             raw_transcript
@@ -2027,7 +2077,7 @@ def full_duplex_listen(
     calibration_ms: int = 450,
     grace_ms: int = 500,
     pre_roll_ms: int = 1200,
-    endpoint_silence_ms: int = 1250,
+    endpoint_silence_ms: Optional[int] = None,
     max_utterance_ms: int = 30_000,
 ) -> Optional[str]:
     """Listen across an ENTIRE agent turn; return the captured interruption.
@@ -2062,12 +2112,24 @@ def full_duplex_listen(
 
     from collections import deque
 
+    if endpoint_silence_ms is None:
+        # Answer windows must honor the same operator setting as normal ASR.
+        # Retain the historical fallback only for missing/invalid settings.
+        endpoint_silence_ms = 1250
+        try:
+            from hermes_cli.config import load_config
+            duration = float((load_config().get("voice") or {}).get("silence_duration", 1.25))
+            if math.isfinite(duration) and duration > 0:
+                endpoint_silence_ms = duration * 1000
+        except (TypeError, ValueError, AttributeError, OSError):
+            pass
+
     block = int(SAMPLE_RATE * 0.03)  # 30ms blocks
     calib_blocks = max(1, calibration_ms // 30)
     trip_blocks = max(1, sustained_ms // 30)
     trip_needed = max(1, int(round(trip_blocks * 0.8)))
     grace_blocks = max(0, grace_ms // 30)
-    endpoint_blocks = max(1, endpoint_silence_ms // 30)
+    endpoint_blocks = max(1, math.ceil(endpoint_silence_ms / 30))
     max_blocks = max(1, max_utterance_ms // 30)
     mult = float(multiplier) if multiplier else DEFAULT_BARGE_MULTIPLIER
 
@@ -2081,6 +2143,18 @@ def full_duplex_listen(
     grace_remaining = 0
     blocks_since_playback = 10_000
     block_idx = 0
+
+    # Answer windows use this path, not AudioRecorder.start(). Warm KWS before
+    # opening the microphone; feed only captured speech, not idle/TTS audio.
+    endpoint = None
+    endpoint_done = threading.Event()
+    try:
+        from tools.voice_endpoint import EndPhraseDetector, settings
+        endpoint_cfg = settings()
+        if endpoint_cfg:
+            endpoint = EndPhraseDetector(endpoint_cfg)
+    except Exception:
+        logger.warning("Answer end-phrase unavailable; using silence/time-limit fallback", exc_info=True)
 
     try:
         with sd.InputStream(
@@ -2187,10 +2261,24 @@ def full_duplex_listen(
                 # Capture until the user goes quiet. Playback was cut by
                 # on_trigger, so plain silence endpointing works.
                 frames: List[Any] = list(pre_roll)
+                if endpoint is not None:
+                    try:
+                        endpoint.start(endpoint_done.set, SAMPLE_RATE, SILENCE_RMS_THRESHOLD)
+                        # Preserve short answers such as "Yes, that's all"
+                        # whose ending may begin before the VAD trigger.
+                        endpoint.feed(np.concatenate(frames, axis=0))
+                    except Exception:
+                        endpoint.close()
+                        endpoint = None
+                        logger.warning("Answer end-phrase startup failed; using silence/time-limit fallback", exc_info=True)
                 quiet = 0
                 for _ in range(max_blocks):
+                    if endpoint_done.is_set():
+                        break
                     data, _ = stream.read(block)
                     frames.append(data.copy())
+                    if endpoint is not None:
+                        endpoint.feed(data)
                     rms = float(np.sqrt(np.mean(data.astype(np.float64) ** 2)))
                     quiet = quiet + 1 if rms < SILENCE_RMS_THRESHOLD else 0
                     if quiet >= endpoint_blocks:
@@ -2198,6 +2286,9 @@ def full_duplex_listen(
                 return AudioRecorder._write_wav(np.concatenate(frames, axis=0))
     except Exception as e:
         logger.debug("Full-duplex listener failed: %s", e)
+    finally:
+        if endpoint is not None:
+            endpoint.close()
     return None
 
 

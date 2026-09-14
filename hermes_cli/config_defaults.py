@@ -1945,7 +1945,9 @@ DEFAULT_CONFIG = {
         },
     },
 
+    "voice_delivery": {"enabled": False, "continuity": {"enabled": False}},
     "voice": {
+        "startup_cue_file": None,  # Optional local audio replacing the first wake-ready beep.
         "record_key": "ctrl+b",
         "submit_mode": "direct",       # TUI: direct submits immediately; draft leaves an editable transcript
         "max_recording_seconds": 120,
@@ -1955,11 +1957,40 @@ DEFAULT_CONFIG = {
         # at voice-session start) instead of relaying audio through the
         # gateway — lowest-hop path in both directions. false = always relay.
         "client_direct": True,
+        "ready_cue": {"enabled": False, "intro_enabled": True, "pre_gap_seconds": 0.65,
+                      "intro_text": "After the tone, you can answer directly."},
         "beep_enabled": True,         # Play record start/stop beeps in CLI voice mode
         "beep_volume": 0.3,           # Beep amplitude multiplier (0.0-1.0, default keeps prior hardcoded value)
         "thinking_sound": True,       # Calm ambient bubble sound while the agent works in voice chat (volume follows beep_volume)
+        # Speak one short acknowledgement before the first tool call in a
+        # voice-input turn. Disabled by default; phrases are user-configurable.
+        "tool_ack": {
+            "enabled": False,
+            # first_tool preserves the conditional behavior. turn_start plays
+            # before model inference, guaranteeing acknowledgement precedes
+            # every tool at the cost of also acknowledging no-tool turns.
+            "timing": "first_tool",
+            "phrases": {
+                "zh": ["好的，我来查一下。"],
+                "en": ["Sure, let me check."],
+            },
+        },
+        # In a headless voice turn, speak clarify questions/options and open
+        # one wake-word-free ASR answer window after playback completes.
+        "clarify": {
+            "enabled": False,
+            "followup_timeout_seconds": 30,
+            "playback_timeout_seconds": 120,
+        },
+        "followup": {
+            "enabled": False,
+            "timeout_seconds": 30,
+            "resume_seconds": 120,
+            "playback_timeout_seconds": 120,
+        },
         "silence_threshold": 200,     # RMS below this = silence (0-32767)
         "silence_duration": 3.0,      # Seconds of silence before auto-stop
+        "end_phrase": {"enabled": False, "phrase": "That's all", "hint_file": None, "model_dir": None},
         "barge_in": True,             # Interrupt the agent / stop TTS when the user starts talking
         "barge_in_grace_seconds": 0.5,  # Trip suppression right after TTS playback starts (onset transient); the mic itself is live for the whole turn
         "barge_in_threshold_multiplier": 3.0,  # Speech trigger = quiet-room floor x this (floor is calibrated BEFORE playback, never against speaker bleed)
@@ -1999,6 +2030,16 @@ DEFAULT_CONFIG = {
             # Optional path to a sherpa-onnx KWS model directory. Empty =
             # auto-download the small English zipformer model on first use.
             "model_dir": "",
+            # Optional hidden acoustic/tokenization variants for the active
+            # profile's phrase. A match is always reported as the canonical
+            # wake_word.phrase; aliases are never user-visible alternatives.
+            "aliases": [],
+            # null preserves the shared sensitivity -> threshold mapping.
+            # Set directly only after replay calibration (higher = stricter).
+            "keywords_threshold": None,
+            "keywords_score": 1.0,
+            "max_active_paths": 4,
+            "num_trailing_blanks": 1,
         },
         "porcupine": {
             # Built-in keyword ("jarvis", "computer", "bumblebee", ...) or a path

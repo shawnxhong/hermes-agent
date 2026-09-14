@@ -37,6 +37,7 @@ from agent.conversation_compression import (
     conversation_history_after_compression,
 )
 from agent.context_engine import automatic_compaction_status_message
+from agent.control_marker_sanitization import strip_control_marker_echoes
 from agent.display import KawaiiSpinner
 from agent.error_classifier import FailoverReason, classify_api_error
 from agent.message_metadata import append_message
@@ -1888,6 +1889,7 @@ def run_conversation(
     persist_user_display_kind: Optional[str] = None,
     persist_user_display_metadata: Optional[Dict[str, Any]] = None,
     moa_config: Optional[dict[str, Any]] = None,
+    input_modality: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run a complete conversation with tool calling until completion.
@@ -2004,6 +2006,7 @@ def run_conversation(
 
     # Main conversation loop counters (pure locals consumed by the loop below).
     api_call_count = 0
+    _workflow_checked = False
     final_response = None
     interrupted = False
     failed = False
@@ -2091,6 +2094,43 @@ def run_conversation(
             _turn_exit_reason = "interrupted_by_user"
             if not agent.quiet_mode:
                 agent._safe_print("\n⚡ Breaking out of tool loop due to interrupt...")
+            break
+
+        # Workflow capabilities live in plugins; modality is supplied by the
+        # trusted surface, never inferred from model/user text. Preserve the
+        # same finalizer, transcript and cancellation path as ordinary turns.
+        if not _workflow_checked:
+            _workflow_checked = True
+            from hermes_cli.lifecycle import invoke_hook as _workflow_hook
+            _workflow_results = _workflow_hook(
+                "run_turn_workflow", agent=agent,
+                user_message=persist_user_message if persist_user_message is not None else original_user_message,
+                session_id=agent.session_id, task_id=effective_task_id,
+                input_modality=input_modality, platform=agent.platform,
+            )
+            _handled = next((r for r in _workflow_results if isinstance(r, dict)
+                             and r.get("handled") is True), None)
+            if _handled is not None:
+                api_call_count = max(0, int(_handled.get("api_calls", 0)))
+                interrupted = bool(agent._interrupt_requested)
+                failed = bool(_handled.get("failed", False))
+                final_response = "" if interrupted else str(_handled.get("final_response") or "The workflow could not finish safely.")
+                _turn_exit_reason = "interrupted_by_user" if interrupted else "plugin_workflow"
+                break
+
+            from agent.turn_workflow import TurnContinuation
+            _continued = next((r.get('continuation') for r in _workflow_results
+                               if isinstance(r,dict) and r.get('continuation') is not None),None)
+            if _continued is not None:
+                if not isinstance(_continued,TurnContinuation):
+                    raise TypeError('Invalid native workflow continuation')
+                _continued.begin(agent)
+
+        from agent.turn_workflow import current as _current_workflow
+        _continuation = _current_workflow(agent)
+        if _continuation is not None and api_call_count >= _continuation.max_api_calls:
+            _turn_exit_reason = 'workflow_execution_budget'
+            failed = True
             break
 
         # Aggregate input budget for detached auxiliary forks (background
@@ -3220,7 +3260,7 @@ def run_conversation(
                     if agent.thinking_callback:
                         agent.thinking_callback("")
 
-                _use_streaming = True
+                _use_streaming = _current_workflow(agent) is None
                 # Provider signaled "stream not supported" on a previous
                 # attempt — switch to non-streaming for the rest of this
                 # session instead of re-failing every retry.
@@ -3777,6 +3817,9 @@ def run_conversation(
                     )
 
                 if finish_reason == "length":
+                    if _current_workflow(agent) is not None:
+                        _current_workflow(agent)._output_rejected = True
+                        break
                     if getattr(response, "id", "") == PARTIAL_STREAM_STUB_ID:
                         agent._vprint(
                             f"{agent.log_prefix}⚠️  Response truncated — stream "
@@ -6828,6 +6871,12 @@ def run_conversation(
             agent._persist_user_message_idx = current_turn_user_idx
             continue
 
+        if _current_workflow(agent) is not None and getattr(_current_workflow(agent), '_output_rejected', False):
+            final_response = ''
+            failed = True
+            _turn_exit_reason = 'workflow_incomplete_output'
+            break
+
         if _retry.restart_with_rebuilt_messages:
             # A stream stall or provider failure was escalated to the
             # fallback chain (10 activation sites in the retry loop set this
@@ -6900,6 +6949,23 @@ def run_conversation(
                     assistant_message.content = "\n".join(parts)
                 else:
                     assistant_message.content = str(raw)
+
+            # The OUT-OF-BAND /steer block is input-only protocol metadata.
+            # Some smaller/local models copy it into assistant content (often
+            # immediately before a tool call).  Remove it before hooks,
+            # persistence, fallback capture, and final-response handling.
+            if isinstance(assistant_message.content, str):
+                _raw_assistant_content = assistant_message.content
+                assistant_message.content = strip_control_marker_echoes(
+                    _raw_assistant_content
+                )
+                if assistant_message.content != _raw_assistant_content:
+                    logger.warning(
+                        "Discarded echoed OUT-OF-BAND control marker from "
+                        "assistant content (model=%s provider=%s)",
+                        agent.model,
+                        agent.provider,
+                    )
 
             # ── Agent-as-provider projection ──────────────────────────────
             # A provider that IS an agent ran its own tools inside its own
@@ -8561,7 +8627,9 @@ def run_conversation(
                 # no side effect follows and _persist_session retries the write.
                 # Full incident narrative: tests/run_agent/test_81641_*.py.
                 try:
-                    agent._flush_messages_to_session_db(messages, conversation_history)
+                    # Buffered drafts are persisted only after delivery finalization.
+                    if _current_workflow(agent) is None:
+                        agent._flush_messages_to_session_db(messages, conversation_history)
                 except Exception:
                     logger.warning(
                         "final text-turn flush failed (session=%s) — reply is "
@@ -8738,6 +8806,11 @@ def run_conversation(
     # Post-loop turn finalization extracted to agent/turn_finalizer.finalize_turn
     # (god-file decomposition Phase 1 step 4). Behavior-neutral: the assembled
     # result dict is returned exactly as before.
+    from agent.turn_workflow import finish as _finish_workflow
+    final_response, failed, _delivery_calls = _finish_workflow(
+        agent, final_response, interrupted=interrupted, failed=failed,
+        reason=_turn_exit_reason, messages=messages)
+    api_call_count += _delivery_calls
     return finalize_turn(
         agent,
         final_response=final_response,

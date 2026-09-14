@@ -31,6 +31,7 @@ from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 from agent.context_compressor import ContextCompressor
+from agent.control_marker_sanitization import StreamingControlMarkerScrubber
 from agent.iteration_budget import IterationBudget
 from agent.memory_manager import StreamingContextScrubber
 from agent.session_activity import ActivityProvenance
@@ -1105,6 +1106,10 @@ def init_agent(
     # deltas (#5719).  sanitize_context() alone can't survive chunk
     # boundaries because the block regex needs both tags in one string.
     agent._stream_context_scrubber = StreamingContextScrubber()
+    # Stateful filter for input-only /steer protocol markers.  Local models
+    # occasionally echo the marker before a tool call; filtering here keeps it
+    # out of both display and streaming TTS even when split across deltas.
+    agent._stream_control_marker_scrubber = StreamingControlMarkerScrubber()
     # Stateful scrubber for reasoning/thinking tags in streamed deltas
     # (#17924).  Replaces the per-delta _strip_think_blocks regex that
     # destroyed downstream state (e.g. MiniMax-M2.7 streaming

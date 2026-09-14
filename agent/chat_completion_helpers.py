@@ -1827,6 +1827,17 @@ def interruptible_api_call(agent, api_kwargs: dict):
 
 
 def build_api_kwargs(agent, api_messages: list, tools_for_api: list | None = None) -> dict:
+    from agent.turn_workflow import current, request_messages
+    kwargs = _build_api_kwargs_without_turn_workflow(agent, request_messages(agent, api_messages), tools_for_api)
+    policy = current(agent)
+    if policy is not None:
+        kwargs.update(agent._max_tokens_param(policy.max_output_tokens))
+        if policy.temperature is not None:
+            kwargs['temperature']=policy.temperature
+    return kwargs
+
+
+def _build_api_kwargs_without_turn_workflow(agent, api_messages: list, tools_for_api: list | None = None) -> dict:
     """Build the keyword arguments dict for the active API mode."""
     if tools_for_api is None:
         tools_for_api = agent.tools
@@ -4147,6 +4158,15 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
             _set_request_stream_handle(stream)
         pending_text_parts: list[str] = []
 
+        def _scrub_control_marker_text(text: str) -> str:
+            """Filter input-only steer metadata on display-only stream paths."""
+            scrubber = getattr(agent, "_stream_control_marker_scrubber", None)
+            if scrubber is not None:
+                return scrubber.feed(text)
+            from agent.control_marker_sanitization import strip_control_marker_echoes
+
+            return strip_control_marker_echoes(text)
+
         def _flush_pending_stream_text():
             if not pending_text_parts:
                 return
@@ -4160,6 +4180,9 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
                 return
             if agent.stream_delta_callback:
                 for text in pending_parts:
+                    text = _scrub_control_marker_text(text)
+                    if not text:
+                        continue
                     try:
                         agent.stream_delta_callback(text)
                         agent._record_streamed_assistant_text(text)
@@ -4300,11 +4323,13 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
                 # suppressed by the CLI's _stream_delta when the stream
                 # box is already closed (tool boundary flush).
                 elif agent.stream_delta_callback:
-                    try:
-                        agent.stream_delta_callback(delta_content)
-                        agent._record_streamed_assistant_text(delta_content)
-                    except Exception:
-                        pass
+                    delta_content = _scrub_control_marker_text(delta_content)
+                    if delta_content:
+                        try:
+                            agent.stream_delta_callback(delta_content)
+                            agent._record_streamed_assistant_text(delta_content)
+                        except Exception:
+                            pass
 
             # Accumulate tool call deltas — notify display on first name
             delta_tool_calls = getattr(delta, "tool_calls", None)

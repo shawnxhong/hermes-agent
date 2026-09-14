@@ -40,6 +40,25 @@ TIMEOUT_RESPONSE = (
 RECOMMENDED_LABEL = "(Recommended)"
 
 
+class ReusedClarifyResponse:
+    """Internal callback result for a duplicate clarify in the same turn.
+
+    Platform callbacks may return this wrapper after the user has already
+    answered the exact same question.  The public tool result preserves the
+    original answer and adds an explicit instruction that helps a looping
+    model move on instead of asking again.
+    """
+
+    def __init__(self, answer):
+        self.answer = answer
+
+
+REUSED_CLARIFY_NOTICE = (
+    "This exact clarification was already answered earlier in this turn. "
+    "Reuse the previous answer and do not ask the same question again."
+)
+
+
 def _flatten_choice(c) -> str:
     """Coerce a single choice into its user-facing display string.
 
@@ -247,6 +266,8 @@ def _callback_accepts_questions(callback) -> bool:
 
 def _clean_batch_answer(entry: dict, raw) -> object:
     """Strip presentation from one locked answer (label, multi-select JSON)."""
+    if isinstance(raw, ReusedClarifyResponse):
+        raw = raw.answer
     if entry["multi_select"]:
         return [strip_recommended(r) for r in _parse_multi_select_response(raw)]
     return strip_recommended(raw)
@@ -260,6 +281,7 @@ def _batch_result(normalized: List[dict], answers: dict, timed_out: bool) -> str
     whether those blanks are deliberate skips or the user walking away.
     """
     responses = []
+    reused = False
     for entry in normalized:
         row = {}
         if entry["id"]:
@@ -267,12 +289,15 @@ def _batch_result(normalized: List[dict], answers: dict, timed_out: bool) -> str
         row["question"] = entry["question"]
         row["choices_offered"] = entry["choices_offered"]
         raw = answers.get(entry["qid"])
+        reused = reused or isinstance(raw, ReusedClarifyResponse)
         row["user_response"] = _clean_batch_answer(entry, raw) if raw else ""
         responses.append(row)
 
     result: Dict[str, object] = {"responses": responses}
     if timed_out:
         result["timed_out"] = True
+    if reused:
+        result["notice"] = REUSED_CLARIFY_NOTICE
     return json.dumps(result, ensure_ascii=False)
 
 
@@ -417,16 +442,23 @@ def clarify_tool(
     except Exception as exc:
         return tool_error(f"Failed to get user input: {exc}")
 
+    reused = isinstance(raw_response, ReusedClarifyResponse)
+    if reused:
+        raw_response = raw_response.answer
+
     if multi_select and choices is not None:
         user_response = [strip_recommended(r) for r in _parse_multi_select_response(raw_response)]
     else:
         user_response = strip_recommended(raw_response)
 
-    return json.dumps({
+    result = {
         "question": question,
         "choices_offered": offered,
         "user_response": user_response,
-    }, ensure_ascii=False)
+    }
+    if reused:
+        result["notice"] = REUSED_CLARIFY_NOTICE
+    return json.dumps(result, ensure_ascii=False)
 
 
 def check_clarify_requirements() -> bool:
