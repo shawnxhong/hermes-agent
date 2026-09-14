@@ -24,14 +24,20 @@ def settings():
     if not isinstance(sherpa, dict):
         sherpa = {}
     return {**raw, 'model_dir': raw.get('model_dir') or sherpa.get('model_dir'),
-            'phrase': 'Over and out'}
+            'phrase': str(raw.get('phrase') or "That's all")}
 
 
 def strip_end_phrase(text):
     """Strip only a terminal control phrase in opted-in voice transcription."""
-    if not settings():
+    cfg = settings()
+    if not cfg:
         return text
-    return re.sub(r'(?i)(?<!\w)over[\s,\-]+and[\s,\-]+out[\s.!?,;:…]*$', '', text).rstrip(' ,;:-')
+    # Old ending retained only as transcript cleanup during migration; it no
+    # longer activates the keyword detector. Handle Whisper punctuation forms.
+    phrase = cfg.get('phrase', "That's all")
+    expression = (r"that(?:['’]?s|\s+is)[\s,\-]+all" if phrase.casefold() in {"that's all", 'that’s all'}
+                  else re.escape(phrase).replace(r'\ ', r'\s+'))
+    return re.sub(r'(?i)(?<!\w)(?:' + expression + r'|over[\s,\-]+and[\s,\-]+out)[\s.!?,;:…\"\'”’]*$', '', text).rstrip(' ,;:-')
 
 
 def prepare_recording_endpoint(recorder):
@@ -61,13 +67,18 @@ def prepare_recording_endpoint(recorder):
 class EndPhraseDetector:
     """Serial keyword worker fed by the recorder's own PCM, not another mic."""
     def __init__(self, cfg, engine=None):
+        # Warm heavy imports before capture, not in the real-time worker.
+        import numpy as np
+        from scipy.signal import resample_poly
+        self._np, self._resample_poly = np, resample_poly
+        self.phrase = str(cfg.get('phrase') or "That's all")
         if engine is None:
             from tools.wake_word import _SherpaKwsEngine
             folder = Path(cfg.get('model_dir') or '')
             if not (folder / 'tokens.txt').is_file():
                 raise RuntimeError('Local Sherpa model missing; no automatic download')
             engine = _SherpaKwsEngine({
-                'phrase': 'Over and out', 'profile_routing': False,
+                'phrase': self.phrase, 'profile_routing': False,
                 'sensitivity': 0.5, 'sherpa': {
                     'model_dir': str(folder), 'aliases': [],
                     'max_active_paths': 16, 'keywords_threshold': 0.17}})
@@ -83,6 +94,8 @@ class EndPhraseDetector:
             raise RuntimeError('Prior recording-end worker is still stopping')
         self.engine.reset()
         self.callback, self.sample_rate, self.threshold = callback, sample_rate, threshold
+        self._block_samples = max(1, round(sample_rate * .08))
+        self._pending_chunks, self._pending_samples = [], 0
         self._queue = queue.Queue(maxsize=64)
         self._stop = threading.Event()
         self.last_reason = None
@@ -92,15 +105,26 @@ class EndPhraseDetector:
     def feed(self, pcm):
         if self._stop.is_set():
             return
+        self._pending_chunks.append(pcm.copy())
+        self._pending_samples += len(pcm)
+        if self._pending_samples < self._block_samples:
+            return
+        combined = self._np.concatenate(self._pending_chunks, axis=0)
+        consumed = 0
         try:
-            self._queue.put_nowait(pcm.copy())
+            while len(combined) - consumed >= self._block_samples:
+                self._queue.put_nowait(combined[consumed:consumed+self._block_samples].copy())
+                consumed += self._block_samples
         except queue.Full:
             self._stop.set()
-            logger.warning('Recording-end detector overloaded; using silence/time-limit fallback')
+            logger.warning('Recording-end detector overloaded (>5s audio backlog); using silence/time-limit fallback')
+        remaining = combined[consumed:]
+        self._pending_chunks = [remaining.copy()] if len(remaining) else []
+        self._pending_samples = len(remaining)
 
     def _run(self):
-        import numpy as np
-        from scipy.signal import resample_poly
+        np = self._np
+        resample_poly = self._resample_poly
         divisor = math.gcd(int(self.sample_rate), 16000)
         try:
             while not self._stop.is_set():
@@ -116,7 +140,7 @@ class EndPhraseDetector:
                 matched = self.engine.process(mono)
                 if matched and not self._stop.is_set():
                     self.last_reason = 'end_phrase'
-                    logger.info('Recording end phrase confirmed: Over and out')
+                    logger.info('Recording end phrase confirmed: %s', self.phrase)
                     self._stop.set()
                     self.callback()
         except Exception:

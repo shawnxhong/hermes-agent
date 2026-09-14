@@ -12,6 +12,11 @@ from tools import voice_endpoint as ep
     ('Find a restaurant. Over and out.', 'Find a restaurant.'),
     ('Yes, over and out!', 'Yes'),
     ('Over and out.', ''),
+    ("Find a flight. That's all.", 'Find a flight.'),
+    ('Find a flight, that’s all!', 'Find a flight'),
+    ('Find a flight. Thats all.', 'Find a flight.'),
+    ('Search for the cheapest flight number, flight ticket tomorrow from Beijing to Shanghai, over and out',
+     'Search for the cheapest flight number, flight ticket tomorrow from Beijing to Shanghai'),
     ('Go over the weekend.', 'Go over the weekend.'),
     ('The phrase over and out is a radio sign-off.', 'The phrase over and out is a radio sign-off.'),
 ])
@@ -34,12 +39,12 @@ def test_worker_fires_on_matching_frame_without_waiting_for_silence(rate):
     callback = Mock(side_effect=done.set)
     d.start(callback, rate, 400)
     # Only one loud frame: no subsequent frame, silence or post-keyword timer.
-    d.feed(np.full((rate // 10, 1), 2000, dtype=np.int16))
+    d.feed(np.full((round(rate*.08), 1), 2000, dtype=np.int16))
     assert done.wait(5)
     d.stop()
     callback.assert_called_once()
     engine.process.assert_called_once()
-    assert len(engine.process.call_args.args[0]) == 1600
+    assert len(engine.process.call_args.args[0]) == 1280
     d.close()
 
 
@@ -54,6 +59,28 @@ def test_cancel_and_restart_drops_prior_recording():
     callback.assert_not_called()
     assert d.engine.reset.call_count == 2
     d.close()
+
+
+def test_tiny_44100hz_callbacks_are_batched_without_startup_overflow():
+    # Real ALSA callback size can be ~5ms, not the 80ms replay frames.
+    # Hold the consumer to prove 250 tiny callbacks do not overflow 64 slots.
+    entered, release = threading.Event(), threading.Event()
+    def process(frame):
+        entered.set()
+        assert release.wait(5)
+        return False
+    engine = Mock(process=Mock(side_effect=process))
+    d = ep.EndPhraseDetector({}, engine=engine)
+    d.start(Mock(), 44100, 400)
+    try:
+        for _ in range(250):
+            d.feed(np.zeros((220, 1), dtype=np.int16))
+        assert entered.wait(5)
+        assert not d._stop.is_set()
+        assert d._queue.qsize() < 20
+    finally:
+        release.set()
+        d.close()
 
 
 def test_real_recorder_uses_one_stream_and_callback_once(monkeypatch):

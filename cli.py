@@ -15827,7 +15827,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         if getattr(self._voice_recorder, "supports_silence_autostop", True):
             _recording_hint = f"auto-stops on silence | {_label} to stop & exit continuous"
             if getattr(self._voice_recorder, "_end_phrase_detector", None) is not None:
-                _recording_hint = f"say Over and out, or pause | {_label} to stop & exit continuous"
+                _phrase = self._voice_recorder._end_phrase_detector.phrase
+                _recording_hint = f"say {_phrase}, or pause | {_label} to stop & exit continuous"
         elif _is_termux_environment():
             _recording_hint = f"Termux:API capture | {_label} to stop"
         else:
@@ -15939,6 +15940,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
             if result.get("success") and result.get("transcript", "").strip():
                 transcript = result["transcript"].strip()
+                from tools.voice_endpoint import strip_end_phrase
+                transcript = strip_end_phrase(transcript)
+                if not transcript:
+                    return
                 from tools.voice_mode import is_voice_stop_phrase
                 if is_voice_stop_phrase(transcript):
                     # Bare "stop" (or configured phrase) ends the voice chat
@@ -16244,6 +16249,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             from tools.voice_mode import transcribe_recording
             result = transcribe_recording(wav_path, model=self._voice_stt_model())
             transcript = (result.get("transcript") or "").strip() if result.get("success") else ""
+            from tools.voice_endpoint import strip_end_phrase
+            transcript = strip_end_phrase(transcript)
             if transcript:
                 from tools.voice_mode import is_voice_stop_phrase
                 if is_voice_stop_phrase(transcript):
