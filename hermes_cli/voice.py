@@ -510,6 +510,8 @@ def start_continuous(
     # CLI parity: single 880 Hz beep *before* opening the stream — placing
     # the beep after stream.start() on macOS triggers a CoreAudio conflict
     # (cli.py:7528 comment).
+    from tools.voice_endpoint import prepare_recording_endpoint
+    prepare_recording_endpoint(rec)
     _play_beep(frequency=880, count=1)
 
     try:

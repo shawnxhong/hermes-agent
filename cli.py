@@ -15801,12 +15801,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             with self._voice_lock:
                 if not self._voice_recording:
                     return
-            _cprint(f"\n{_DIM}Silence detected, auto-stopping...{_RST}")
+            _reason = "End phrase detected" if getattr(self._voice_recorder, "stop_reason", None) == "end_phrase" else "Silence detected"
+            _cprint(f"\n{_DIM}{_reason}, auto-stopping...{_RST}")
             if hasattr(self, '_app') and self._app:
                 self._app.invalidate()
             self._voice_stop_and_transcribe()
 
         # Audio cue: single beep BEFORE starting stream (avoid CoreAudio conflict)
+        from tools.voice_endpoint import prepare_recording_endpoint
+        prepare_recording_endpoint(self._voice_recorder)
         if self._voice_beeps_enabled():
             try:
                 from tools.voice_mode import play_beep
@@ -15823,6 +15826,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         _label = self._voice_record_key_label()
         if getattr(self._voice_recorder, "supports_silence_autostop", True):
             _recording_hint = f"auto-stops on silence | {_label} to stop & exit continuous"
+            if getattr(self._voice_recorder, "_end_phrase_detector", None) is not None:
+                _recording_hint = f"say Over and out, or pause | {_label} to stop & exit continuous"
         elif _is_termux_environment():
             _recording_hint = f"Termux:API capture | {_label} to stop"
         else:

@@ -854,6 +854,33 @@ class AudioRecorder:
         self._peak_rms: int = 0
         # Live audio level (read by UI for visual feedback)
         self._current_rms: int = 0
+        self._end_phrase_detector = None
+        self._end_phrase_unavailable = False
+        self.stop_reason = None
+
+    def prepare_endpoint(self):
+        from tools.voice_endpoint import settings, EndPhraseDetector
+        cfg = settings()
+        if not cfg or self._end_phrase_unavailable:
+            return False
+        if self._end_phrase_detector is None:
+            try:
+                self._end_phrase_detector = EndPhraseDetector(cfg)
+            except Exception:
+                self._end_phrase_unavailable = True
+                logger.warning('Recording-end keyword unavailable; using silence fallback', exc_info=True)
+        return self._end_phrase_detector is not None
+
+    def _endpoint_stop(self):
+        with self._lock:
+            if not self._recording:
+                return
+            cb = self._on_silence_stop
+            self._on_silence_stop = None
+            if cb:
+                self.stop_reason = 'end_phrase'
+        if cb:
+            threading.Thread(target=cb, daemon=True).start()
 
     def _max_duration_reached(self, elapsed: float) -> bool:
         """Whether the configured hard recording-length cap has elapsed.
@@ -906,6 +933,8 @@ class AudioRecorder:
             if not self._recording:
                 return
             self._frames.append(indata.copy())
+            if self._end_phrase_detector is not None:
+                self._end_phrase_detector.feed(indata)
 
             # Compute RMS for level display and silence detection
             rms = int(np.sqrt(np.mean(indata.astype(np.float64) ** 2)))
@@ -1080,7 +1109,18 @@ class AudioRecorder:
             self._on_silence_stop = on_silence_stop
         # Ensure the persistent stream is alive (no-op after first call).
         self._sample_rate = _default_input_samplerate(sd)
-        self._ensure_stream()
+        self.stop_reason = None
+        if on_silence_stop is not None and self.prepare_endpoint():
+            try:
+                self._end_phrase_detector.start(self._endpoint_stop, self._sample_rate, self._silence_threshold)
+            except Exception:
+                logger.warning('Recording-end worker unavailable; using silence fallback', exc_info=True)
+        try:
+            self._ensure_stream()
+        except Exception:
+            if self._end_phrase_detector is not None:
+                self._end_phrase_detector.stop()
+            raise
 
         with self._lock:
             self._recording = True
@@ -1119,6 +1159,8 @@ class AudioRecorder:
         Returns:
             Path to the WAV file, or ``None`` if no audio was captured.
         """
+        if self._end_phrase_detector is not None:
+            self._end_phrase_detector.stop()
         with self._lock:
             if not self._recording:
                 return None
@@ -1158,6 +1200,8 @@ class AudioRecorder:
 
         The underlying stream is kept alive for reuse.
         """
+        if self._end_phrase_detector is not None:
+            self._end_phrase_detector.stop()
         with self._lock:
             self._recording = False
             self._frames = []
@@ -1167,6 +1211,9 @@ class AudioRecorder:
 
     def shutdown(self) -> None:
         """Release the audio stream.  Call when voice mode is disabled."""
+        if self._end_phrase_detector is not None:
+            self._end_phrase_detector.close()
+            self._end_phrase_detector = None
         with self._lock:
             self._recording = False
             self._frames = []
@@ -1428,6 +1475,9 @@ def transcribe_recording(wav_path: str, model: Optional[str] = None) -> Dict[str
     # regex, and swallowing them here would make saying "bye" (when configured
     # as a stop phrase) silently fail to end the voice chat.
     if result.get("success"):
+        from tools.voice_endpoint import strip_end_phrase
+        result = dict(result)
+        result['transcript'] = strip_end_phrase(result.get('transcript', ''))
         raw_transcript = result.get("transcript", "")
         if is_whisper_hallucination(raw_transcript) and not is_voice_stop_phrase(
             raw_transcript
