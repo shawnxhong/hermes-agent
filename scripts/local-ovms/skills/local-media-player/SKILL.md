@@ -23,6 +23,20 @@ helper. Do not use `computer_use`, browser clicks, `execute_code`, or
 though the video appears on the desktop. Run the helper with `python3`, not
 as an executable; no chmod or source-code inspection is needed.
 
+**Execute first, diagnose only a returned error.** The helper checks its own
+requirements. Do not check desktop windows, displays, packages or permissions
+before running it. A terminal/SSH session does NOT imply that playback is
+unavailable: the helper launches into the user's existing desktop session.
+Never infer "headless" from a failed GUI tool. The tested command for MP4 is:
+
+```bash
+python3 ~/.hermes/skills/media/local-media-player/scripts/play_media.py mp4
+```
+
+For MP3, change only the last argument to `mp3`. Send this as the `command`
+argument of native `terminal`, not as Python code. Use the skill directory
+reported by the loader instead of the default path if using another profile.
+
 ## When to Use
 
 Use based on playback intent, not an exact phrase or the word "demo".
@@ -42,7 +56,8 @@ fixed local files and ask whether to play the default instead.
 
 ## Prerequisites
 
-Ubuntu desktop session with user systemd and ffplay (Ubuntu ffmpeg package).
+The operator has installed ffplay and configured the Ubuntu user service.
+Let the helper determine runtime readiness; no preliminary checks are needed.
 The supplied helper is `scripts/play_media.py` inside this skill directory.
 Default files are fixed, not chosen by the model:
 
