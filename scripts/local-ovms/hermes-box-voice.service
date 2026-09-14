@@ -1,0 +1,21 @@
+[Unit]
+Description=Intel AI Box button-controlled local voice
+After=pipewire.service wireplumber.service
+Wants=pipewire.service wireplumber.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+WorkingDirectory=%h
+ExecStart=%h/.hermes/hermes-agent/venv/bin/python %h/hermes-ovms-setup/hermes-box-voice.py run
+Environment=HERMES_HOME=%h/.hermes
+Environment=PATH=%h/.local/bin:%h/.hermes/node/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NO_PROXY=localhost,127.0.0.1,::1
+Environment=no_proxy=localhost,127.0.0.1,::1
+KillMode=mixed
+TimeoutStartSec=100
+TimeoutStopSec=35
+Restart=no
+UMask=0077
+
+# No [Install]: voice starts only from the button API, not at boot.

@@ -15660,12 +15660,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # A double high tone is distinct from the single 880 Hz recording
             # cue. The listener is paused so its own speaker cue cannot enter
             # the keyword model.
-            from tools.voice_mode import play_beep
+            from hermes_cli.voice_startup_cue import play_startup_cue
 
-            play_beep(frequency=1040, count=2)
+            play_startup_cue()
             time.sleep(0.25)
         except Exception as e:
             logger.warning("Initial wake ready cue failed: %s", e)
+            return False
 
         try:
             ready = bool(resume_listening(owner=self))
