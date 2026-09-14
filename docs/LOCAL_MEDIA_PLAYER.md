@@ -15,13 +15,20 @@ session with its user systemd manager. Copy the skill directory from
 desktop user's `~/hermes-demo-media/`. No Python packages, credentials or
 model changes are required by the helper. No new boot service is installed.
 
-Load the skill in a new Hermes session. For an explicit preloaded smoke:
-`hermes --cli --skills local-media-player`. Normal skill discovery also exposes
-its description. Existing already-open sessions may need a normal restart.
+For reliable local-Qwen routing, preload in a new Hermes session:
+`hermes --cli --skills travel-concierge,local-media-player` (or only
+`local-media-player` if travel is not wanted). Normal skill discovery exposes
+its description but was not reliable with the full tool catalog: Qwen sometimes
+skipped skills and tried desktop controls or another player. Adding synonyms
+alone does not guarantee discovery. Native preload changes no harness code.
+An already-open session retains its original prompt; restart it normally.
 
 Try "Play the demo audio", "Stop the audio", "Play the demo video", or
 "播放视频". Only explicit media tasks use this skill. IM plays media on
 the Ubuntu desktop, not on the phone. Player startup does not prove audibility.
+"play the mp4 video", "MP four video", "put on some music" and Chinese
+equivalents select fixed defaults without asking for a filename. A named
+different file, song/movie or URL is not silently replaced with the demo.
 
 The helper starts a transient `hermes-demo-media.service` owned by the desktop
 user. It exits with the clip and never stops unrelated players. Check with
