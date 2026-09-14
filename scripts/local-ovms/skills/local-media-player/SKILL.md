@@ -1,7 +1,7 @@
 ---
 name: local-media-player
-description: Play local demo MP3 audio and MP4 video on Ubuntu.
-version: 0.1.0
+description: Play MP3/music/audio or MP4/video locally; stop playback.
+version: 0.2.0
 author: shawnxhong
 platforms: [linux]
 metadata:
@@ -12,16 +12,27 @@ metadata:
 
 # Local Media Player Skill
 
-Play the fixed demo audio or video on this Ubuntu computer's desktop.
+Handle requests to play audio/music/MP3 or video/MP4 on this Ubuntu desktop.
+When no specific file is named, use the fixed default file for that medium.
 Playback is local and offline; do not download media, generate code, send
 attachments, or claim you played something merely by describing it.
 
 ## When to Use
 
-Use when asked to play demo audio/music/MP3 or demo video/MP4, in English
-or Chinese: "Play the demo audio", "Play the video", "播放音频", "播放视频".
+Use based on playback intent, not an exact phrase or the word "demo".
+"Play the mp4 video", "play an MP4", "play a video", "open the video",
+"show me the video", "put on some music", "play the MP3", "播放视频",
+"打开 MP4", and "放一段音乐" all belong here.
+Speech transcripts may render MP4 as "MP four" / "M P 4" and MP3 as
+"MP three" / "M P 3"; interpret these by context as the same media formats.
+Politeness, capitalization and words such as "the", "a", "local", "file",
+"sample" or "demo" do not change the intent. These are examples, not a whitelist.
 Also use to stop or check media previously launched through this skill.
 Do not use for TTS answers, ASR recordings, travel, or unrelated questions.
+Questions such as "What is MP4?" ask for an explanation, not playback.
+If a particular movie/song, another filename, or a URL is requested, do not
+silently substitute the demo: explain that this skill currently supports the
+fixed local files and ask whether to play the default instead.
 
 ## Prerequisites
 
@@ -62,7 +73,12 @@ tool result to claim the newly requested MP3/MP4 started. Once loaded, reuse
 these instructions instead of repeatedly loading the unchanged skill.
 
 1. For an explicit audio/video request, run the corresponding action directly.
-   Do not ask for a filename, permission or email address for these demo files.
+   MP4/video selects `mp4`; MP3/audio/music selects `mp3`. An unspecified
+   filename is NOT missing information: use the fixed default for that medium.
+   Do not ask the user to upload a file, give its path, or say "demo".
+   Do not search the web/disk, open a browser, or explain how to play files
+   instead of running the supplied helper. Do not ask for another permission
+   or email address for these default files.
    If the request gives no clue which medium, ask one short ordinary question.
 2. Inspect returned JSON. `success: true`, `action: started`, `state: active`
    means the local player started, not that the clip finished or was heard.
@@ -79,6 +95,10 @@ Example: after stopping MP3, the user says "播放示例视频". Run a new termi
 command ending in `play_media.py mp4`. Only after that command reports success
 and the file `demo.mp4`, reply "示例视频已开始播放。" If you cannot execute the
 command or run out of tool budget, say you have not started the video.
+
+Example: "Could you please play the mp4 video?" is already a complete
+request. Execute `python3 <this-skill-directory>/scripts/play_media.py mp4`,
+check the current result, then briefly confirm. Do not ask "Which video?".
 
 ## Pitfalls
 
