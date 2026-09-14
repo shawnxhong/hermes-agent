@@ -56,6 +56,11 @@ Do not use terminal background jobs or wait for the entire clip to finish.
 
 ## Procedure
 
+Every new play request requires a NEW `terminal` call, even if an earlier file
+played successfully. Reading this skill is not playback. Never reuse an earlier
+tool result to claim the newly requested MP3/MP4 started. Once loaded, reuse
+these instructions instead of repeatedly loading the unchanged skill.
+
 1. For an explicit audio/video request, run the corresponding action directly.
    Do not ask for a filename, permission or email address for these demo files.
    If the request gives no clue which medium, ask one short ordinary question.
@@ -69,6 +74,11 @@ Do not use terminal background jobs or wait for the entire clip to finish.
    only its own player, never VLC, a browser, Hermes TTS, or other applications.
 6. IM requests also play on the Ubuntu host; do not upload the file to IM unless
    separately asked. Use text responses, not local TTS, for IM.
+
+Example: after stopping MP3, the user says "播放示例视频". Run a new terminal
+command ending in `play_media.py mp4`. Only after that command reports success
+and the file `demo.mp4`, reply "示例视频已开始播放。" If you cannot execute the
+command or run out of tool budget, say you have not started the video.
 
 ## Pitfalls
 
