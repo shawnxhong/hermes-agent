@@ -53,6 +53,23 @@ CLI normal and interruption submission paths repeat the same idempotent cleanup.
 Rollback: set `voice.end_phrase.enabled: false`, restore your prior silence
 duration/threshold, and restart the CLI. No database/history migration.
 
+## Answer windows
+
+The same setting also enables ending in ordinary follow-up, clarify and
+approval answer windows, including one-shot wake turns. Their shared
+`full_duplex_listen` capture warms a detector before opening the microphone,
+feeds the utterance pre-roll and subsequent PCM, and closes the worker on
+completion, cancellation or device failure. No extra microphone is opened.
+Their existing silence and maximum-duration limits remain unchanged (they
+are separate from the normal AudioRecorder limits described above).
+
+For example, say "Allow once, that's all" or "Five days, that's all".
+Transcription removes the ending before the original approval/clarify/follow-up
+router receives the answer. The phrase itself never grants permission. This
+ends an answer recording; it does not implement a task-abort keyword while
+the agent is working. The detector is initialized per answer window rather
+than retained by the normal recorder.
+
 Validation must separate deterministic PCM/worker tests, real local KWS +
 Whisper file replay, and human microphone/noise acceptance. Synthetic replay
 does not establish multi-speaker recall or room false-positive rates.

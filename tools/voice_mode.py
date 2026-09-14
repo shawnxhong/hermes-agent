@@ -2132,6 +2132,18 @@ def full_duplex_listen(
     blocks_since_playback = 10_000
     block_idx = 0
 
+    # Answer windows use this path, not AudioRecorder.start(). Warm KWS before
+    # opening the microphone; feed only captured speech, not idle/TTS audio.
+    endpoint = None
+    endpoint_done = threading.Event()
+    try:
+        from tools.voice_endpoint import EndPhraseDetector, settings
+        endpoint_cfg = settings()
+        if endpoint_cfg:
+            endpoint = EndPhraseDetector(endpoint_cfg)
+    except Exception:
+        logger.warning("Answer end-phrase unavailable; using silence/time-limit fallback", exc_info=True)
+
     try:
         with sd.InputStream(
             samplerate=SAMPLE_RATE, channels=1, dtype="int16", blocksize=block
@@ -2237,10 +2249,24 @@ def full_duplex_listen(
                 # Capture until the user goes quiet. Playback was cut by
                 # on_trigger, so plain silence endpointing works.
                 frames: List[Any] = list(pre_roll)
+                if endpoint is not None:
+                    try:
+                        endpoint.start(endpoint_done.set, SAMPLE_RATE, SILENCE_RMS_THRESHOLD)
+                        # Preserve short answers such as "Yes, that's all"
+                        # whose ending may begin before the VAD trigger.
+                        endpoint.feed(np.concatenate(frames, axis=0))
+                    except Exception:
+                        endpoint.close()
+                        endpoint = None
+                        logger.warning("Answer end-phrase startup failed; using silence/time-limit fallback", exc_info=True)
                 quiet = 0
                 for _ in range(max_blocks):
+                    if endpoint_done.is_set():
+                        break
                     data, _ = stream.read(block)
                     frames.append(data.copy())
+                    if endpoint is not None:
+                        endpoint.feed(data)
                     rms = float(np.sqrt(np.mean(data.astype(np.float64) ** 2)))
                     quiet = quiet + 1 if rms < SILENCE_RMS_THRESHOLD else 0
                     if quiet >= endpoint_blocks:
@@ -2248,6 +2274,9 @@ def full_duplex_listen(
                 return AudioRecorder._write_wav(np.concatenate(frames, axis=0))
     except Exception as e:
         logger.debug("Full-duplex listener failed: %s", e)
+    finally:
+        if endpoint is not None:
+            endpoint.close()
     return None
 
 
