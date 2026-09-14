@@ -192,11 +192,27 @@ def main():
     if args.action == "run":
         return run_service()
     try:
+        if args.action == "start" and sys.stdin.isatty() and sys.stdout.isatty():
+            return run_interactive()
         print(json.dumps(control(args.action)), flush=True)
         return 0
     except Exception as e:
         print(json.dumps({"state": "error", "error": str(e)}), flush=True)
         return 1
+
+
+def run_interactive():
+    """Terminal start enters the real CLI; button calls remain headless."""
+    # Release the background microphone before opening the foreground CLI.
+    control("stop")
+    env = os.environ.copy()
+    env.update(HERMES_CLI_VOICE_AUTO_START="1", HERMES_CLI_WAKE_READY_CUE="1",
+               HERMES_CLI_PTT_ONESHOT="1")
+    command = [str(Path.home() / ".local/bin/hermes"), "--cli", "--skills", "travel-concierge"]
+    try:
+        return subprocess.run(command, env=env).returncode
+    except KeyboardInterrupt:
+        return 130
 
 
 if __name__ == "__main__":
