@@ -17,6 +17,12 @@ When no specific file is named, use the fixed default file for that medium.
 Playback is local and offline; do not download media, generate code, send
 attachments, or claim you played something merely by describing it.
 
+For playback, the next action is a `terminal` call to the supplied Python
+helper. Do not use `computer_use`, browser clicks, `execute_code`, or
+`text_to_speech` to play these files. This is a command-line operation even
+though the video appears on the desktop. Run the helper with `python3`, not
+as an executable; no chmod or source-code inspection is needed.
+
 ## When to Use
 
 Use based on playback intent, not an exact phrase or the word "demo".
@@ -84,6 +90,8 @@ these instructions instead of repeatedly loading the unchanged skill.
    means the local player started, not that the clip finished or was heard.
 3. Give one brief response in the user's language: "The demo video is playing."
    or "示例视频已开始播放。" No detailed report or automatic email.
+   Mention an error or repair only if this request's tool result reports it;
+   do not invent a permission issue before announcing success.
 4. On failure, state the actual issue briefly. Do not claim success, repeatedly
    retry, install packages, change audio routes/volumes, or use another file.
 5. A new play request replaces only this skill's previous playback. Stop affects
