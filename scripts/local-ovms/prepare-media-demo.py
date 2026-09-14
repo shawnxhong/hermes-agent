@@ -6,7 +6,7 @@ import subprocess
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--wav', type=Path, required=True)
-parser.add_argument('--output', type=Path, default=Path.home() / 'hermes-demo-media')
+parser.add_argument('--output', type=Path, default=Path.home() / 'Desktop')
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
 subprocess.run(['ffmpeg', '-nostdin', '-hide_banner', '-loglevel', 'error', '-n',

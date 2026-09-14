@@ -48,7 +48,7 @@ def control(action):
         if before['state'] in ('active', 'activating'):
             subprocess.run(['systemctl', '--user', 'stop', UNIT], check=True, timeout=8)
         return {**status(), 'action': 'stopped'}
-    command = player_command(action, Path.home() / 'hermes-demo-media')
+    command = player_command(action, Path.home() / 'Desktop')
     # Own only this unit: never stop VLC, browsers, TTS or unrelated players.
     subprocess.run(['systemctl', '--user', 'stop', UNIT], capture_output=True, timeout=8)
     launch = ['systemd-run', '--user', '--collect', '--unit=' + UNIT,

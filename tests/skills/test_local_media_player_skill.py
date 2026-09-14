@@ -26,6 +26,17 @@ def test_missing_file_fails(tmp_path):
         media.player_command('mp3', tmp_path)
 
 
+def test_play_resolves_desktop_before_starting_player(tmp_path, monkeypatch):
+    monkeypatch.setattr(media.Path, 'home', lambda: tmp_path)
+    def check(kind, folder):
+        assert kind == 'mp4'
+        assert folder == tmp_path / 'Desktop'
+        raise RuntimeError('checked target')
+    monkeypatch.setattr(media, 'player_command', check)
+    with pytest.raises(RuntimeError, match='checked target'):
+        media.control('mp4')
+
+
 def test_status_and_stop_only_owned_unit(monkeypatch):
     calls = []
     def run(cmd, **kwargs):

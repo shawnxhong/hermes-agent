@@ -30,7 +30,7 @@ commands; the enabled plugin handles them even if the model skips skill_view.
 
 This isolated skill/plugin uses a local terminal helper. No changes to
 core, tool definitions, model settings, wake detection or general voice policy.
-Fixed assets: `~/hermes-demo-media/demo.mp3` and `demo.mp4` (desktop user's home).
+Fixed assets: `~/Desktop/demo.mp3` and `~/Desktop/demo.mp4`.
 The MP3 is local Kokoro English narration; MP4 is a 720p title/waveform card
 with that narration. Both are fully offline at playback time.
 
@@ -40,7 +40,7 @@ On Ubuntu install ffmpeg if absent (provides ffplay), and use an active desktop
 session with its user systemd manager. Copy the skill directory from
 `scripts/local-ovms/skills/local-media-player` into the actual profile's
 `skills/media/local-media-player`. Copy the two generated assets into the
-desktop user's `~/hermes-demo-media/`. No Python packages, credentials or
+desktop user's `~/Desktop/`. No Python packages, credentials or
 model changes are required by the helper. No new boot service is installed.
 
 For stronger local-Qwen routing, preload in a new Hermes session:

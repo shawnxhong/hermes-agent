@@ -1,7 +1,7 @@
 ---
 name: local-media-player
 description: Play MP3/music/audio or MP4/video locally; stop playback.
-version: 0.3.0
+version: 0.3.1
 author: shawnxhong
 platforms: [linux]
 metadata:
@@ -33,8 +33,8 @@ packages or permissions beforehand. SSH does not imply there is no desktop.
 
 Fixed defaults on the Ubuntu desktop user's account:
 
-- MP3: `~/hermes-demo-media/demo.mp3`
-- MP4: `~/hermes-demo-media/demo.mp4`
+- MP3: `~/Desktop/demo.mp3`
+- MP4: `~/Desktop/demo.mp4`
 
 No Internet or cloud LLM is required. `~` is the current desktop user's home,
 not a hardcoded development-host path. Operator setup provides ffplay/systemd.
