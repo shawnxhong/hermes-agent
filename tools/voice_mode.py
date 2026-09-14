@@ -2077,7 +2077,7 @@ def full_duplex_listen(
     calibration_ms: int = 450,
     grace_ms: int = 500,
     pre_roll_ms: int = 1200,
-    endpoint_silence_ms: int = 1250,
+    endpoint_silence_ms: Optional[int] = None,
     max_utterance_ms: int = 30_000,
 ) -> Optional[str]:
     """Listen across an ENTIRE agent turn; return the captured interruption.
@@ -2112,12 +2112,24 @@ def full_duplex_listen(
 
     from collections import deque
 
+    if endpoint_silence_ms is None:
+        # Answer windows must honor the same operator setting as normal ASR.
+        # Retain the historical fallback only for missing/invalid settings.
+        endpoint_silence_ms = 1250
+        try:
+            from hermes_cli.config import load_config
+            duration = float((load_config().get("voice") or {}).get("silence_duration", 1.25))
+            if math.isfinite(duration) and duration > 0:
+                endpoint_silence_ms = duration * 1000
+        except (TypeError, ValueError, AttributeError, OSError):
+            pass
+
     block = int(SAMPLE_RATE * 0.03)  # 30ms blocks
     calib_blocks = max(1, calibration_ms // 30)
     trip_blocks = max(1, sustained_ms // 30)
     trip_needed = max(1, int(round(trip_blocks * 0.8)))
     grace_blocks = max(0, grace_ms // 30)
-    endpoint_blocks = max(1, endpoint_silence_ms // 30)
+    endpoint_blocks = max(1, math.ceil(endpoint_silence_ms / 30))
     max_blocks = max(1, max_utterance_ms // 30)
     mult = float(multiplier) if multiplier else DEFAULT_BARGE_MULTIPLIER
 
