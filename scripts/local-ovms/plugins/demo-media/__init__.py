@@ -40,6 +40,8 @@ def _remember(mapping, key, value):
 
 
 def execute(action, target=''):
+    if not isinstance(action, str) or not isinstance(target, str):
+        return {'success': False, 'error': 'Media action and target must be text.'}
     if action not in ('list', 'play', 'mp3', 'mp4', 'stop', 'status'):
         return {'success': False, 'error': 'No supported media action selected.'}
     from hermes_constants import get_hermes_home
@@ -158,7 +160,7 @@ def workflow(*, agent, user_message, session_id, **kwargs):
     _remember(_recent, str(session_id), result)
     # Native handled-result path ends this turn immediately. No second model
     # call exists that could ask for screenshots or loop on blocked GUI tools.
-    return {'handled': True, 'failed': not result.get('success', False),
+    return {'handled': True, 'failed': not result.get('success', False) and result.get('error') != 'ambiguous',
             'api_calls': 1, 'final_response': reply(action, result, zh)}
 
 

@@ -111,3 +111,20 @@ def test_selector_cannot_invent_replacement_filename():
     agent.client.with_options.return_value.chat.completions.create.return_value = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(tool_calls=[SimpleNamespace(function=SimpleNamespace(name='local_media', arguments='{"action":"play","target":"demo.mp4"}'))]))])
     with pytest.raises(ValueError, match='user request'):
         p.select_action(agent, 'play Avatar.mp4', False)
+
+
+def test_ambiguous_selection_is_a_question_not_failed_turn(monkeypatch):
+    monkeypatch.setattr(p, 'select_action', lambda *a: ('mp3', ''))
+    monkeypatch.setattr(p, 'execute', lambda *a: {'success': False, 'error': 'ambiguous',
+                       'files': [{'name': 'one.wav'}, {'name': 'two.mp3'}]})
+    result = p.workflow(agent=SimpleNamespace(_interrupt_requested=False),
+                        user_message='play music', session_id='s')
+    assert result['handled'] and not result['failed']
+    assert result['final_response'].endswith('?')
+
+
+def test_malformed_native_arguments_fail_without_subprocess(monkeypatch):
+    run = Mock()
+    monkeypatch.setattr(p.subprocess, 'run', run)
+    assert not p.execute('play', None)['success']
+    run.assert_not_called()
