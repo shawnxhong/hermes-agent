@@ -72,8 +72,6 @@ class EndPhraseDetector:
                     'model_dir': str(folder), 'aliases': [],
                     'max_active_paths': 16, 'keywords_threshold': 0.17}})
         self.engine = engine
-        self.confirm_seconds = 0.5
-        self.threshold = 400
         self._thread = None
         self._stop = threading.Event()
         self._queue = queue.Queue(maxsize=64)
@@ -88,33 +86,8 @@ class EndPhraseDetector:
         self._queue = queue.Queue(maxsize=64)
         self._stop = threading.Event()
         self.last_reason = None
-        self.reset_decision()
         self._thread = threading.Thread(target=self._run, daemon=True, name='recording-end-keyword')
         self._thread.start()
-
-    def reset_decision(self):
-        self._pending = None
-        self._quiet = 0.0
-        self._speech = 0.0
-
-    def decision(self, matched, rms, seconds):
-        if matched:
-            self._pending, self._quiet, self._speech = 0.0, 0.0, 0.0
-        if self._pending is None:
-            return False
-        self._pending += seconds
-        if rms <= self.threshold:
-            self._quiet += seconds
-            self._speech = 0.0
-        else:
-            self._quiet = 0.0
-            # Small decoder/word-tail grace; continued speech cancels candidate.
-            if self._pending > 0.2:
-                self._speech += seconds
-        if self._pending > 2.0 or self._speech >= 0.3:
-            self.reset_decision()
-            return False
-        return self._quiet >= self.confirm_seconds
 
     def feed(self, pcm):
         if self._stop.is_set():
@@ -138,12 +111,10 @@ class EndPhraseDetector:
                 mono = np.asarray(pcm, dtype=np.float32)
                 if mono.ndim > 1:
                     mono = mono.mean(axis=1)
-                duration = len(mono) / self.sample_rate
-                rms = float(np.sqrt(np.mean(mono ** 2)))
                 if self.sample_rate != 16000:
                     mono = resample_poly(mono, 16000 // divisor, int(self.sample_rate) // divisor)
                 matched = self.engine.process(mono)
-                if self.decision(matched, rms, duration) and not self._stop.is_set():
+                if matched and not self._stop.is_set():
                     self.last_reason = 'end_phrase'
                     logger.info('Recording end phrase confirmed: Over and out')
                     self._stop.set()

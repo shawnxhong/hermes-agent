@@ -17,10 +17,13 @@ Uses the cached Sherpa model from `wake_word.sherpa.model_dir` (or an explicit
 Before the first recording cue, cached audio explains: "Say over and out when
 you finish speaking." The normal cue then indicates that recording is ready.
 
-Say the full phrase **Over and out**, then pause briefly (~0.5 seconds).
+Say the full phrase **Over and out**. Detection immediately ends recording;
+there is no additional silence confirmation or 0.5-second waiting period.
+Normal acoustic/model processing latency still applies.
 An independent keyword worker reads copies of the recorder's existing PCM;
-there is no second microphone or repeated full Whisper decoding. Speech after
-the phrase cancels a candidate. Ordinary "over the weekend" is not a match.
+there is no second microphone or repeated full Whisper decoding. The complete
+phrase is always a control command, even inside a sentence; following speech
+does not cancel it. Ordinary "over the weekend" is not a match.
 The final Whisper transcript removes only the terminal control phrase. A bare
 end phrase produces an empty turn, not an agent task or voice-mode exit.
 

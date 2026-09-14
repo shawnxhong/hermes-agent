@@ -25,40 +25,20 @@ def test_disabled_preserves_transcript(monkeypatch):
     assert ep.strip_end_phrase('Over and out.') == 'Over and out.'
 
 
-def detector():
-    d = ep.EndPhraseDetector({}, engine=Mock())
-    d.reset_decision()
-    return d
-
-
-def test_keyword_plus_quiet_noise_ends_but_silence_alone_does_not():
-    d = detector()
-    assert not d.decision(False, 250, 1)
-    assert not d.decision(True, 2000, .08)
-    assert not d.decision(False, 250, .2)
-    assert d.decision(False, 250, .31)
-
-
-def test_continuing_sentence_cancels_keyword():
-    d = detector()
-    d.decision(True, 2000, .1)
-    assert not d.decision(False, 2000, .6)
-    assert not d.decision(False, 0, 1)
-
-
 @pytest.mark.parametrize('rate', [16000, 48000])
-def test_worker_resamples_and_fires_once(rate):
+def test_worker_fires_on_matching_frame_without_waiting_for_silence(rate):
     engine = Mock()
     engine.process.side_effect = [True] + [False] * 20
     d = ep.EndPhraseDetector({}, engine=engine)
     done = threading.Event()
     callback = Mock(side_effect=done.set)
     d.start(callback, rate, 400)
-    for _ in range(8):
-        d.feed(np.full((rate // 10, 1), 250, dtype=np.int16))
+    # Only one loud frame: no subsequent frame, silence or post-keyword timer.
+    d.feed(np.full((rate // 10, 1), 2000, dtype=np.int16))
     assert done.wait(5)
     d.stop()
     callback.assert_called_once()
+    engine.process.assert_called_once()
     assert len(engine.process.call_args.args[0]) == 1600
     d.close()
 
