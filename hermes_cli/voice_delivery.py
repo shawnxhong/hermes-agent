@@ -15,6 +15,26 @@ logger = logging.getLogger(__name__)
 EMAIL = re.compile(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}")
 
 
+def email_recipients(value):
+    """Validate a single mailbox or comma-separated default delivery group."""
+    if not isinstance(value, str) or '\r' in value or '\n' in value:
+        raise ValueError('Valid email recipient(s) required')
+    addresses = [part.strip() for part in value.split(',')]
+    if not addresses or any(not EMAIL.fullmatch(address) for address in addresses):
+        raise ValueError('Valid email recipient(s) required')
+    unique = {}
+    for address in addresses:
+        unique.setdefault(address.casefold(), address)
+    return list(unique.values())
+
+
+def valid_email_recipients(value):
+    try:
+        return bool(email_recipients(value))
+    except ValueError:
+        return False
+
+
 def delivery_fingerprint(scope, recipient, body):
     return hashlib.sha256((scope + "\0" + recipient + "\0" + body).encode()).hexdigest()
 
@@ -184,8 +204,7 @@ class TaskStore:
             db.execute('UPDATE sessions SET task_id=NULL WHERE id=?',(session,))
 
     def submit(self, session, task, recipient, *, sender, interrupted=lambda:False):
-        if not isinstance(recipient,str) or not EMAIL.fullmatch(recipient):
-            raise ValueError('An explicit valid recipient is required')
+        recipient = ', '.join(email_recipients(recipient))
         artifact=self.artifact(session,task['id'])
         if not artifact:
             raise StaleTask('No current artifact to deliver')

@@ -4,7 +4,7 @@ import re
 import json
 from hermes_cli.voice_continuity_store import ContinuityStore
 from hermes_cli.voice_continuity_router import route
-from hermes_cli.voice_delivery import EMAIL, StaleTask
+from hermes_cli.voice_delivery import EMAIL, StaleTask, email_recipients, valid_email_recipients
 
 log=logging.getLogger(__name__)
 YES=re.compile(r"^(?:yes|yeah|yep|correct|是的|对|没错)(?:[\s,.!?，。！？]*(?:I mean that|please|thank you|thanks|(?:could you )?(?:just )?send (?:me )?(?:the|it|email)(?: email)?))*[\s,.!?，。！？]*$",re.I)
@@ -40,8 +40,11 @@ def _address(text,default,*,delivery_requested=False):
     addresses=EMAIL.findall(text) if stated else re.findall(r'\b(?:to|at)\s+('+EMAIL.pattern+r')',text,re.I)
     if len(addresses)>1:return '',True
     if addresses:return addresses[0],False
-    if EMAIL.fullmatch(default or '') and default.replace('@','.').casefold() in text.casefold():
-        return default,True
+    if valid_email_recipients(default):
+        repairs = [address for address in email_recipients(default)
+                   if address.replace('@','.').casefold() in text.casefold()]
+        if len(repairs) == 1:
+            return repairs[0],True
     if re.search(r'\b(?:email address is|address is|(?:another|different|new) (?:email )?address)\b|我的邮箱|邮箱是|另一个邮箱|@',text,re.I):
         return '',True
     return default,False
@@ -66,7 +69,7 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
                                    interrupted=lambda:agent._interrupt_requested)
         return base._status(status,task['language']=='zh')
     def delivery(task,version,recipient,needs_confirmation):
-        if needs_confirmation or not EMAIL.fullmatch(recipient or ''):
+        if needs_confirmation or not valid_email_recipients(recipient):
             question=(f'Did you mean {recipient}?' if recipient else 'Which email address should receive these details?')
             store.pend(session,task,'confirm_recipient' if recipient else 'recipient',
                        {'version':version,'recipient':recipient,'question':question})

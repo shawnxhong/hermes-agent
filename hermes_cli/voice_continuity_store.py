@@ -7,7 +7,7 @@ from contextlib import contextmanager
 import json
 import uuid
 
-from hermes_cli.voice_delivery import TaskStore, StaleTask, EMAIL, delivery_fingerprint, submit_once
+from hermes_cli.voice_delivery import TaskStore, StaleTask, EMAIL, delivery_fingerprint, submit_once, email_recipients
 
 
 class ContinuityStore(TaskStore):
@@ -166,7 +166,7 @@ class ContinuityStore(TaskStore):
             db.execute('UPDATE sessions SET task_id=NULL WHERE id=?',(session,))
 
     def submit_result(self, session, task, version, recipient, *, sender, interrupted=lambda:False):
-        if not isinstance(recipient,str) or not EMAIL.fullmatch(recipient):raise ValueError('Valid recipient required')
+        recipient = ', '.join(email_recipients(recipient))
         result=self.result(session,task['id'],version)
         if not result:raise StaleTask('No selected result')
         def check():

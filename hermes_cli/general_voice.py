@@ -6,7 +6,7 @@ import threading
 from urllib.parse import urlparse
 
 from agent.turn_workflow import TurnContinuation, for_session
-from hermes_cli.voice_delivery import TaskStore, EMAIL
+from hermes_cli.voice_delivery import TaskStore, EMAIL, email_recipients, valid_email_recipients
 from hermes_cli.voice_task_router import route_task, OPEN_ENDED, EXPLICIT_DELIVERABLE
 
 log = logging.getLogger(__name__)
@@ -47,6 +47,18 @@ def config():
 
 
 def _send(recipient,body):
+    recipients = email_recipients(recipient)
+    if len(recipients) > 1:
+        deliveries = []
+        for address in recipients:
+            try:
+                result = _send(address, body)
+            except Exception as exc:
+                result = {'success': False, 'error': type(exc).__name__}
+            deliveries.append({'recipient': address, 'result': result})
+        return {'success': all(isinstance(d['result'], dict) and d['result'].get('success') is True
+                               for d in deliveries), 'deliveries': deliveries}
+    recipient = recipients[0]
     from tools.send_message_tool import send_message_tool
     result=send_message_tool({'action':'send','target':'email:'+recipient,'message':body})
     return json.loads(result) if isinstance(result,str) else result
@@ -366,7 +378,7 @@ def execute_native(agent,user_message,session,store,task,route,cfg,*,delivery=No
             return {'final_response':summary+(' 按你的要求，没有发送邮件。' if zh else ' As requested, I have not emailed it.'),'api_calls':calls}
         addresses=EMAIL.findall(user_message)
         recipient=addresses[-1] if addresses else cfg.get('default_recipient','')
-        if not isinstance(recipient,str) or not EMAIL.fullmatch(recipient):
+        if not valid_email_recipients(recipient):
             task=store.ask_recipient(session,task)
             return {'final_response':'详细内容已保存，请说出或输入收件邮箱？' if zh else 'The details are saved. Which email address should receive them?','api_calls':calls}
         status=store.submit(session,task,recipient,sender=_send,interrupted=lambda:agent._interrupt_requested)
