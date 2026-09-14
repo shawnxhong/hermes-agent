@@ -1,0 +1,1 @@
+Welcome to the Intel AI Box local media demonstration. This audio is generated locally and played directly on Ubuntu. Hermes can start the audio, show a video, and stop playback using a simple local skill. No cloud language model is required. Thank you for listening.
