@@ -4295,6 +4295,19 @@ class _SyncSentencePipeline:
             return None
         tmp_path = None
         try:
+            cached = None
+            try:
+                from hermes_cli.voice_wake_ack import cached_turn_ack
+                cached = cached_turn_ack(cleaned)
+            except Exception:
+                logger.warning('Fixed ack cache unavailable; using normal synthesis', exc_info=True)
+            if cached is not None:
+                import shutil
+                fd, tmp_path = tempfile.mkstemp(suffix=cached.suffix)
+                os.close(fd)
+                shutil.copyfile(cached, tmp_path)
+                logger.info('voice_latency stage=ack_audio source=cache')
+                return tmp_path
             fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
             os.close(fd)
             raw_result = text_to_speech_tool(text=cleaned, output_path=tmp_path)

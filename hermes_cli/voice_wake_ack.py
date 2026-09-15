@@ -96,3 +96,19 @@ def start_wake_capture(cli):
     finally:
         with cli._voice_lock:
             cli._voice_processing = False
+
+
+def cached_turn_ack(text):
+    """Cache only explicitly configured fixed ack phrases, never full answers."""
+    from hermes_cli.config import load_config
+    from utils import is_truthy_value
+    config = load_config()
+    ack = (config.get('voice') or {}).get('tool_ack') or {}
+    if not is_truthy_value(ack.get('cache_audio'), default=False):
+        return None
+    phrases = ack.get('phrases') or {}
+    known = [p for values in phrases.values() for p in
+             (values if isinstance(values, list) else [values])]
+    if text not in known:
+        return None
+    return cached_audio({'text': text, 'tts': config.get('tts') or {}})

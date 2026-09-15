@@ -16,6 +16,8 @@ def rig(monkeypatch):
     monkeypatch.setattr(base,'config',lambda:cfg)
     router=Mock(return_value=decision());monkeypatch.setattr(voice,'route',router)
     sender=Mock(return_value={'success':True});monkeypatch.setattr(base,'_send',sender)
+    from hermes_cli import voice_outbox
+    monkeypatch.setattr(voice_outbox,'kick',lambda:voice_outbox.drain(sender=sender))
     monkeypatch.setattr(base,'_summary',lambda *args:'A useful summary.')
     agent=SimpleNamespace(session_id='s',base_url='http://localhost:8000/v3',_interrupt_requested=False)
     return agent,router,sender
@@ -91,7 +93,7 @@ def test_invalid_address_confirmation_yes_is_zero_model_and_once(rig):
     reply=run(rig,'Send it to xiaoheng.hong.intel.com.')
     assert reply['final_response']=='Did you mean xiaoheng.hong@intel.com?'
     before=router.call_count
-    assert 'submitted' in run(rig,'Yes, I mean that. Could you just send me the email?')['final_response']
+    assert 'queued' in run(rig,'Yes, I mean that. Could you just send me the email?')['final_response']
     run(rig,'Yes, I mean that. Just send me the email.')
     assert router.call_count==before and sender.call_count==1
 
@@ -279,7 +281,7 @@ def test_exact_melbourne_followup_uses_native_result_and_emails_it(rig):
     second=run(rig,'I will be traveling from Sydney and I will be going there in October this year and I think I have five days')
     body='A useful five-day Melbourne itinerary with Sydney transport guidance.'
     result=done(second,body)
-    assert not result.get('failed') and 'submitted' in result['final_response']
+    assert not result.get('failed') and 'queued' in result['final_response']
     sender.assert_called_once_with('xiaoheng.hong@intel.com',body)
 
 
@@ -417,7 +419,7 @@ def test_exhausted_read_only_tool_loop_gets_one_text_only_recovery(rig,monkeypat
     value['continuation'].after_tool('web_search',{}, {'url':'https://source.example/','description':'Evidence.'})
     result=value['continuation'].finalize(response_text='',failed=True,turn_exit_reason='unknown',
                                           messages=[{'role':'tool','name':'web_search','content':'Evidence.'}])
-    assert not result.get('failed') and 'submitted' in result['final_response']
+    assert not result.get('failed') and 'queued' in result['final_response']
     recover.assert_called_once()
     assert 'Recovered report' in rig[2].call_args.args[1]
 
@@ -431,7 +433,7 @@ def test_summarizer_cannot_replace_native_research_with_extractive_notes(rig,mon
     reply=done(value,'Store B is in Boston. https://a.example/')
     body=rig[2].call_args.args[1]
     assert 'Store B is in Boston.' in body and 'https://a.example/' in body
-    assert 'submitted' in reply['final_response']
+    assert 'queued' in reply['final_response']
     assert validator.call_count==1
 
 
@@ -440,7 +442,7 @@ def test_grounding_label_from_summarizer_cannot_veto_native_result(rig,monkeypat
     monkeypatch.setattr(base,'_summary',Mock(side_effect=ValueError('Summary unavailable')))
     value=run(rig,'Research the options.')
     value['continuation'].after_tool('web_search',{}, {'url':'https://a.example/'})
-    assert 'submitted' in done(value,'Unverified specifics. https://a.example/')['final_response']
+    assert 'queued' in done(value,'Unverified specifics. https://a.example/')['final_response']
     assert 'Unverified specifics.' in rig[2].call_args.args[1]
 
 
@@ -450,7 +452,7 @@ def test_summary_timeout_retains_native_result_and_observed_sources(rig,monkeypa
     value=run(rig,'Research the options.')
     value['continuation'].after_tool('web_search',{}, {'url':'https://a.example/','description':'Evidence.'})
     reply=done(value,'Specific claims. https://a.example/')
-    assert 'submitted' in reply['final_response']
+    assert 'queued' in reply['final_response']
     body=rig[2].call_args.args[1]
     assert 'Specific claims' in body and 'https://a.example/' in body
 

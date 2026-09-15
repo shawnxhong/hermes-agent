@@ -20,8 +20,6 @@ Environment variables:
 """
 
 import asyncio
-from contextlib import contextmanager
-from contextvars import ContextVar
 import email as email_lib
 import imaplib
 import logging
@@ -148,25 +146,11 @@ _AUTOMATED_HEADERS = {
 # Gmail-safe max length per email body
 MAX_MESSAGE_LENGTH = 50_000
 
-SMTP_CONNECT_TIMEOUT = 30
-_SMTP_CONNECT_TIMEOUT_OVERRIDE: ContextVar[float | None] = ContextVar(
-    "email_smtp_connect_timeout_override", default=None
+from hermes_cli.email_transport import (
+    SMTP_CONNECT_TIMEOUT,
+    smtp_connect_timeout,
+    standalone_smtp_connect_timeout as _standalone_smtp_connect_timeout,
 )
-
-
-@contextmanager
-def smtp_connect_timeout(seconds: float):
-    """Temporarily narrow standalone SMTP connect time for a host-owned send."""
-    value = max(1.0, float(seconds))
-    token = _SMTP_CONNECT_TIMEOUT_OVERRIDE.set(value)
-    try:
-        yield
-    finally:
-        _SMTP_CONNECT_TIMEOUT_OVERRIDE.reset(token)
-
-
-def _standalone_smtp_connect_timeout() -> float:
-    return _SMTP_CONNECT_TIMEOUT_OVERRIDE.get() or SMTP_CONNECT_TIMEOUT
 
 
 def _close_imap(imap: "imaplib.IMAP4") -> None:

@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import threading
+import time
 from urllib.parse import urlparse
 
 from agent.turn_workflow import TurnContinuation, for_session
@@ -64,7 +65,7 @@ def _send(recipient,body):
                 'deliveries': deliveries}
     recipient = recipients[0]
     from tools.send_message_tool import send_message_tool
-    from plugins.platforms.email.adapter import smtp_connect_timeout
+    from hermes_cli.email_transport import smtp_connect_timeout
     with smtp_connect_timeout(8):
         result=send_message_tool({'action':'send','target':'email:'+recipient,'message':body})
     return json.loads(result) if isinstance(result,str) else result
@@ -212,6 +213,10 @@ def _offline_completion(agent,current_request,task_request,*,detailed=False):
 
 
 def _status(status):
+    if status=='queued':
+        return 'The details are queued for email delivery.'
+    if status=='saved':
+        return 'The details are saved locally, but email delivery has not started.'
     if status=='accepted':
         return 'The details have been submitted for email delivery.'
     if status=='offline':
@@ -256,6 +261,11 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
     session=str(session_id or '')
     if cfg and platform in {'cli','local'} and input_modality=='voice' and session:
         begin_turn(session)
+        try:
+            from hermes_cli.voice_outbox import resume
+            resume()
+        except Exception:
+            log.warning('Could not resume voice email queue', exc_info=True)
     else:
         clear_turn(session)
     if not cfg or platform not in {'cli','local'} or input_modality not in {'voice','text'} or not isinstance(user_message,str):
@@ -270,7 +280,8 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
     answer=store.recipient_answer(session,user_message,platform=platform,modality=input_modality)
     if answer:
         task=answer['task']
-        status=store.submit(session,task,answer['recipient'],sender=_send,interrupted=lambda:agent._interrupt_requested)
+        from hermes_cli.voice_outbox import enqueue
+        status=enqueue(store,session,task,answer['recipient'],interrupted=lambda:agent._interrupt_requested)
         return _handled(_status(status))
     if input_modality!='voice':
         _close(store,session,task)
@@ -286,7 +297,8 @@ def run_workflow(*,agent,user_message,session_id,input_modality=None,platform=No
         if not addresses:
             store.ask_recipient(session,task)
             return _handled('You can say it or type it here. Which email address should receive the details?')
-        status=store.submit(session,task,addresses[-1],sender=_send,interrupted=lambda:agent._interrupt_requested)
+        from hermes_cli.voice_outbox import enqueue
+        status=enqueue(store,session,task,addresses[-1],interrupted=lambda:agent._interrupt_requested)
         return _handled(_status(status))
     if urlparse(str(agent.base_url)).hostname not in {'localhost','127.0.0.1','::1'}:
         return _handled('This voice workflow requires the configured local model.',failed=True)
@@ -444,12 +456,16 @@ def execute_native(agent,user_message,session,store,task,route,cfg,*,delivery=No
         if offline_result:
             summary=offline_result['summary']
         elif detail or not _brief(response_text):
+            summary_started=time.monotonic()
             try:
                 summary=_summary(agent,response_text);calls=1
             except Exception as exc:
                 log.warning('Voice summarization failed; using bounded fallback: %s',exc)
                 summary=_fallback_summary(response_text)
                 calls=1
+            finally:
+                log.info('voice_latency stage=summary session=%s seconds=%.3f',
+                         session,time.monotonic()-summary_started)
         else:
             summary=response_text
         if not detail:
@@ -469,7 +485,8 @@ def execute_native(agent,user_message,session,store,task,route,cfg,*,delivery=No
         if not valid_email_recipients(recipient):
             task=store.ask_recipient(session,task)
             return {'final_response':'The details are saved. Which email address should receive them?','api_calls':calls}
-        status=store.submit(session,task,recipient,sender=_send,interrupted=lambda:agent._interrupt_requested)
+        from hermes_cli.voice_outbox import enqueue
+        status=enqueue(store,session,task,recipient,interrupted=lambda:agent._interrupt_requested)
         return {'final_response':summary+' '+_status(status),'api_calls':calls}
     from hermes_cli.voice_response_policy import build_voice_turn_prefix
     value=TurnContinuation(instruction,delivery or deliver,max_api_calls=6 if simple_turn else 8,temperature=0.0,

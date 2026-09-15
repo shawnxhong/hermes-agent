@@ -66,6 +66,21 @@ def test_voice_scoped_connect_timeout_does_not_change_default(smtp):
     assert plain.call_args.kwargs["timeout"] == adapter.SMTP_CONNECT_TIMEOUT
 
 
+def test_shared_timeout_survives_duplicate_plugin_module(smtp, monkeypatch):
+    import importlib.util
+    from hermes_cli.email_transport import smtp_connect_timeout
+    spec = importlib.util.spec_from_file_location('email_plugin_alias_under_test', adapter.__file__)
+    duplicate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(duplicate)
+    monkeypatch.setattr(duplicate, '_get_secret', adapter._get_secret)
+    monkeypatch.setattr(duplicate, '_esecret_bool', adapter._esecret_bool)
+    with smtp_connect_timeout(8):
+        assert asyncio.run(duplicate._standalone_send(SimpleNamespace(extra={}),
+                          'recipient@example.com', 'Test report.'))['success']
+    assert smtp[2].call_args.kwargs['timeout'] == 8
+    assert duplicate._standalone_smtp_connect_timeout() == 30
+
+
 def test_connect_failure_is_definite_and_structured(smtp):
     _, _, plain, _ = smtp
     plain.side_effect = socket.gaierror(-2, "Name or service not known")

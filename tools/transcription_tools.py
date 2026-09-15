@@ -1928,6 +1928,30 @@ def _join_confident_segments(segments: Any, local_cfg: Dict[str, Any]) -> str:
     return " ".join(kept).strip()
 
 
+def prewarm_local_model():
+    """Best-effort offline load of the configured Whisper model for voice CLI."""
+    global _local_model, _local_model_name
+    config = _load_stt_config()
+    local = config.get('local') or {}
+    from utils import is_truthy_value
+    if config.get('provider', 'local') != 'local' or not is_truthy_value(local.get('prewarm'), default=False):
+        return
+    name = _normalize_local_model(local.get('model'))
+    started = time.monotonic()
+    try:
+        from faster_whisper import WhisperModel
+        with _local_model_lock:
+            if _local_model is None or _local_model_name != name:
+                _local_model = WhisperModel(name, device=local.get('device', 'auto'),
+                                           compute_type=local.get('compute_type', 'auto'),
+                                           local_files_only=True)
+                _local_model_name = name
+        _touch_transcription_time()
+        logger.info('voice_latency stage=asr_prewarm seconds=%.3f', time.monotonic()-started)
+    except Exception:
+        logger.warning('Local ASR prewarm unavailable; normal loading remains enabled', exc_info=True)
+
+
 def _transcribe_local(
     file_path: str,
     model_name: str,

@@ -65,6 +65,8 @@ def rig(monkeypatch):
     monkeypatch.setattr(voice,'config',lambda:cfg)
     router=Mock(return_value=routing());monkeypatch.setattr(voice,'route_task',router)
     sender=Mock(return_value={'success':True});monkeypatch.setattr(voice,'_send',sender)
+    from hermes_cli import voice_outbox
+    monkeypatch.setattr(voice_outbox,'kick',lambda:voice_outbox.drain(sender=sender))
     summary=Mock(return_value='The report covers the requested topic and next steps.');monkeypatch.setattr(voice,'_summary',summary)
     agent=SimpleNamespace(base_url='http://localhost:8000/v3',_interrupt_requested=False,session_id='general-test')
     return cfg,agent,router,sender,summary
@@ -84,7 +86,7 @@ def test_complete_task_executes_then_summarizes_and_sends(rig):
     sender.assert_not_called()
     result=complete(policy)
     sender.assert_called_once_with('default@example.com','The complete detailed report.')
-    assert result['final_response'].endswith('submitted for email delivery.')
+    assert result['final_response'].endswith('queued for email delivery.')
     assert summary.call_count==1
 
 
@@ -171,7 +173,10 @@ def test_truncated_simple_answer_is_salvaged_as_brief_speech_without_email(rig):
 def test_sender_failure_and_summary_failure_are_honest(rig):
     rig[3].return_value={'error':'timeout'};rig[4].side_effect=ValueError('bad summary')
     result=complete(run(rig))
-    assert 'not confirmed' in result['final_response'] and 'submitted' not in result['final_response']
+    assert 'queued' in result['final_response'] and 'submitted' not in result['final_response']
+    from hermes_cli.voice_outbox import connect
+    with connect() as db:
+        assert db.execute('SELECT status FROM jobs').fetchone()[0]=='unconfirmed'
     assert TaskStore().artifact(rig[1].session_id,TaskStore().current(rig[1].session_id)['id'])['body']
 
 
@@ -305,7 +310,7 @@ def test_request_for_more_details_is_not_emailed_as_a_completed_report(rig):
 def test_summary_cannot_reject_a_completed_native_result(rig):
     rig[4].side_effect=ValueError('Summary unavailable')
     result=complete(run(rig),'The completed report content.')
-    assert 'submitted' in result['final_response']
+    assert 'queued' in result['final_response']
     assert rig[3].call_args.args[1]=='The completed report content.'
 
 

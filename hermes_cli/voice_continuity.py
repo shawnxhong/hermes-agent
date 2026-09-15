@@ -67,8 +67,9 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         store.record_turn(session,text,reply)
         return base._handled(reply,calls=calls,failed=failed)
     def send_selected(task,version,recipient):
-        status=store.submit_result(session,task,version,recipient,sender=base._send,
-                                   interrupted=lambda:agent._interrupt_requested)
+        from hermes_cli.voice_outbox import enqueue
+        status=enqueue(store,session,task,recipient,version=version,
+                       interrupted=lambda:agent._interrupt_requested)
         return base._status(status)
     def delivery(task,version,recipient,needs_confirmation):
         if needs_confirmation or not valid_email_recipients(recipient):

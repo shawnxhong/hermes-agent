@@ -3,6 +3,21 @@ from pathlib import Path
 
 
 def play_startup_cue():
+    import threading
+    def warm():
+        import logging
+        try:
+            from tools.transcription_tools import prewarm_local_model
+            prewarm_local_model()
+            from hermes_cli.voice_wake_ack import cached_turn_ack
+            from hermes_cli.config import load_config
+            phrases = ((load_config().get('voice') or {}).get('tool_ack') or {}).get('phrases') or {}
+            for values in phrases.values():
+                for phrase in (values if isinstance(values, list) else [values]):
+                    cached_turn_ack(phrase)
+        except Exception:
+            logging.getLogger(__name__).warning('Voice warmup failed', exc_info=True)
+    threading.Thread(target=warm, name='voice-prewarm', daemon=True).start()
     from hermes_cli.config import load_config
     from tools.voice_mode import play_audio_file, play_beep
 

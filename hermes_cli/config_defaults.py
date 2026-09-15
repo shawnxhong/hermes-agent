@@ -1989,6 +1989,7 @@ DEFAULT_CONFIG = {
             "no_speech_prob_threshold": 0.6,  # drop a segment only if no_speech_prob is ABOVE this...
             "logprob_threshold": -1.0,  # ...AND its avg_logprob is BELOW this (both must hit)
             "unload_after_idle_seconds": 0,  # 0=never (default); e.g. 300 releases the model after 5min idle
+            "prewarm": False,  # Voice startup: load cached local ASR weights without downloading.
         },
         "groq": {
             "model": "whisper-large-v3-turbo",  # whisper-large-v3, whisper-large-v3-turbo, distil-whisper-large-v3-en
@@ -2037,6 +2038,7 @@ DEFAULT_CONFIG = {
         # Speak one short acknowledgement before the first tool call in a
         # voice-input turn. Disabled by default; phrases are user-configurable.
         "tool_ack": {
+            "cache_audio": False,  # Reuse audio only for explicitly configured fixed phrases.
             "enabled": False,
             # first_tool preserves the conditional behavior. turn_start plays
             # before model inference, guaranteeing acknowledgement precedes
