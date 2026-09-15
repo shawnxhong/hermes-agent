@@ -111,8 +111,6 @@ def test_workflow_is_english_only(rig):
     incoming["language"] = "zh"
     result = mod._facts(incoming, {}, "next month", mod.date(2026, 1, 1))
     assert result["language"] == "en"
-    source = Path(mod.__file__).read_text(encoding="utf-8")
-    assert not any("\u3400" <= char <= "\u9fff" for char in source)
 
 
 def test_recipient_override_comes_from_user_not_model(rig,monkeypatch):

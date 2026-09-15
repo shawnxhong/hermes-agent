@@ -9886,6 +9886,21 @@ class AIAgent:
                 finish_task_run(**task_context, error=exc)
             raise
         finally:
+            if getattr(self, "_prompt_audit_scope", None) is not None:
+                try:
+                    from agent.prompt_audit import finish_prompt_audit_turn
+
+                    _prompt_audit_dir = finish_prompt_audit_turn(
+                        self,
+                        status=relay_outcome,
+                    )
+                    if _prompt_audit_dir is not None:
+                        logger.info(
+                            "First-turn prompt audit written to %s",
+                            _prompt_audit_dir,
+                        )
+                except Exception:
+                    logger.warning("Could not finalize prompt audit", exc_info=True)
             try:
                 if relay_turn is not None:
                     relay_runtime.SESSION_COORDINATOR.end_turn(

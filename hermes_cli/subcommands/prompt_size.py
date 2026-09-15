@@ -33,4 +33,12 @@ def build_prompt_size_parser(subparsers, *, cmd_prompt_size: Callable) -> None:
         action="store_true",
         help="Emit the breakdown as JSON",
     )
+    prompt_size_parser.add_argument(
+        "--capture-next",
+        action="store_true",
+        help=(
+            "Capture every model request from the next fresh turn and write "
+            "a redacted prompt/source report"
+        ),
+    )
     prompt_size_parser.set_defaults(func=cmd_prompt_size)

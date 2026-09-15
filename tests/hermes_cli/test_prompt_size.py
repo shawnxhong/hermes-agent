@@ -13,6 +13,7 @@ from hermes_cli.prompt_size import (
     _compute_skills_breakdown,
     compute_prompt_breakdown,
     render_breakdown,
+    cmd_prompt_size,
 )
 
 
@@ -52,6 +53,30 @@ def test_runs_offline_without_credentials(isolated_home, monkeypatch):
         monkeypatch.delenv(var, raising=False)
     data = compute_prompt_breakdown("cli")
     assert data["system_prompt"]["bytes"] > 0
+
+
+def test_capture_next_arms_audit_without_computing_prompt(monkeypatch, capsys):
+    armed = {
+        "platform": "cli",
+        "output_root": "/tmp/prompt-audit",
+        "marker": "/tmp/prompt-audit/armed.json",
+    }
+    monkeypatch.setattr(
+        "agent.prompt_audit.arm_next_prompt_audit",
+        lambda platform: armed,
+    )
+    monkeypatch.setattr(
+        "hermes_cli.prompt_size.compute_prompt_breakdown",
+        lambda platform: (_ for _ in ()).throw(AssertionError("must not compute")),
+    )
+
+    cmd_prompt_size(
+        SimpleNamespace(platform="cli", capture_next=True, json=False)
+    )
+
+    output = capsys.readouterr().out
+    assert "next fresh cli turn" in output
+    assert "/tmp/prompt-audit/latest.json" in output
 
 
 
@@ -115,7 +140,5 @@ def test_skills_breakdown_attributes_demoted_category_shared_line(isolated_home)
         assert entry["index_line_total_bytes"] == shared_line_bytes
         assert entry["index_line_shared_bytes"] > 0
         assert entry["index_line_skill_count"] == 2
-
-
 
 

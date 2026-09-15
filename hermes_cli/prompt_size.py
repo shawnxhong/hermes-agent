@@ -365,6 +365,19 @@ def render_breakdown(data: Dict[str, Any]) -> str:
 def cmd_prompt_size(args: Any) -> None:
     """Entry point for ``hermes prompt-size``."""
     platform = getattr(args, "platform", "cli") or "cli"
+    if getattr(args, "capture_next", False):
+        try:
+            from agent.prompt_audit import arm_next_prompt_audit
+
+            armed = arm_next_prompt_audit(platform)
+        except Exception as e:
+            print(f"Could not arm prompt audit: {e}")
+            return
+        print(f"Prompt audit armed for the next fresh {armed['platform']} turn.")
+        print("Start a new session, then enter exactly one test question.")
+        print(f"Reports will be written under: {armed['output_root']}")
+        print(f"After the turn, read: {armed['output_root']}/latest.json")
+        return
     as_json = getattr(args, "json", False)
     try:
         data = compute_prompt_breakdown(platform)

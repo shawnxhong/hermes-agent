@@ -2187,6 +2187,21 @@ def run_conversation(
     _plugin_user_context = _ctx.plugin_user_context
     _ext_prefetch_cache = _ctx.ext_prefetch_cache
 
+    # Claim a one-shot prompt audit only after this fresh turn has assembled
+    # its prompt. Resumed sessions and other platforms leave the marker armed
+    # for the intended turn.
+    try:
+        from agent.prompt_audit import begin_prompt_audit_turn
+
+        begin_prompt_audit_turn(
+            agent,
+            conversation_history,
+            original_user_message,
+            input_modality=input_modality,
+        )
+    except Exception:
+        logger.warning("Could not begin one-shot prompt audit", exc_info=True)
+
     # Commentary deduplication spans all provider continuations and tool calls
     # within one user turn, but must not suppress the same phrase next turn.
     agent._delivered_interim_texts = set()
@@ -3583,6 +3598,25 @@ def run_conversation(
                         )
                 except Exception:
                     pass
+
+                if getattr(agent, "_prompt_audit_scope", None) is not None:
+                    try:
+                        from agent.prompt_audit import capture_main_request
+
+                        capture_main_request(
+                            agent,
+                            api_kwargs,
+                            task_id=effective_task_id,
+                            turn_id=turn_id,
+                            api_request_id=api_request_id,
+                            api_call_count=api_call_count,
+                            retry_count=retry_count,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Could not capture prompt-audit request",
+                            exc_info=True,
+                        )
 
                 if env_var_enabled("HERMES_DUMP_REQUESTS"):
                     agent._dump_api_request_debug(api_kwargs, reason="preflight")
