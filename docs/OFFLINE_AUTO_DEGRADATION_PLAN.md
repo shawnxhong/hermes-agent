@@ -1,7 +1,7 @@
 # Automatic offline degradation plan
 
 Date: 2026-09-15
-Status: implemented and source-verified; installed Box deployment pending
+Status: implemented and deployed to the engineering Box; human acoustic acceptance pending
 Target: English-only, screenless local voice demo on the Intel AI Box
 
 ## Decision
@@ -94,8 +94,25 @@ Source evidence on 2026-09-15:
 - A real Brave read-only query succeeded with two results. No real email was
   sent during acceptance.
 
-The installed engineering Box acceptance and human acoustic check remain the
-last release steps. Source commit and push must precede deployment.
+Engineering Box deployment evidence on 2026-09-15:
+
+- Source commit `7c8415b97` was pushed before deployment.
+- The narrow runtime overlay was deployed to `intel@192.168.1.76` after a
+  per-file/config backup at
+  `/home/intel/.hermes/backups/offline-auto-20260915_183655`.
+- Files that matched the source baseline were copied exactly. The Box's older
+  clean `agent/tool_executor.py` and `tools/web_tools.py` received only the
+  reviewed feature hunks; wake, ASR/TTS, startup and configuration files were
+  not replaced.
+- All deployed modules compiled. A real Brave query returned two results. A
+  real Qwen/OVMS live-weather outage replay made one search, produced no
+  substitute facts and sent no mail. A capture-only group-mail outage stopped
+  after the first definite failure.
+- Gateway restarted active and its configured email and Feishu transports
+  reconnected; OVMS remained active. The voice service was left inactive, so
+  the next normal start will load the new modules.
+
+Human wake/ASR/TTS acoustic acceptance remains the final release step.
 
 ## Goals
 

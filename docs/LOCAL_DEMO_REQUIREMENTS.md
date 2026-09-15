@@ -24,8 +24,8 @@ Normal operation has network/Brave search and no cloud LLM dependency is
 acceptable. The automatic offline work specified in
 `OFFLINE_AUTO_DEGRADATION_PLAN.md` is now implemented and source-verified. It
 uses a host-owned per-turn breaker, truthful stable/local fallback, bounded web
-and SMTP connection handling, and no user-selected offline mode. Installed Box
-and human acoustic acceptance remain release gates.
+and SMTP connection handling, and no user-selected offline mode. Automated Box
+deployment checks passed on 2026-09-15; human acoustic acceptance remains.
 
 This update records a requirements review, not a runtime change or acceptance
 claim. See VOICE_MODEL_FIRST_RESET.md for the Melbourne incident. Any earlier

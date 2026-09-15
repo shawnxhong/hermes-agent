@@ -64,8 +64,8 @@ The physical-network-loss follow-up in
 adds a host-owned per-turn breaker, first-network-result gating for concurrent
 tool batches, provider/SMTP transport classification, bounded connections,
 truthful local-only completion, and per-recipient delivery receipts. It does
-not add an offline mode or mutate the session prompt/tool schema. Installed Box
-and human acoustic acceptance remain pending.
+not add an offline mode or mutate the session prompt/tool schema. Automated Box
+deployment checks passed on 2026-09-15; human acoustic acceptance remains.
 
 ## Acceptance evidence
 
