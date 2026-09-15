@@ -1,0 +1,47 @@
+{
+  "captured_at": "2026-09-16T02:33:25+0800",
+  "host_id": "laptop",
+  "platform": {
+    "sysname": "Linux",
+    "release": "7.0.0-31-generic",
+    "machine": "x86_64",
+    "python": "3.11.16"
+  },
+  "source": {
+    "path": "/home/agentdemo/.hermes/hermes-agent",
+    "commit": "d63f996a757f6255fc1454239616ab4b4435e0f5",
+    "branch": "main",
+    "working_tree_change_count": 291,
+    "reproducible_from_single_commit": false
+  },
+  "model": {
+    "default": "qwen3.6-35b-a3b",
+    "provider": "custom",
+    "base_url": "http://localhost:8000/v3",
+    "context_length": 65536,
+    "keyboard_max_tokens": 4096,
+    "voice_max_tokens": 1024
+  },
+  "stt": {
+    "provider": "local",
+    "language": "en",
+    "local": {
+      "model": "large-v3-turbo",
+      "language": "en",
+      "vad": true,
+      "prewarm": true,
+      "unload_after_idle_seconds": 0
+    }
+  },
+  "tts": {
+    "provider": "kokoro-zh",
+    "output_format": "wav"
+  },
+  "isolation": {
+    "smtp": "local outbox only; worker disabled",
+    "home": "loopback simulator with temporary SQLite",
+    "cron_sessions_files": "temporary HERMES_HOME/workspace",
+    "speaker": "real audio duration slept silently",
+    "web": "live Brave Search"
+  }
+}

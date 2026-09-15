@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-16T03:15:00+08:00",
+  "review_method": "Manual comparison of the prompt, voice ASR transcript, returned response, captured deliverable, tool trace, and isolated side-effect state. Pass means useful and on-task; partial means useful but materially degraded; fail means unusable, wrong-task, or requested action not completed.",
+  "runs": {
+    "travel_01:keyboard": {
+      "status": "pass",
+      "note": "Produced a detailed seven-day Paris itinerary and transportation plan."
+    },
+    "travel_01:voice": {
+      "status": "fail",
+      "note": "Returned that it could not finish and did not produce a new deliverable."
+    },
+    "travel_02:keyboard": {
+      "status": "pass",
+      "note": "Produced a detailed three-day Tokyo itinerary with transportation."
+    },
+    "travel_02:voice": {
+      "status": "partial",
+      "note": "Produced and queued a useful itinerary, but explicitly lacked live verification."
+    },
+    "home_01:keyboard": {
+      "status": "partial",
+      "note": "Reported the correct appliance state, but repeated the same result after truncation continuations."
+    },
+    "home_01:voice": {
+      "status": "pass",
+      "note": "Correctly reported every simulated appliance state and offered the expected follow-up."
+    },
+    "home_02:keyboard": {
+      "status": "partial",
+      "note": "Changed and verified the TV state, but returned heavily duplicated output after truncation continuations."
+    },
+    "home_02:voice": {
+      "status": "pass",
+      "note": "Changed the simulated living room TV to off and correctly verified all appliance states."
+    },
+    "flights_01:keyboard": {
+      "status": "fail",
+      "note": "Returned only punctuation after a long retrieval attempt."
+    },
+    "flights_01:voice": {
+      "status": "fail",
+      "note": "Explicitly failed to retrieve or provide the requested flight options."
+    },
+    "flights_02:keyboard": {
+      "status": "fail",
+      "note": "Returned only punctuation instead of flight choices."
+    },
+    "flights_02:voice": {
+      "status": "fail",
+      "note": "Returned a generic failure without the requested flight comparison."
+    },
+    "shopping_01:keyboard": {
+      "status": "fail",
+      "note": "Cross-scene contamination: answered the preceding flight task instead of the SSD comparison."
+    },
+    "shopping_01:voice": {
+      "status": "fail",
+      "note": "Named products but did not complete the requested current-price comparison or recommendation."
+    },
+    "shopping_02:keyboard": {
+      "status": "fail",
+      "note": "Returned only punctuation instead of headphone prices and recommendations."
+    },
+    "shopping_02:voice": {
+      "status": "fail",
+      "note": "Returned a source-lookup failure rather than two current recommendations."
+    },
+    "schedule_01:keyboard": {
+      "status": "pass",
+      "note": "Correctly reported that the isolated cron store was empty and nothing would run next."
+    },
+    "schedule_01:voice": {
+      "status": "fail",
+      "note": "Cross-scene contamination: mixed failure text and demo-home appliance state instead of the schedule result."
+    },
+    "schedule_02:keyboard": {
+      "status": "fail",
+      "note": "Described an intention to create a reminder but did not complete or confirm the requested schedule."
+    },
+    "schedule_02:voice": {
+      "status": "fail",
+      "note": "Spent 387.788 seconds in wrong tool paths and then reported that scheduling was inaccessible."
+    },
+    "coding_01:keyboard": {
+      "status": "pass",
+      "note": "Returned a correct order-preserving deduplication function and complexity explanation."
+    },
+    "coding_01:voice": {
+      "status": "pass",
+      "note": "Returned a correct function and complexity explanation, although too verbose for speech."
+    },
+    "coding_02:keyboard": {
+      "status": "pass",
+      "note": "Created the requested correctly named file in the isolated workspace and ran its self-test."
+    },
+    "coding_02:voice": {
+      "status": "fail",
+      "note": "ASR changed benchmark_fibonacci.py to 'Benchmark Fibonacci. Pie', so the requested file was not created."
+    },
+    "chat_01:keyboard": {
+      "status": "pass",
+      "note": "Answered naturally and directly."
+    },
+    "chat_01:voice": {
+      "status": "partial",
+      "note": "Answered the intent, but the voice summarizer used unnatural third-person meta language."
+    },
+    "chat_02:keyboard": {
+      "status": "pass",
+      "note": "Returned a short workplace-safe computer joke."
+    },
+    "chat_02:voice": {
+      "status": "pass",
+      "note": "Returned a short workplace-safe computer joke."
+    },
+    "knowledge_01:keyboard": {
+      "status": "pass",
+      "note": "Correctly explained Rayleigh scattering."
+    },
+    "knowledge_01:voice": {
+      "status": "pass",
+      "note": "Correctly and concisely explained Rayleigh scattering."
+    },
+    "knowledge_02:keyboard": {
+      "status": "pass",
+      "note": "Correctly explained RAM versus persistent storage."
+    },
+    "knowledge_02:voice": {
+      "status": "fail",
+      "note": "ASR changed RAM to RM, so the model answered Resource Manager rather than memory."
+    }
+  }
+}
