@@ -9,16 +9,16 @@ from unittest.mock import MagicMock, patch
 from hermes_cli.voice_clarify import build_spoken_prompt, resolve_spoken_answer
 
 
-def test_chinese_prompt_speaks_question_and_every_choice():
+def test_prompt_speaks_question_and_every_choice():
     prompt = build_spoken_prompt(
-        "你想看哪个城市的天气？",
-        ["上海 (Recommended)", "北京", "深圳"],
+        "Which city has the best weather?",
+        ["Seattle (Recommended)", "Boston", "Austin"],
     )
 
-    assert "你想看哪个城市的天气" in prompt
-    assert "选项1，上海" in prompt
-    assert "选项2，北京" in prompt
-    assert "选项3，深圳" in prompt
+    assert "Which city has the best weather" in prompt
+    assert "Option 1, Seattle" in prompt
+    assert "Option 2, Boston" in prompt
+    assert "Option 3, Austin" in prompt
     assert "Recommended" not in prompt
 
 
@@ -31,23 +31,23 @@ def test_english_prompt_is_concise_and_numbered():
     assert prompt.endswith("Say the option number, or answer directly.")
 
 
-def test_resolves_chinese_and_english_ordinals():
-    choices = ["上海 (Recommended)", "北京", "深圳"]
+def test_resolves_english_ordinals():
+    choices = ["Seattle (Recommended)", "Boston", "Austin"]
 
-    assert resolve_spoken_answer("我选第二个", choices) == "北京"
-    assert resolve_spoken_answer("option three", choices) == "深圳"
+    assert resolve_spoken_answer("the second one", choices) == "Boston"
+    assert resolve_spoken_answer("option three", choices) == "Austin"
 
 
 def test_resolves_multi_select_to_clarify_json_shape():
     answer = resolve_spoken_answer(
-        "选第一和第三项", ["上海", "北京", "深圳"], multi_select=True
+        "option one and option three", ["Seattle", "Boston", "Austin"], multi_select=True
     )
 
-    assert json.loads(answer) == ["上海", "深圳"]
+    assert json.loads(answer) == ["Seattle", "Austin"]
 
 
 def test_unmatched_free_text_is_preserved():
-    assert resolve_spoken_answer("我想看杭州", ["上海", "北京"]) == "我想看杭州"
+    assert resolve_spoken_answer("I would rather see Portland", ["Seattle", "Boston"]) == "I would rather see Portland"
 
 
 def test_cli_routes_voice_answer_to_clarify_queue_not_next_turn():
@@ -55,14 +55,14 @@ def test_cli_routes_voice_answer_to_clarify_queue_not_next_turn():
 
     cli = HermesCLI.__new__(HermesCLI)
     cli._voice_clarify_response_queue = queue.Queue()
-    cli._voice_clarify_choices = ["继续 (Recommended)", "取消"]
+    cli._voice_clarify_choices = ["Continue (Recommended)", "Cancel"]
     cli._voice_clarify_multi_select = False
     cli._voice_clarify_listening = True
 
     with patch("cli._cprint"):
-        assert cli._voice_route_clarify_transcript("第二个") is True
+        assert cli._voice_route_clarify_transcript("option two") is True
 
-    assert cli._voice_clarify_response_queue.get_nowait() == "取消"
+    assert cli._voice_clarify_response_queue.get_nowait() == "Cancel"
     assert cli._voice_clarify_listening is False
 
 
@@ -103,7 +103,7 @@ def test_cli_opens_listener_only_after_tts_barrier(monkeypatch):
 
     def _begin():
         result["started"] = cli._voice_clarify_begin(
-            "继续吗？", ["继续", "取消"], False, queue.Queue()
+            "Would you like to continue?", ["Continue", "Cancel"], False, queue.Queue()
         )
 
     worker = threading.Thread(target=_begin, daemon=True)

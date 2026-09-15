@@ -7,9 +7,9 @@ from hermes_cli.voice_continuity_router import route
 from hermes_cli.voice_delivery import EMAIL, StaleTask, email_recipients, valid_email_recipients
 
 log=logging.getLogger(__name__)
-YES=re.compile(r"^(?:yes|yeah|yep|correct|是的|对|没错)(?:[\s,.!?，。！？]*(?:I mean that|please|thank you|thanks|(?:could you )?(?:just )?send (?:me )?(?:the|it|email)(?: email)?))*[\s,.!?，。！？]*$",re.I)
-NO=re.compile(r'^(?:no|nope|cancel|never mind|不|不是|取消)(?:[,，]\s*cancel)?[.!。！\s]*$',re.I)
-UNRESOLVED_CHOICE=re.compile(r"\b(?:haven't|have not|hasn't|has not)\s+(?:decided|chosen|selected)\s+which\b|还没(?:决定|选好)(?:哪|要哪)",re.I)
+YES=re.compile(r"^(?:yes|yeah|yep|correct)(?:[\s,.!?]*(?:I mean that|please|thank you|thanks|(?:could you )?(?:just )?send (?:me )?(?:the|it|email)(?: email)?))*[\s,.!?]*$",re.I)
+NO=re.compile(r'^(?:no|nope|cancel|never mind)(?:,\s*cancel)?[.!\s]*$',re.I)
+UNRESOLVED_CHOICE=re.compile(r"\b(?:haven't|have not|hasn't|has not)\s+(?:decided|chosen|selected)\s+which\b",re.I)
 RECIPIENT_QUESTION=re.compile(r'^(?:(?:what|which)\s+(?:is\s+(?:the|your)\s+)?(?:(?:new|email|recipient|delivery|other)\s+)*address\b|(?:could|can|would)\s+you\s+(?:provide|type|give)\s+(?:the|your)\s+(?:new\s+)?email\s+address\b)',re.I)
 # Only an unambiguous transport-only change to the currently selected result.
 # Named old topics, edits, expansions and compound content requests still route.
@@ -33,7 +33,7 @@ def enabled(cfg=None):
 def _address(text,default,*,delivery_requested=False):
     """Only literal addresses or the uniquely matching configured default repair."""
     directive=bool(re.search(r'(?:^|[,;.!?]\s+|\band\s+)(?:(?:please|(?:could|can|would) you|I want you to)\s+)*(?:also\s+|just\s+)?(?:send|resend|forward|deliver|email|mail)\b',text,re.I))
-    stated=bool(re.search(r'^(?:my (?:email )?address is|我的邮箱(?:是)?|邮箱是)\s*',text,re.I))
+    stated=bool(re.search(r'^my (?:email )?address is\s*',text,re.I))
     # An address being discussed is task data, not a destination override.
     # Auto-email of an explanation must still go to the configured recipient.
     if not stated and not (delivery_requested and directive):return default,False
@@ -45,7 +45,7 @@ def _address(text,default,*,delivery_requested=False):
                    if address.replace('@','.').casefold() in text.casefold()]
         if len(repairs) == 1:
             return repairs[0],True
-    if re.search(r'\b(?:email address is|address is|(?:another|different|new) (?:email )?address)\b|我的邮箱|邮箱是|另一个邮箱|@',text,re.I):
+    if re.search(r'\b(?:email address is|address is|(?:another|different|new) (?:email )?address)\b|@',text,re.I):
         return '',True
     return default,False
 
@@ -67,7 +67,7 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
     def send_selected(task,version,recipient):
         status=store.submit_result(session,task,version,recipient,sender=base._send,
                                    interrupted=lambda:agent._interrupt_requested)
-        return base._status(status,task['language']=='zh')
+        return base._status(status)
     def delivery(task,version,recipient,needs_confirmation):
         if needs_confirmation or not valid_email_recipients(recipient):
             question=(f'Did you mean {recipient}?' if recipient else 'Which email address should receive these details?')
@@ -92,7 +92,7 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
     if not pending and NO.fullmatch(text):
         return finish('There is no pending delivery. No additional email was sent.')
     if (not pending and task and UNRESOLVED_CHOICE.search(text)
-            and re.search(r'\b(?:email|send|forward)\b|邮件|发给',text,re.I)
+            and re.search(r'\b(?:email|send|forward)\b',text,re.I)
             and not base.NO_EMAIL.search(text)
             and len([item for item in store.topics(session) if item['version']])>=2):
         question='Which saved result would you like me to email?'
@@ -120,7 +120,7 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         return None
     execution_text=text
     # Content-delivery authority must occur in this utterance, not old context.
-    explicit_delivery=bool(re.search(r'\b(?:e-?mail|send|resend|forward)\b|邮件|发给|发到|转发',text,re.I))
+    explicit_delivery=bool(re.search(r'\b(?:e-?mail|send|resend|forward)\b',text,re.I))
     if not explicit_delivery:
         decision['delivery']='none'
         if op=='send':op=decision['operation']='resume'
@@ -157,7 +157,7 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         op=decision['operation']
         pending=None
     if new:
-        task=store.start(session,text,language=decision['language'])
+        task=store.start(session,text)
         task=store.supply_details(session,task,{
             'initial_email':decision['detail'] and not bool(base.NO_EMAIL.search(text)),
             'suppress_auto_email':bool(base.NO_EMAIL.search(text)),
@@ -218,16 +218,16 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         if (native_route['intent']=='simple' and response_text.strip()
                 and turn_exit_reason in {'workflow_incomplete_output','text_response(finish_reason=length)'}):
             try:
-                response_text=base._summary(agent,response_text,task['language'],None,execution_text);count=1
+                response_text=base._summary(agent,response_text,None,execution_text);count=1
             except Exception as error:
                 log.warning('Truncated simple answer summarization failed; using bounded fallback: %s',error)
-                response_text=base._fallback_summary(response_text,task['language']);count=1
+                response_text=base._fallback_summary(response_text);count=1
             failed=False;turn_exit_reason='text_response(finish_reason=stop)'
         if failed or turn_exit_reason!='text_response(finish_reason=stop)' or not response_text.strip():
             recovered=''
             if retrieval_succeeded and not agent._interrupt_requested:
                 try:
-                    recovered=base._recover_tool_result(agent,execution_text,messages,task['language'])
+                    recovered=base._recover_tool_result(agent,execution_text,messages)
                     count=1 if recovered else 0
                 except Exception as error:
                     log.warning('Read-only tool-loop recovery failed: %s',error)
@@ -237,7 +237,7 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         body=base._strip_delivery_claims(response_text)
         if not body or re.fullmatch(r'\s*(NO_REPLY_EXPECTED|NO_REPLY|SILENT_REPLY)\s*',body):
             return finish('No complete result was produced. No email was sent.',failed=True)
-        if body.endswith(('?','？')) and base._brief(body):
+        if body.endswith('?') and base._brief(body):
             previous=task.get('last_question','')
             normalize=lambda value:re.sub(r'\W','',value).casefold()
             if previous and normalize(previous)==normalize(body):
@@ -269,19 +269,18 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
             summary='; '.join(body[m.end():markers[i+1].start() if i+1<len(markers) else len(body)].strip() for i,m in enumerate(markers))
         retrieval_unavailable=retrieval_attempted and not retrieval_succeeded
         if retrieval_unavailable:
-            summary=('无法获取实时来源，因此无法核验所请求的当前信息。' if task['language']=='zh' else
-                     'I could not retrieve live sources, so I could not verify the requested current details.')
+            summary='I could not retrieve live sources, so I could not verify the requested current details.'
         elif not base._brief(summary) or native_route['intent']=='complex':
             try:
                 count=1
-                summary=base._summary(agent,body,task['language'],
+                summary=base._summary(agent,body,
                                       {'retrieved_sources':sources,'retrieval_incomplete':retrieval_failed},
                                       task['request']+'\nCurrent request: '+execution_text)
             except Exception as error:
                 if agent._interrupt_requested:
                     return finish('Cancelled. No new email was sent.',calls=count,failed=True)
                 log.warning('Voice summarization failed; retaining native result: %s',error)
-                summary=base._fallback_summary(body,task['language']);count=1
+                summary=base._fallback_summary(body);count=1
         # Provenance comes from successful tools in THIS turn, never model-written
         # URLs or unrelated historical tool messages. A revision may combine
         # its parent's evidence with newly retrieved evidence for the same task.

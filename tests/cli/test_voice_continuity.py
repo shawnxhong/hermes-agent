@@ -7,7 +7,7 @@ from hermes_cli.voice_continuity_store import ContinuityStore
 
 def decision(**kw):
     return dict({'target':'NEW','operation':'answer','detail':False,'delivery':'none','version':0,
-                 'question':'','summary':'Restaurant recommendations','language':'en','domain':'general','api_calls':1},**kw)
+                 'question':'','summary':'Restaurant recommendations','domain':'general','api_calls':1},**kw)
 
 
 @pytest.fixture

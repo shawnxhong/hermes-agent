@@ -46,7 +46,7 @@ def test_declined_compound_or_named_request_does_not_execute(monkeypatch):
 
 
 @pytest.mark.parametrize('text', ['Do not play the video.',
-                                'Play the video and email a report.', '播放视频并发邮件',
+                                'Play the video and email a report.',
                                 'Play https://example.com/movie.mp4'])
 def test_explicit_scope_exclusions_do_not_ask_model(monkeypatch, text):
     selector = Mock(return_value='mp4')
@@ -59,9 +59,9 @@ def test_failure_truth_and_cancel(monkeypatch):
     monkeypatch.setattr(p, 'select_action', lambda *a: ('mp4', ''))
     execute = Mock(return_value={'success': False})
     monkeypatch.setattr(p, 'execute', execute)
-    assert p.workflow(agent=SimpleNamespace(_interrupt_requested=False), user_message='播放视频', session_id='one')['failed']
+    assert p.workflow(agent=SimpleNamespace(_interrupt_requested=False), user_message='play video', session_id='one')['failed']
     execute.reset_mock()
-    p.workflow(agent=SimpleNamespace(_interrupt_requested=True), user_message='播放视频', session_id='one')
+    p.workflow(agent=SimpleNamespace(_interrupt_requested=True), user_message='play video', session_id='one')
     execute.assert_not_called()
 
 

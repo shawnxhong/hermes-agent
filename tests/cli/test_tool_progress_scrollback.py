@@ -161,6 +161,13 @@ class TestToolProgressScrollback:
 class TestVoiceToolAck:
     """One-shot verbal acknowledgement before voice-turn tool execution."""
 
+    def test_default_ack_catalog_is_english_only(self):
+        from hermes_cli.config_defaults import DEFAULT_CONFIG
+
+        assert DEFAULT_CONFIG["voice"]["tool_ack"]["phrases"] == {
+            "en": ["Sure, let me check."]
+        }
+
     @staticmethod
     def _arm(
         cli,
@@ -169,7 +176,7 @@ class TestVoiceToolAck:
         enabled=True,
         phrases=None,
         voice_input=True,
-        user_text="请查询天气",
+        user_text="Check the weather",
         timing=None,
     ):
         cli._voice_tts = True
@@ -177,10 +184,7 @@ class TestVoiceToolAck:
             "voice": {
                 "tool_ack": {
                     "enabled": enabled,
-                    "phrases": phrases or {
-                        "zh": ["好的，我来查一下。"],
-                        "en": ["Sure, let me check."],
-                    },
+                    "phrases": phrases or {"en": ["Sure, let me check."]},
                 }
             }
         }
@@ -199,7 +203,7 @@ class TestVoiceToolAck:
         cli._on_tool_progress("tool.started", "web_search", "weather", {"query": "weather"})
         cli._on_tool_progress("tool.started", "weather", "Shanghai", {})
 
-        assert text_queue.get_nowait() == "好的，我来查一下。"
+        assert text_queue.get_nowait() == "Sure, let me check."
         assert text_queue.empty()
 
     def test_disabled_or_non_voice_turn_does_not_arm(self):
@@ -227,11 +231,11 @@ class TestVoiceToolAck:
     def test_phrase_gets_sentence_terminator(self):
         cli = _make_cli(tool_progress="off")
         text_queue = queue.Queue()
-        self._arm(cli, text_queue, phrases=["请稍候"])
+        self._arm(cli, text_queue, phrases=["Please wait"])
 
         cli._on_tool_progress("tool.started", "web_search", "weather", {})
 
-        assert text_queue.get_nowait() == "请稍候。"
+        assert text_queue.get_nowait() == "Please wait."
 
     def test_english_transcript_selects_english_ack(self):
         cli = _make_cli(tool_progress="off")
@@ -242,14 +246,14 @@ class TestVoiceToolAck:
 
         assert text_queue.get_nowait() == "Sure, let me check."
 
-    def test_mixed_transcript_prefers_chinese_ack(self):
+    def test_non_english_text_does_not_change_english_ack(self):
         cli = _make_cli(tool_progress="off")
         text_queue = queue.Queue()
-        self._arm(cli, text_queue, user_text="帮我查一下 Intel weather")
+        self._arm(cli, text_queue, user_text="Intel weather")
 
         cli._on_tool_progress("tool.started", "web_search", "weather", {})
 
-        assert text_queue.get_nowait() == "好的，我来查一下。"
+        assert text_queue.get_nowait() == "Sure, let me check."
 
     def test_legacy_flat_phrase_list_remains_supported(self):
         cli = _make_cli(tool_progress="off")
@@ -276,7 +280,7 @@ class TestVoiceToolAck:
         cli._on_tool_progress("tool.started", "web_search", "weather", {})
 
         assert old_queue.empty()
-        assert new_queue.get_nowait() == "好的，我来查一下。"
+        assert new_queue.get_nowait() == "Sure, let me check."
 
     def test_turn_start_ack_waits_for_playback_barrier(self):
         from tools.tts_tool import ImmediateTTSUtterance, TTSPlaybackBarrier
@@ -295,7 +299,7 @@ class TestVoiceToolAck:
         barrier = text_queue.get(timeout=1)
 
         assert isinstance(ack, ImmediateTTSUtterance)
-        assert str(ack) == "好的，我来查一下。"
+        assert str(ack) == "Sure, let me check."
         assert isinstance(barrier, TTSPlaybackBarrier)
         time.sleep(0.05)
         assert worker.is_alive()

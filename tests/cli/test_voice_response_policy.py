@@ -26,12 +26,10 @@ def test_local_cli_includes_delivery_tool_without_changing_feishu_bundle():
     assert "send_message" not in resolve_toolset("hermes-feishu")
 
 
-def test_short_mixed_language_response_is_preserved_for_tts():
-    response = "成都适合三天慢游。I emailed the full itinerary to you."
+def test_short_english_response_is_preserved_for_tts():
+    response = "Boston is well suited to a three-day visit. I emailed the full itinerary to you."
 
-    assert prepare_voice_tts_text(response) == (
-        "成都适合三天慢游。 I emailed the full itinerary to you."
-    )
+    assert prepare_voice_tts_text(response) == response
 
 
 def test_voice_tts_text_removes_markdown_urls_and_caps_long_output():
@@ -63,13 +61,13 @@ def test_only_voice_input_enables_tts_and_final_is_queued_once():
     assert cli._voice_tts_enabled_for_turn(False) is False
     assert cli._enqueue_voice_final_tts(
         output,
-        "简短结果。The email was sent successfully.",
+        "The summary is ready. The email was sent successfully.",
         voice_input=True,
         interrupted=False,
     )
     queued = output.get_nowait()
     assert isinstance(queued, ImmediateTTSUtterance)
-    assert str(queued) == "简短结果。 The email was sent successfully."
+    assert str(queued) == "The summary is ready. The email was sent successfully."
     assert output.empty()
 
 
@@ -97,14 +95,14 @@ def test_verbal_ack_stays_before_buffered_final_response():
     cli = HermesCLI.__new__(HermesCLI)
     cli._voice_last_tts_text = ""
     output = queue.Queue()
-    output.put(ImmediateTTSUtterance("好的，我来处理。"))
+    output.put(ImmediateTTSUtterance("I am working on it."))
 
     cli._enqueue_voice_final_tts(
         output,
-        "已经完成，详细内容已发送。",
+        "The work is complete, and the details were sent.",
         voice_input=True,
         interrupted=False,
     )
 
-    assert str(output.get_nowait()) == "好的，我来处理。"
-    assert str(output.get_nowait()) == "已经完成，详细内容已发送。"
+    assert str(output.get_nowait()) == "I am working on it."
+    assert str(output.get_nowait()) == "The work is complete, and the details were sent."

@@ -1,11 +1,19 @@
 # Local OVMS Voice Demo Handoff
 
-Updated: 2026-09-09
+Updated: 2026-09-15
 Host: `agentdemo@10.239.136.211`  
 Repository: `https://github.com/shawnxhong/hermes-agent`  
 Branch: `local-ovms-voice`
 
 ## Start here
+
+The current deployment candidate is the active-runtime English-only profile.
+Read [English-only Box demo profile](ENGLISH_ONLY_DEMO_PROFILE.md) before making
+language, routing, skill, or Box configuration changes. It preserves Weixin and
+Feishu transport plus Unicode file handling, while removing bilingual behavior
+from the local voice harness and active demo tools. The local Qwen3.6 model,
+OVMS, wake/end phrases, four-second silence fallback, audio path, email and Brave
+remain unchanged.
 
 2026-09-09 manual Melbourne test failed; acceptance is reopened. See
 [incident and model-first reset](VOICE_MODEL_FIRST_RESET.md). User requests

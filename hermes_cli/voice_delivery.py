@@ -100,11 +100,11 @@ class TaskStore:
         with self.connect() as db:
             return self._current(db, session)
 
-    def start(self, session, request, *, language='en'):
+    def start(self, session, request):
         if not session or not isinstance(request, str) or not request.strip():
             raise ValueError('A session and explicit task request are required')
-        state = dict(request=request, language='zh' if language=='zh' else 'en',
-                     phase='ready', question_used=False, facts={}, artifact_version=None)
+        state = dict(request=request, phase='ready', question_used=False,
+                     facts={}, artifact_version=None)
         task_id, revision = uuid.uuid4().hex, uuid.uuid4().hex
         with self.connect() as db:
             db.execute('INSERT INTO tasks VALUES (?,?,?)', (task_id,revision,json.dumps(state)))

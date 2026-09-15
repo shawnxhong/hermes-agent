@@ -11,7 +11,7 @@ from hermes_cli.voice_continuity_store import ContinuityStore
 def response(**changes):
     value=dict(execution='content',relation='followup',summary='Send the meeting agenda',operation='send',
                target='T1: Meeting agenda',detail=False,delivery='email',version=0,question='',
-               language='en',domain='general')
+               domain='general')
     value.update(changes)
     return SimpleNamespace(choices=[SimpleNamespace(finish_reason='stop',
         message=SimpleNamespace(tool_calls=None,content=json.dumps(value)))])

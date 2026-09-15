@@ -12,8 +12,8 @@ import re
 
 VOICE_TURN_PREFIX = (
     "[Local voice input policy — Give the final spoken reply in 2-3 short, "
-    "conversational sentences (at most 240 Chinese/mixed-language characters "
-    "or 100 English words). Do not use Markdown, code blocks, tables, raw URLs, "
+    "conversational English sentences (at most 100 words). Do not use Markdown, "
+    "code blocks, tables, raw URLs, "
     "or long lists. Avoid unnecessary tools and low-value clarification; choose "
     "a reasonable default for safe, reversible ambiguity. The system handles "
     "the immediate verbal acknowledgement, so do not repeat it. For substantial "
@@ -40,8 +40,7 @@ _LIST_MARKER_RE = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)", re.MULTILINE)
 _QUOTE_RE = re.compile(r"^\s*>\s?", re.MULTILINE)
 _INLINE_CODE_RE = re.compile(r"`([^`]+)`")
 _EMPHASIS_RE = re.compile(r"(?<!\w)[*_]{1,3}|[*_]{1,3}(?!\w)")
-_SENTENCE_RE = re.compile(r".+?(?:[。！？!?]+|[.!?](?=\s|$)|$)", re.DOTALL)
-_CJK_RE = re.compile(r"[\u3400-\u9fff]")
+_SENTENCE_RE = re.compile(r".+?(?:[!?]+|[.!?](?=\s|$)|$)", re.DOTALL)
 
 
 def build_voice_turn_prefix(*, followup_enabled: bool = False) -> str:
@@ -73,7 +72,6 @@ def prepare_voice_tts_text(
     response: str,
     *,
     max_sentences: int = 3,
-    max_zh_chars: int = 240,
     max_en_words: int = 100,
 ) -> str:
     """Return a short, formatting-free utterance for the final voice reply.
@@ -90,16 +88,11 @@ def prepare_voice_tts_text(
         text = " ".join(sentences[: max(1, max_sentences)])
 
     clipped = False
-    if _CJK_RE.search(text):
-        if len(text) > max_zh_chars:
-            text = text[: max(1, max_zh_chars - 1)].rstrip()
-            clipped = True
-    else:
-        words = text.split()
-        if len(words) > max_en_words:
-            text = " ".join(words[:max_en_words]).rstrip()
-            clipped = True
+    words = text.split()
+    if len(words) > max_en_words:
+        text = " ".join(words[:max_en_words]).rstrip()
+        clipped = True
 
     if clipped:
-        text = text.rstrip(".,;:，。；：!?！？ ") + "…"
+        text = text.rstrip(".,;:!? ") + "..."
     return text

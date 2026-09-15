@@ -13,22 +13,21 @@ from hermes_cli.voice_clarify import (
 from tools.clarify_tool import ReusedClarifyResponse, clarify_tool
 
 
-def test_approval_prompt_uses_turn_language_and_lists_every_safe_choice():
+def test_approval_prompt_lists_every_safe_choice_in_english():
     prompt = build_approval_spoken_prompt(
         "computer_use: click element 1",
         "Allow computer_use to click?",
         ["once", "session", "always", "deny"],
-        language="zh",
     )
-    assert "需要确认一个高风险操作" in prompt
-    assert "选项1，仅允许这一次" in prompt
-    assert "选项4，拒绝" in prompt
+    assert "dangerous operation" in prompt
+    assert "Option 1, Allow once" in prompt
+    assert "Option 4, Deny" in prompt
 
 
-def test_spoken_approval_resolves_bilingual_answers_and_rejects_ambiguity():
+def test_spoken_approval_resolves_english_answers_and_rejects_ambiguity():
     choices = ["once", "session", "always", "deny"]
-    assert resolve_spoken_approval("选项一", choices) == "once"
-    assert resolve_spoken_approval("本次会话允许", choices) == "session"
+    assert resolve_spoken_approval("option one", choices) == "once"
+    assert resolve_spoken_approval("allow for this session", choices) == "session"
     assert resolve_spoken_approval("always allow", choices) == "always"
     assert resolve_spoken_approval("do not allow once", choices) == "deny"
     assert resolve_spoken_approval("something unclear", choices) is None
@@ -57,7 +56,7 @@ def test_cli_opens_approval_listener_only_after_tts_barrier(monkeypatch):
     cli._voice_tts = True
     cli._voice_continuous = False
     cli._voice_last_tts_text = ""
-    cli._voice_tool_ack_language = "zh"
+    cli._voice_tool_ack_language = "en"
     cli._voice_fd_active = threading.Event()
     cli._voice_tool_ack_lock = threading.Lock()
     cli._voice_turn_tts_queue = queue.Queue()

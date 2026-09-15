@@ -12,7 +12,7 @@ def test_summary_formats_speech_without_vetoing_task_content(evidence):
     client.with_options.return_value.chat.completions.create.return_value=SimpleNamespace(choices=[SimpleNamespace(
         finish_reason='stop',message=SimpleNamespace(tool_calls=None,content=json.dumps({'summary':'A supported short answer.'})))])
     agent=SimpleNamespace(client=client,model='local',_interrupt_requested=False,_touch_activity=Mock())
-    assert voice._summary(agent,'Report.','en',evidence,'Draft a report.')=='A supported short answer.'
+    assert voice._summary(agent,'Report.',evidence,'Draft a report.')=='A supported short answer.'
     client.with_options.return_value.chat.completions.create.assert_called_once()
     messages=client.with_options.return_value.chat.completions.create.call_args.kwargs['messages']
     assert [m['role'] for m in messages]==['system','user']
@@ -20,7 +20,7 @@ def test_summary_formats_speech_without_vetoing_task_content(evidence):
 
 
 def test_fallback_summary_leaves_room_for_delivery_status():
-    value=voice._fallback_summary('word '*90,'en')
+    value=voice._fallback_summary('word '*90)
     assert len(value.split())<=45
 
 
@@ -32,7 +32,7 @@ def test_tool_result_recovery_is_text_only_and_bounded():
     result=voice._recover_tool_result(agent,'Prepare the report.',[
         {'role':'tool','name':'web_search','content':'stale evidence'},
         {'role':'user','content':'Prepare the report.'},
-        {'role':'assistant','content':'ignored'}, {'role':'tool','name':'web_search','content':'verified evidence'}],'en')
+        {'role':'assistant','content':'ignored'}, {'role':'tool','name':'web_search','content':'verified evidence'}])
     assert result=='Recovered useful result.'
     kwargs=client.with_options.return_value.chat.completions.create.call_args.kwargs
     assert 'tools' not in kwargs and kwargs['max_tokens']==4096
@@ -41,7 +41,7 @@ def test_tool_result_recovery_is_text_only_and_bounded():
 
 def routing(**kw):
     return dict({'intent':'complex','relation':'new','route':'execute','task_summary':'Draft a report',
-                 'question':'','language':'en','domain':'general','api_calls':1},**kw)
+                 'question':'','domain':'general','api_calls':1},**kw)
 
 
 @pytest.fixture
@@ -232,7 +232,7 @@ def test_travel_suggestions_use_the_same_native_harness_as_other_questions(rig):
     result=run(rig,'I want to visit New York. Any suggestions?')
     assert 'continuation' in result
     assert 'I want to visit New York' in result['continuation'].context
-    assert 'Follow every loaded scenario skill' in result['continuation'].context
+    assert 'any loaded scenario skill' in result['continuation'].context
     assert 'requires an intake question' in result['continuation'].context
     rig[3].assert_not_called()
 
@@ -269,7 +269,7 @@ def test_static_system_section_is_scoped_and_task_independent(rig):
     section=voice.system_section({'platform':'cli','session_id':'one'})
     complete(run(rig))
     assert voice.system_section({'platform':'cli','session_id':'two'})==section
-    assert 'does not validate task content or restrict its domain' in section
+    assert 'Handle any subject' in section
     assert voice.system_section({'platform':'feishu'})==''
     rig[0].clear()
     assert voice.system_section({'platform':'cli'})==''

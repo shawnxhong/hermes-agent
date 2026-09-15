@@ -2043,7 +2043,6 @@ DEFAULT_CONFIG = {
             # every tool at the cost of also acknowledging no-tool turns.
             "timing": "first_tool",
             "phrases": {
-                "zh": ["好的，我来查一下。"],
                 "en": ["Sure, let me check."],
             },
         },

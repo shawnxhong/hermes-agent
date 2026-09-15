@@ -15,9 +15,9 @@ SCHEMA = {
         'target': {'type': 'string', 'description': 'For playback: filename/title fragment copied from the user, or empty for an unspecified file. Never invent a name.'}},
         'required': ['action'], 'additionalProperties': False},
 }
-MEDIA = re.compile(r'\b(?:mp\s*(?:[34]|three|four)|m\s+p\s+[34]|wav|media|video|audio|music|song|movie|clip|playback|player|desktop)\b|视频|音频|音乐|歌曲|播放|桌面', re.I)
-VERB = re.compile(r'\b(?:play|open|show|start|put\s+on|stop|close|quit|playing|running|status|list|ls|available)\b|播放|放一|打开|停止|关闭|正在播|列出|哪些|有什么', re.I)
-BARE_STOP = re.compile(r'(?:please\s+)?(?:stop|stop it|stop playback|停止|停止播放|别放了)[.!。！ ]*', re.I)
+MEDIA = re.compile(r'\b(?:mp\s*(?:[34]|three|four)|m\s+p\s+[34]|wav|media|video|audio|music|song|movie|clip|playback|player|desktop)\b', re.I)
+VERB = re.compile(r'\b(?:play|open|show|start|put\s+on|stop|close|quit|playing|running|status|list|ls|available)\b', re.I)
+BARE_STOP = re.compile(r'(?:please\s+)?(?:stop|stop it|stop playback)[.! ]*', re.I)
 _lock = threading.RLock()
 _recent = OrderedDict()
 _completed = OrderedDict()
@@ -27,7 +27,7 @@ def outside_default_scope(text):
     # Decline unrelated/compound tasks without changing the general agent.
     return bool(re.search(
         r"https?://|file://|\b(?:then|never)\b|\band\s+(?:send|write|email|search|delete|play)\b|"
-        r"\b(?:do\s+not|don['’]t)\b|不要|不用|然后|并且|同时|(?:并.{0,12}(?:发|写|查))",
+        r"\b(?:do\s+not|don['’]t)\b",
         text, re.I))
 
 
@@ -62,34 +62,30 @@ def execute(action, target=''):
         return {'success': False, 'error': 'Local player could not confirm the operation. No automatic retry.'}
 
 
-def reply(action, result, zh):
+def reply(action, result):
     names = [f['name'] for f in result.get('files', [])]
     choices = ', '.join(names[:6])
     if len(names) > 6:
         choices += ' …'
     if result.get('error') == 'ambiguous':
-        return ('找到多个文件：' + choices + '。你想播放哪一个？') if zh else (
-            'I found multiple files: ' + choices + '. Which one would you like?')
+        return 'I found multiple files: ' + choices + '. Which one would you like?'
     if result.get('error') == 'not_found':
-        return 'Desktop 上没有找到匹配的媒体文件，没有开始播放。' if zh else 'No matching media file was found on Desktop. Nothing was started.'
+        return 'No matching media file was found on Desktop. Nothing was started.'
     if result.get('success') is not True:
-        return '本地播放器未能确认操作成功，这次不再自动重试。' if zh else 'The local player could not confirm the operation. I have not retried it.'
+        return 'The local player could not confirm the operation. I have not retried it.'
     if action == 'list':
         if not names:
-            return 'Desktop 上没有可播放的媒体文件。' if zh else 'There are no playable media files on Desktop.'
-        return ('Desktop 媒体：' + choices + '。你想播放哪一个？') if zh else (
-            'Desktop media: ' + choices + '. Which one would you like to play?')
+            return 'There are no playable media files on Desktop.'
+        return 'Desktop media: ' + choices + '. Which one would you like to play?'
     if action == 'play':
         name = result.get('file', '').rsplit('/', 1)[-1]
-        return ('已开始播放 ' + name + '。') if zh else ('Playing ' + name + '.')
+        return 'Playing ' + name + '.'
     if action in ('mp3', 'mp4'):
-        return ('音频已开始播放。' if action == 'mp3' else '视频已开始播放。') if zh else (
-            'The audio is playing.' if action == 'mp3' else 'The video is playing.')
+        return 'The audio is playing.' if action == 'mp3' else 'The video is playing.'
     if action == 'stop':
-        return '播放已停止。' if zh else 'Playback is stopped.'
+        return 'Playback is stopped.'
     active = result.get('state') == 'active'
-    return ('播放器正在运行。' if active else '播放器当前未运行。') if zh else (
-        'The player is running.' if active else 'The player is not running.')
+    return 'The player is running.' if active else 'The player is not running.'
 
 
 def select_action(agent, text, recent):
@@ -140,18 +136,17 @@ def workflow(*, agent, user_message, session_id, **kwargs):
     if outside_default_scope(user_message):
         return None
     candidate = bool(MEDIA.search(user_message) and VERB.search(user_message))
-    candidate = candidate or bool(re.search(r'^\s*(?:(?:could|can|would) you\s+)?(?:please\s+)?(?:play\b|put on\b|播放)', user_message, re.I))
+    candidate = candidate or bool(re.search(r'^\s*(?:(?:could|can|would) you\s+)?(?:please\s+)?(?:play\b|put on\b)', user_message, re.I))
     if recent and recent.get('files'):
         query = normalize(user_message)
         candidate = candidate or any(query and query in normalize(f['name']) for f in recent['files'])
     if not candidate and not (recent and BARE_STOP.fullmatch(user_message.strip())):
         return None
-    zh = bool(re.search(r'[\u3400-\u9fff]', user_message))
     try:
         action, target = select_action(agent, user_message, bool(recent))
     except Exception:
         return {'handled': True, 'failed': True, 'api_calls': 1,
-                'final_response': '未能确认播放指令，请再说一次。' if zh else 'I could not confirm the media command. Please try again.'}
+                'final_response': 'I could not confirm the media command. Please try again.'}
     if action == 'none':
         return None
     if agent._interrupt_requested:
@@ -161,7 +156,7 @@ def workflow(*, agent, user_message, session_id, **kwargs):
     # Native handled-result path ends this turn immediately. No second model
     # call exists that could ask for screenshots or loop on blocked GUI tools.
     return {'handled': True, 'failed': not result.get('success', False) and result.get('error') != 'ambiguous',
-            'api_calls': 1, 'final_response': reply(action, result, zh)}
+            'api_calls': 1, 'final_response': reply(action, result)}
 
 
 def after_tool(*, session_id='', turn_id='', tool_name='', result=None, **kwargs):

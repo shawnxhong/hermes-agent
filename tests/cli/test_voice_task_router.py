@@ -7,7 +7,7 @@ from hermes_cli.voice_task_router import route_task,validate_route,RoutingError
 
 def result(**kw):
     return dict({'intent':'complex','relation':'new','task_summary':'Prepare a workshop',
-                 'question':'Who is the audience?','language':'en','domain':'general'},**kw)
+                 'question':'Who is the audience?','domain':'general'},**kw)
 
 
 def agent(responses):

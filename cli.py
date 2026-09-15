@@ -15014,11 +15014,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
     def _arm_voice_tool_ack(
         self, text_queue, *, voice_input: bool, user_text: str = ""
     ) -> None:
-        """Arm one language-matched spoken acknowledgement for this turn."""
+        """Arm one English spoken acknowledgement for this turn."""
         enabled = False
         phrase = ""
         timing = "first_tool"
-        language = "zh" if re.search(r"[\u3400-\u9fff]", user_text or "") else "en"
         if voice_input and self._voice_tts and text_queue is not None:
             try:
                 from hermes_cli.config import load_config
@@ -15031,10 +15030,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     if configured_timing in {"first_tool", "turn_start"}:
                         timing = configured_timing
                 phrases = ack_cfg.get("phrases", []) if isinstance(ack_cfg, dict) else []
-                # Preferred schema: phrases.zh / phrases.en.  A legacy flat
-                # list remains valid and is used for either language.
+                # English-only deployments may use phrases.en. A legacy flat
+                # list remains valid.
                 if isinstance(phrases, dict):
-                    phrases = phrases.get(language, [])
+                    phrases = phrases.get("en", [])
                 if isinstance(phrases, str):
                     phrases = [phrases]
                 if isinstance(phrases, list):
@@ -15045,13 +15044,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             except Exception:
                 enabled = False
 
-        if phrase and phrase[-1] not in ".!?。！？":
-            phrase += "。" if language == "zh" else "."
+        if phrase and phrase[-1] not in ".!?":
+            phrase += "."
         with self._voice_tool_ack_lock:
             self._voice_turn_tts_queue = text_queue if voice_input else None
             self._voice_tool_ack_queue = text_queue if enabled and phrase else None
             self._voice_tool_ack_phrase = phrase
-            self._voice_tool_ack_language = language
+            self._voice_tool_ack_language = "en"
             self._voice_tool_ack_timing = timing
             self._voice_tool_ack_armed = bool(enabled and phrase and text_queue is not None)
             self._voice_tool_ack_fired = False
@@ -15312,7 +15311,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             command,
             description,
             voice_choices,
-            language=getattr(self, "_voice_tool_ack_language", None),
         )
         settings = self._voice_clarify_settings()
         barrier = TTSPlaybackBarrier()

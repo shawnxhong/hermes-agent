@@ -71,10 +71,10 @@ def capture(recipient,body):
 general_voice._send=capture
 summary_checks=[]
 original_summary=general_voice._summary
-def checked_summary(agent,body,language,evidence=None,task_request=None):
+def checked_summary(agent,body,evidence=None,task_request=None):
     record={'body':body,'evidence':evidence,'request':task_request};summary_checks.append(record)
     try:
-        value=original_summary(agent,body,language,evidence,task_request)
+        value=original_summary(agent,body,evidence,task_request)
         record.update(summary=value,valid=True)
         return value
     except Exception as error:

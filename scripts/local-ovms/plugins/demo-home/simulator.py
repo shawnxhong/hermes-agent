@@ -7,12 +7,12 @@ from pathlib import Path
 import sqlite3
 
 DEVICES = (
-    ('living_room_ac', 'Living room air conditioner', '客厅空调', 'on'),
-    ('master_bedroom_ac', 'Main bedroom air conditioner', '主卧空调', 'off'),
-    ('second_bedroom_ac', 'Second bedroom air conditioner', '次卧空调', 'on'),
-    ('lights', 'Lights', '电灯', 'on'),
-    ('living_room_tv', 'Living room TV', '客厅电视', 'on'),
-    ('robot_vacuum', 'Robot vacuum', '扫地机器人', 'off'),
+    ('living_room_ac', 'Living room air conditioner', 'on'),
+    ('master_bedroom_ac', 'Main bedroom air conditioner', 'off'),
+    ('second_bedroom_ac', 'Second bedroom air conditioner', 'on'),
+    ('lights', 'Lights', 'on'),
+    ('living_room_tv', 'Living room TV', 'on'),
+    ('robot_vacuum', 'Robot vacuum', 'off'),
 )
 
 
@@ -21,9 +21,16 @@ class Store:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with closing(self.connect()) as db, db:
-            db.execute('CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, name_en TEXT, name_zh TEXT, state TEXT)')
+            columns = {row[1] for row in db.execute('PRAGMA table_info(devices)')}
+            if 'name_en' in columns:
+                db.execute('CREATE TABLE devices_english (id TEXT PRIMARY KEY, name TEXT, state TEXT)')
+                db.execute('INSERT INTO devices_english SELECT id,name_en,state FROM devices')
+                db.execute('DROP TABLE devices')
+                db.execute('ALTER TABLE devices_english RENAME TO devices')
+            else:
+                db.execute('CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, name TEXT, state TEXT)')
             db.execute("CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, at TEXT DEFAULT CURRENT_TIMESTAMP, action TEXT, details TEXT)")
-            db.executemany('INSERT OR IGNORE INTO devices VALUES (?,?,?,?)', DEVICES)
+            db.executemany('INSERT OR IGNORE INTO devices VALUES (?,?,?)', DEVICES)
 
     def connect(self):
         db = sqlite3.connect(self.path, timeout=2)
@@ -61,7 +68,7 @@ class Store:
     def reset(self):
         with closing(self.connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
-            db.executemany('UPDATE devices SET state=? WHERE id=?', [(d[3], d[0]) for d in DEVICES])
+            db.executemany('UPDATE devices SET state=? WHERE id=?', [(d[2], d[0]) for d in DEVICES])
             db.execute('INSERT INTO audit(action,details) VALUES (?,?)', ('operator_reset', '{}'))
             return self.snapshot(db)
 

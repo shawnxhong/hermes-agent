@@ -99,10 +99,10 @@ def test_cache_uses_real_tts_entrypoint_and_invalidates_for_text_or_voice(monkey
     cfg={'text':"Hi, I'm here.",'tts':{'provider':'local','voice':'english'}}
     first=ack.cached_audio(cfg)
     assert first.is_file() and ack.cached_audio(cfg)==first and len(calls)==1
-    cfg['text']='我在。'
+    cfg['text']="I am here."
     second=ack.cached_audio(cfg)
     assert second!=first and len(calls)==2
-    cfg['tts']['voice']='chinese'
+    cfg['tts']['voice']='alternate-english'
     assert ack.cached_audio(cfg)!=second and len(calls)==3
 
 
