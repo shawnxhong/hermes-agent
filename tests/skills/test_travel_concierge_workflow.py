@@ -103,6 +103,18 @@ def test_next_month_is_resolved_by_host_including_year_rollover(rig):
     assert actual['travel_month']=='2027-01'
 
 
+def test_workflow_is_english_only(rig):
+    mod = rig[0]
+    schema = mod._schema(mod.FACT_PROMPT, {})
+    assert schema["properties"]["language"]["enum"] == ["en"]
+    incoming = facts()
+    incoming["language"] = "zh"
+    result = mod._facts(incoming, {}, "next month", mod.date(2026, 1, 1))
+    assert result["language"] == "en"
+    source = Path(mod.__file__).read_text(encoding="utf-8")
+    assert not any("\u3400" <= char <= "\u9fff" for char in source)
+
+
 def test_recipient_override_comes_from_user_not_model(rig,monkeypatch):
     mod,_,_,_,send=rig
     extracted=facts();extracted['recipient']='attacker@example.com'
