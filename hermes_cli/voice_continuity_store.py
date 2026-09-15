@@ -7,7 +7,7 @@ from contextlib import contextmanager
 import json
 import uuid
 
-from hermes_cli.voice_delivery import TaskStore, StaleTask, EMAIL, delivery_fingerprint, submit_once, email_recipients
+from hermes_cli.voice_delivery import TaskStore, StaleTask, EMAIL, email_recipients, submit_recipients
 
 
 class ContinuityStore(TaskStore):
@@ -173,5 +173,5 @@ class ContinuityStore(TaskStore):
         def check():
             if interrupted():raise StaleTask('Delivery cancelled')
             with self.connect() as db:self._require(db,session,task['id'],task['revision'])
-        return submit_once(delivery_fingerprint(task['id'],recipient,result['body']),connect=self.connect,
-                           send=lambda:sender(recipient,result['body']),check=check)
+        return submit_recipients(task['id'],recipient,result['body'],connect=self.connect,
+                                 sender=sender,check=check)

@@ -71,7 +71,11 @@ class BraveFreeWebSearchProvider(WebSearchProvider):
 
         api_key = get_provider_env("BRAVE_SEARCH_API_KEY")
         if not api_key:
-            return {"success": False, "error": "BRAVE_SEARCH_API_KEY is not set"}
+            return {
+                "success": False,
+                "error": "BRAVE_SEARCH_API_KEY is not set",
+                "error_code": "configuration",
+            }
 
         # Brave's `count` is capped at 20.
         count = max(1, min(int(limit), 20))
@@ -84,24 +88,47 @@ class BraveFreeWebSearchProvider(WebSearchProvider):
                     "X-Subscription-Token": api_key,
                     "Accept": "application/json",
                 },
-                timeout=15,
+                timeout=httpx.Timeout(15.0, connect=5.0),
             )
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
             logger.warning("Brave Search HTTP error: %s", exc)
+            status = exc.response.status_code
             return {
                 "success": False,
-                "error": f"Brave Search returned HTTP {exc.response.status_code}",
+                "error": f"Brave Search returned HTTP {status}",
+                "error_code": (
+                    "configuration" if status in {401, 403, 407}
+                    else "remote_transient" if status == 429 or status >= 500
+                    else "content_or_policy"
+                ),
             }
         except httpx.RequestError as exc:
             logger.warning("Brave Search request error: %s", exc)
-            return {"success": False, "error": f"Could not reach Brave Search: {exc}"}
+            from hermes_cli.voice_network import classify_network_result, UNKNOWN
+
+            outcome = classify_network_result(exc)
+            if outcome == UNKNOWN:
+                outcome = (
+                    "transport_unreachable"
+                    if isinstance(exc, (httpx.ConnectTimeout, httpx.ConnectError, httpx.ProxyError))
+                    else "remote_transient"
+                )
+            return {
+                "success": False,
+                "error": f"Could not reach Brave Search: {exc}",
+                "error_code": outcome,
+            }
 
         try:
             data = resp.json()
         except Exception as exc:  # noqa: BLE001
             logger.warning("Brave Search response parse error: %s", exc)
-            return {"success": False, "error": "Could not parse Brave Search response as JSON"}
+            return {
+                "success": False,
+                "error": "Could not parse Brave Search response as JSON",
+                "error_code": "remote_transient",
+            }
 
         raw_results = (data.get("web") or {}).get("results", []) or []
         truncated = raw_results[:limit]

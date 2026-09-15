@@ -52,8 +52,10 @@ def _address(text,default,*,delivery_requested=False):
 
 def run_continuity(*,agent,user_message,session_id,input_modality,platform):
     from hermes_cli import general_voice as base
+    from hermes_cli.voice_network import SUCCESS, classify_network_result, current_turn
     store=ContinuityStore();session=str(session_id or '')
     if not session:return None
+    turn_state=current_turn(session)
     cfg=base.config();pending=store.pending(session)
     if input_modality!='voice' and not pending:
         current=store.current(session)
@@ -206,15 +208,31 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         nonlocal retrieval_attempted,retrieval_failed,retrieval_succeeded
         if name in {'web_search','web_extract'}:
             retrieval_attempted=True
-            if isinstance(data,dict) and (data.get('error') or data.get('success') is False):
+            outcome=classify_network_result(data)
+            rows=data.get('results') if isinstance(data,dict) else data if isinstance(data,list) else None
+            partial_failure=isinstance(rows,list) and any(classify_network_result(row)!=SUCCESS for row in rows)
+            if outcome!=SUCCESS or partial_failure:
                 retrieval_failed=True
-                return
-            retrieval_succeeded=True
-            retrieved_sources.update(re.findall(r'https?://[^\s<>"\]\)]+',json.dumps(args,ensure_ascii=False)))
-            retrieved_sources.update(re.findall(r'https?://[^\s<>"\]\)]+',json.dumps(data,ensure_ascii=False)))
+            if outcome==SUCCESS:
+                retrieval_succeeded=True
+                retrieved_sources.update(re.findall(r'https?://[^\s<>"\]\)]+',json.dumps(args,ensure_ascii=False)))
+                retrieved_sources.update(re.findall(r'https?://[^\s<>"\]\)]+',json.dumps(data,ensure_ascii=False)))
     def finalize(*,response_text,failed,turn_exit_reason,messages):
         nonlocal task
         count=0
+        offline_result=None
+        if turn_state is not None and turn_state.offline:
+            try:
+                offline_result=base._offline_completion(
+                    agent,execution_text,task['request'],detailed=native_route['intent']=='complex')
+                count=1 if offline_result else 0
+            except Exception as error:
+                log.warning('Local offline completion failed: %s',error)
+            if offline_result:
+                response_text=offline_result['body']
+                failed=False;turn_exit_reason='text_response(finish_reason=stop)'
+            else:
+                return finish("I can't reach live sources, so I can't verify that right now.",failed=True)
         if (native_route['intent']=='simple' and response_text.strip()
                 and turn_exit_reason in {'workflow_incomplete_output','text_response(finish_reason=length)'}):
             try:
@@ -268,7 +286,9 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         if markers and markers[0].start()==0 and [int(m[1]) for m in markers]==list(range(1,len(markers)+1)):
             summary='; '.join(body[m.end():markers[i+1].start() if i+1<len(markers) else len(body)].strip() for i,m in enumerate(markers))
         retrieval_unavailable=retrieval_attempted and not retrieval_succeeded
-        if retrieval_unavailable:
+        if offline_result:
+            summary=offline_result['summary']
+        elif retrieval_unavailable:
             summary='I could not retrieve live sources, so I could not verify the requested current details.'
         elif not base._brief(summary) or native_route['intent']=='complex':
             try:
@@ -289,11 +309,19 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         task,version=store.save_result(session,task,body=body,summary=summary,kind=kind,
                                        parent_version=selected['version'] if selected else None,sources=sources,
                                        detailed=detailed)
-        if email and retrieval_unavailable:
+        if turn_state is not None and turn_state.offline:
+            summary+=(
+                ' Current details were not verified, and I saved the full result locally because email is unavailable.'
+                if email else " I couldn't verify current details."
+            )
+        elif email and retrieval_unavailable:
             summary+=' No automatic email was sent because no live source could be retrieved.'
         elif email:
             summary+=' '+delivery(task,version,recipient,confirm_address)
-        return finish(summary,calls=count)
+        result=finish(summary,calls=count)
+        if offline_result:
+            result['recovered']=True
+        return result
     context={'selected_result':selected['body'][:22000] if selected else None,
              'retrieval_guidance':(('This is open-ended general guidance, not a live-fact request. '
                                     'Answer from stable knowledge without tools and offer to check current details if useful. '

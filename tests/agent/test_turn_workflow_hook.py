@@ -1,4 +1,5 @@
 from unittest.mock import Mock
+from types import SimpleNamespace
 
 from hermes_cli import plugins
 
@@ -55,3 +56,22 @@ def test_existing_narrow_hook_signatures_still_work():
     manager=plugins.PluginManager()
     manager._hooks['run_turn_workflow']=[lambda user_message:{'handled':True,'final_response':user_message}]
     assert manager.invoke_hook('run_turn_workflow',user_message='hello',input_modality='voice',future_field=1)[0]['final_response']=='hello'
+
+
+def test_buffered_continuation_hides_only_offline_duplicate_projection():
+    from agent.tool_executor import _silent_offline_workflow_block
+    from agent.turn_workflow import TurnContinuation
+
+    generated=Mock()
+    agent=SimpleNamespace(session_id='voice',stream_delta_callback=Mock(),_stream_callback=Mock(),
+                          interim_assistant_callback=Mock(),tool_gen_callback=generated,
+                          quiet_mode=False,_active_turn_workflow=None)
+    policy=TurnContinuation('context',lambda **kw:{'final_response':'done'})
+    policy.begin(agent)
+    assert agent.tool_gen_callback is None
+    blocked='{"error":"The network is unavailable for this turn. Do not retry."}'
+    assert _silent_offline_workflow_block(agent,True,blocked)
+    assert not _silent_offline_workflow_block(agent,True,'{"error":"Approval denied."}')
+    assert not _silent_offline_workflow_block(agent,False,blocked)
+    policy.close()
+    assert agent.tool_gen_callback is generated

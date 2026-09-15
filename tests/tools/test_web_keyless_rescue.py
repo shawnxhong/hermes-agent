@@ -53,6 +53,22 @@ class _RaisingProvider(_KeyedBoomProvider):
         raise RuntimeError("connection reset by peer")
 
 
+class _OfflineProvider(_KeyedBoomProvider):
+    def search(self, query, limit=5):
+        return {
+            "success": False,
+            "error": "network unreachable",
+            "error_code": "transport_unreachable",
+        }
+
+    def extract(self, urls, **kwargs):
+        return [
+            {"url": url, "error": "network unreachable",
+             "error_code": "transport_unreachable"}
+            for url in urls
+        ]
+
+
 @pytest.fixture(autouse=True)
 def _keyed_keenable_env(monkeypatch):
     """Simulate a keyed Keenable setup with rescue enabled."""
@@ -168,6 +184,12 @@ class TestSearchRescue:
         assert out["success"] is False
         ring.assert_not_called()
 
+    def test_transport_failure_never_tries_keyless_rescue(self, monkeypatch):
+        with patch.object(keyless_mcp, "search_with_failover") as ring:
+            out = self._dispatch(monkeypatch, _OfflineProvider())
+        assert out["error_code"] == "transport_unreachable"
+        ring.assert_not_called()
+
 
 class TestExtractRescue:
     async def _dispatch(self, monkeypatch, provider, urls):
@@ -230,6 +252,15 @@ class TestExtractRescue:
                 monkeypatch, _Partial(), ["https://a", "https://b"]
             )
         assert results[1].get("error")
+        ring.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_transport_batch_never_tries_keyless_rescue(self, monkeypatch):
+        with patch.object(keyless_mcp, "extract_with_failover") as ring:
+            results = await self._dispatch(
+                monkeypatch, _OfflineProvider(), ["https://a", "https://b"]
+            )
+        assert all(row["error_code"] == "transport_unreachable" for row in results)
         ring.assert_not_called()
 
     @pytest.mark.asyncio

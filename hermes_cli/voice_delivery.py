@@ -45,19 +45,46 @@ def submit_once(fingerprint, *, connect, send, check):
     connect yields a transactional SQLite connection with deliveries(id,status).
     check rejects cancelled/stale work; send returns the native adapter result.
     SMTP acceptance is not a claim of inbox receipt. Pending/uncertain sends
-    are never automatically retried, even after a process restart.
+    are never automatically retried, even after a process restart.  A definite
+    pre-acceptance physical transport failure uses ``offline`` and may be
+    acquired by a later explicit submission; it is safe because SMTP DATA was
+    never attempted.
     """
     check()
     with connect() as db:
         inserted = db.execute("INSERT OR IGNORE INTO deliveries VALUES (?,?)", (fingerprint, "pending")).rowcount
         if not inserted:
-            return db.execute("SELECT status FROM deliveries WHERE id=?", (fingerprint,)).fetchone()[0]
+            status = db.execute("SELECT status FROM deliveries WHERE id=?", (fingerprint,)).fetchone()[0]
+            if status != "offline":
+                return status
+            inserted = db.execute(
+                "UPDATE deliveries SET status='pending' WHERE id=? AND status='offline'",
+                (fingerprint,),
+            ).rowcount
+            if not inserted:
+                return db.execute("SELECT status FROM deliveries WHERE id=?", (fingerprint,)).fetchone()[0]
     check()
     try:
         result = send()
-        status = "accepted" if isinstance(result, dict) and result.get("success") is True else "unconfirmed"
+        if isinstance(result, dict) and result.get("success") is True:
+            status = "accepted"
+        else:
+            from hermes_cli.voice_network import TRANSPORT_UNREACHABLE, classify_network_result
+
+            status = (
+                "offline"
+                if classify_network_result(result, delivery=True) == TRANSPORT_UNREACHABLE
+                and isinstance(result, dict)
+                and result.get("definitive_not_accepted") is not False
+                else "unconfirmed"
+            )
     except Exception:
         logger.exception("Voice email submission failed")
+        # An exception escaping the sender carries no reliable SMTP-stage
+        # evidence.  It may have happened after DATA was accepted, so fail
+        # closed and never retry it automatically.  The standalone adapter
+        # returns a structured definitive_not_accepted marker for safe
+        # pre-DATA transport retries.
         status = "unconfirmed"
     try:
         with connect() as db:
@@ -66,6 +93,64 @@ def submit_once(fingerprint, *, connect, send, check):
         logger.exception("Could not persist voice delivery receipt")
         status = "unconfirmed"
     return status
+
+
+def submit_recipients(scope, recipient, body, *, connect, sender, check):
+    """Submit a delivery group with one durable receipt per recipient.
+
+    A physical transport failure stops the loop immediately.  Addresses not
+    reached have no ledger row, while previously accepted recipients remain
+    deduplicated when the user explicitly retries later.
+    """
+    addresses = email_recipients(recipient)
+    if len(addresses) > 1:
+        # Respect a receipt written by the legacy indivisible-group sender.
+        # New group_* markers are rollback guards: legacy code treats them as
+        # non-retriable, while this implementation may safely continue using
+        # the finer per-recipient receipts.
+        legacy_key = delivery_fingerprint(scope, ', '.join(addresses), body)
+        check()
+        with connect() as db:
+            row = db.execute("SELECT status FROM deliveries WHERE id=?", (legacy_key,)).fetchone()
+        if row and row[0] in {"accepted", "pending", "unconfirmed"}:
+            return row[0]
+    statuses = []
+    for address in addresses:
+        status = submit_once(
+            delivery_fingerprint(scope, address, body),
+            connect=connect,
+            send=lambda address=address: sender(address, body),
+            check=check,
+        )
+        statuses.append(status)
+        if status == "offline":
+            break
+    if len(addresses) == 1:
+        return statuses[0]
+    if len(statuses) == len(addresses) and all(status == "accepted" for status in statuses):
+        aggregate = "accepted"
+    elif "accepted" in statuses:
+        aggregate = "partial"
+    elif "offline" in statuses:
+        aggregate = "offline"
+    else:
+        aggregate = "unconfirmed"
+    rollback_status = {
+        "accepted": "accepted",
+        "partial": "group_partial",
+        "offline": "group_offline",
+        "unconfirmed": "unconfirmed",
+    }[aggregate]
+    try:
+        with connect() as db:
+            db.execute(
+                "INSERT INTO deliveries VALUES (?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status",
+                (legacy_key, rollback_status),
+            )
+    except Exception:
+        logger.exception("Could not persist group delivery rollback guard")
+        return "unconfirmed" if aggregate == "accepted" else aggregate
+    return aggregate
 
 
 class StaleTask(RuntimeError):
@@ -213,5 +298,5 @@ class TaskStore:
                 raise StaleTask('Delivery cancelled')
             with self.connect() as db:
                 self._require(db,session,task['id'],task['revision'])
-        return submit_once(delivery_fingerprint(task['id'],recipient,artifact['body']),
-                           connect=self.connect,send=lambda:sender(recipient,artifact['body']),check=check)
+        return submit_recipients(task['id'],recipient,artifact['body'],
+                                 connect=self.connect,sender=sender,check=check)

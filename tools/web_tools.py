@@ -980,12 +980,24 @@ def web_search_tool(query: str, limit: int = 5) -> str:
             )
 
             def _paid_search() -> tuple[dict, bool]:
+                from hermes_cli.voice_network import (
+                    TRANSPORT_UNREACHABLE as _TRANSPORT_UNREACHABLE,
+                    classify_network_result as _classify_network_result,
+                )
+
                 _fetch_limit = _bucket_limit(limit)
                 _rescued = False
                 try:
                     _resp = provider.search(query, _fetch_limit)
                 except Exception as exc:  # noqa: BLE001 — candidate for rescue
-                    if _rescue_eligible(provider):
+                    _outcome = _classify_network_result(exc)
+                    if _outcome == _TRANSPORT_UNREACHABLE:
+                        _resp = {
+                            "success": False,
+                            "error": str(exc),
+                            "error_code": _TRANSPORT_UNREACHABLE,
+                        }
+                    elif _rescue_eligible(provider):
                         _rescued = True
                         _resp = _rescue_search(
                             provider.name, str(exc), query, _fetch_limit
@@ -993,7 +1005,11 @@ def web_search_tool(query: str, limit: int = 5) -> str:
                     else:
                         raise
                 else:
-                    if not _resp.get("success") and _rescue_eligible(provider):
+                    if (
+                        not _resp.get("success")
+                        and _classify_network_result(_resp) != _TRANSPORT_UNREACHABLE
+                        and _rescue_eligible(provider)
+                    ):
                         # One-shot keyless rescue: THIS call rides the
                         # free-tier ring; the next call attempts the chosen
                         # backend again.
@@ -1306,6 +1322,10 @@ async def web_extract_tool(
                 # Async-or-sync dispatch: parallel + firecrawl have async
                 # extract(); exa + tavily + keenable are sync.
                 import inspect
+                from hermes_cli.voice_network import (
+                    TRANSPORT_UNREACHABLE as _TRANSPORT_UNREACHABLE,
+                    classify_network_result as _classify_network_result,
+                )
                 _extract_rescued = False
                 try:
                     if inspect.iscoroutinefunction(provider.extract):
@@ -1317,7 +1337,14 @@ async def web_extract_tool(
                             provider.extract, fetch_urls, format=format
                         )
                 except Exception as exc:  # noqa: BLE001 — candidate for rescue
-                    if _rescue_eligible(provider):
+                    _outcome = _classify_network_result(exc)
+                    if _outcome == _TRANSPORT_UNREACHABLE:
+                        results = [
+                            {"url": u, "title": "", "content": "", "error": str(exc),
+                             "error_code": _TRANSPORT_UNREACHABLE}
+                            for u in fetch_urls
+                        ]
+                    elif _rescue_eligible(provider):
                         _extract_rescued = True
                         failed = [
                             {"url": u, "title": "", "content": "", "error": str(exc)}
@@ -1335,6 +1362,7 @@ async def web_extract_tool(
                     if (
                         results
                         and all(r.get("error") for r in results)
+                        and _classify_network_result(results) != _TRANSPORT_UNREACHABLE
                         and _rescue_eligible(provider)
                     ):
                         _extract_rescued = True
@@ -1452,6 +1480,7 @@ async def web_extract_tool(
                 "title": r.get("title", ""),
                 "content": r.get("content", ""),
                 "error": r.get("error"),
+                **({"error_code": r["error_code"]} if "error_code" in r else {}),
                 **({  "blocked_by_policy": r["blocked_by_policy"]} if "blocked_by_policy" in r else {}),
             }
             for r in response.get("results", [])

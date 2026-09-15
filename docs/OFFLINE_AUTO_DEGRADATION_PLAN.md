@@ -1,7 +1,7 @@
 # Automatic offline degradation plan
 
 Date: 2026-09-15
-Status: approved design; not implemented
+Status: implemented and source-verified; installed Box deployment pending
 Target: English-only, screenless local voice demo on the Intel AI Box
 
 ## Decision
@@ -17,7 +17,7 @@ runtime. It preserves the useful fail-fast behavior already present in
 `general_voice.py`, while closing the latency, coverage and multi-recipient mail
 gaps found after the English-only, continuity and full-tool changes.
 
-## Verified current baseline
+## Pre-implementation baseline
 
 The installed Box copies of `general_voice.py`, `voice_continuity.py`,
 `voice_task_router.py`, `voice_continuity_router.py` and `voice_delivery.py`
@@ -56,6 +56,46 @@ The remaining gaps are:
   the current CLI loop guard is warning-only and is not an offline breaker.
 - `LOCAL_DEMO_REQUIREMENTS.md` still calls offline behavior deferred, while the
   later voice release documents a partial fail-fast implementation.
+
+## Implemented release candidate
+
+The source implementation now closes those gaps without adding a mode, probe,
+model-visible tool, or mid-session prompt/schema mutation:
+
+- `hermes_cli/voice_network.py` owns conservative result classification and a
+  memory-only breaker that is replaced at the next local voice turn.
+- The first allowed network operation gates concurrent calls only until its
+  result is known. Success releases the remaining online work; a definite
+  transport failure blocks it before I/O.
+- General voice and continuity stop the full-tool loop after a physical
+  failure. Stable tasks receive at most one text-only local completion;
+  explicitly live tasks fail directly and are not saved as verified results.
+- Brave uses a 5-second connect and 15-second read budget. Physical transport
+  failure bypasses keyless rescue; existing bounded rescue remains for online
+  provider failures.
+- Voice SMTP uses an 8-second connect budget. Group delivery has durable
+  per-recipient receipts, stops at the first definite pre-DATA outage, and
+  retains a legacy group receipt as a rollback guard. Unknown or post-DATA
+  outcomes remain non-retriable.
+- Buffered continuation suppresses duplicate offline tool projections while
+  retaining protocol-required tool-result rows. An explicit trusted
+  `recovered` result distinguishes successful local completion from an
+  unrecovered tool-loop failure.
+
+Source evidence on 2026-09-15:
+
+- 21 release-focused test files: 387 tests passed, zero failed.
+- Real local Qwen/OVMS capture-only replay for a live Boston weather request:
+  one failed search, no fallback facts, no email, then successful next-turn
+  local recovery.
+- Real local Qwen/OVMS capture-only replay for a stable packing guide: one
+  failed search, one tool-free local completion, full result saved locally,
+  no email, then successful next-turn recovery.
+- A real Brave read-only query succeeded with two results. No real email was
+  sent during acceptance.
+
+The installed engineering Box acceptance and human acoustic check remain the
+last release steps. Source commit and push must precede deployment.
 
 ## Goals
 
@@ -361,4 +401,3 @@ Do not deploy if any of these remain true:
 - A new task inherits the prior turn's offline state.
 - Local coding, files, schedules, home or media are blocked.
 - The installed Box needs a manual offline-mode command.
-

@@ -1,6 +1,7 @@
 """Standalone SMTP transport must be bounded and safe to retry."""
 
 import asyncio
+import socket
 import smtplib
 import ssl
 from types import SimpleNamespace
@@ -55,10 +56,32 @@ def test_verified_transport_and_timeout(smtp, port):
     server.quit.assert_called_once()
 
 
+def test_voice_scoped_connect_timeout_does_not_change_default(smtp):
+    _, _, plain, _ = smtp
+    with adapter.smtp_connect_timeout(8):
+        assert send()["success"]
+    assert plain.call_args.kwargs["timeout"] == 8
+    plain.reset_mock()
+    assert send()["success"]
+    assert plain.call_args.kwargs["timeout"] == adapter.SMTP_CONNECT_TIMEOUT
+
+
+def test_connect_failure_is_definite_and_structured(smtp):
+    _, _, plain, _ = smtp
+    plain.side_effect = socket.gaierror(-2, "Name or service not known")
+    result = send()
+    assert result["error_code"] == "transport_unreachable"
+    assert result["delivery_stage"] == "connect"
+    assert result["definitive_not_accepted"] is True
+
+
 def test_failed_send_releases_connection(smtp):
     _, server, _, _ = smtp
     server.send_message.side_effect = smtplib.SMTPDataError(550, b"rejected")
-    assert "error" in send()
+    result=send()
+    assert "error" in result
+    assert result["error_code"] == "ambiguous_delivery"
+    assert result["delivery_stage"] == "data"
     server.quit.assert_called_once()
 
 

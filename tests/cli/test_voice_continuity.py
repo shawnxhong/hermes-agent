@@ -373,16 +373,32 @@ def test_named_result_recipient_question_uses_host_slot(rig):
     assert router.call_count==before and sender.call_count==1
 
 
-def test_failed_research_retains_useful_result_with_verification_note(rig):
+def test_failed_current_research_rejects_unverified_model_draft(rig):
     rig[1].return_value=decision(detail=True,execution='research')
     value=run(rig,'Research a current topic.')
     value['continuation'].after_tool('web_search',{}, {'error':'offline'})
     result=done(value,'Unsupported detailed claims.')
-    assert not result.get('failed') and 'No automatic email was sent' in result['final_response']
-    assert result['final_response'].startswith('I could not retrieve live sources')
+    assert result['failed'] and result['final_response'].startswith("I can't reach live sources")
     rig[2].assert_not_called()
     task=ContinuityStore().current('s')
-    assert 'Verification note:' in ContinuityStore().result('s',task['id'])['body']
+    assert ContinuityStore().result('s',task['id']) is None
+
+
+def test_failed_optional_research_saves_one_conservative_local_result(rig,monkeypatch):
+    rig[1].return_value=decision(detail=True,execution='research')
+    fallback=Mock(return_value={
+        'body':'Stable restaurant-planning guidance.\n\nVerification note: Current external details could not be verified.',
+        'summary':"Use stable planning principles. I couldn't verify current details.",
+    })
+    monkeypatch.setattr(base,'_offline_completion',fallback)
+    value=run(rig,'Prepare a detailed guide to choosing a restaurant.')
+    value['continuation'].after_tool('web_search',{}, {'error_code':'transport_unreachable'})
+    result=value['continuation'].finalize(response_text='',failed=True,
+        turn_exit_reason='workflow_execution_budget',messages=[])
+    assert not result.get('failed') and 'saved the full result locally' in result['final_response']
+    rig[2].assert_not_called();fallback.assert_called_once()
+    task=ContinuityStore().current('s')
+    assert 'Stable restaurant-planning guidance' in ContinuityStore().result('s',task['id'])['body']
 
 
 def test_truncated_simple_answer_is_salvaged_without_email(rig):

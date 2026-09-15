@@ -8,7 +8,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--live-code',action='store_true')
 parser.add_argument('--code-path',type=Path,help='Read-only staged runtime overlay to validate before deployment')
 parser.add_argument('--native-tools',action='store_true',help='Use native default schemas, with a test-only side-effect blocker')
-parser.add_argument('--scenario',choices=['general','general-variant','travel','travel-sydney','travel-sydney-fragment','continuity-seoul','continuity-mixed','continuity-travel-mixed','continuity-melbourne','continuity-safety','continuity-failure','continuity-isolation'],default='general')
+parser.add_argument('--scenario',choices=['general','general-variant','travel','travel-sydney','travel-sydney-fragment','continuity-seoul','continuity-mixed','continuity-travel-mixed','continuity-melbourne','continuity-safety','continuity-failure','continuity-offline-stable','continuity-isolation'],default='general')
 parser.add_argument('--generation-failure',action='store_true')
 parser.add_argument('--search-failure',action='store_true')
 parser.add_argument('--seed',type=int,default=1,help='Reproducible mixed-topic order')
@@ -116,7 +116,7 @@ if args.native_tools:
     from tools.tool_search import TOOL_SEARCH_NAME, TOOL_DESCRIBE_NAME
     def test_side_effect_guard(**kw):
         if args.search_failure and fault_active and kw['tool_name'] in {'web_search','web_extract'}:
-            return {'action':'block','message':'Simulated search service failure. No verified results are available; do not guess or repeat this operation.'}
+            return {'action':'block','message':'Simulated network is unreachable. No verified results are available.'}
         if kw['tool_name'] not in {'web_search','web_extract',TOOL_SEARCH_NAME,TOOL_DESCRIBE_NAME}:
             return {'action':'block','message':'This capture-only test forbids external side effects. Return the requested draft as text.'}
     plugins.get_plugin_manager()._hooks.setdefault('pre_tool_call',[]).append(test_side_effect_guard)
@@ -229,6 +229,10 @@ if args.scenario=='continuity-failure':
     if args.email_failure:
         cases.append(('repeat','Email that same welcome memo to me again.','voice'))
     cases.append(('recovery','How many minutes are in two hours? Just the answer.','voice'))
+if args.scenario=='continuity-offline-stable':
+    assert args.continuity and args.search_failure
+    cases=[('failure','Use web search first, then prepare a detailed timeless guide to packing for a five-day city trip using general knowledge that does not depend on time-sensitive data.','voice'),
+           ('recovery','How many minutes are in two hours? Just the answer.','voice')]
 history=[];receipts=[]
 if args.stop_after:cases=cases[:args.stop_after]
 for name,text,modality in cases:
@@ -257,13 +261,27 @@ if args.scenario=='continuity-failure':
         assert len(mail)==1 and by['repeat']['emails']==0
         assert all('submitted' not in by[k]['reply'].lower() for k in ('failure','repeat'))
     elif args.search_failure:
-        assert by['failure']['completed'] and not mail
-        assert 'No automatic email was sent' in by['failure']['reply']
-        assert by['failure']['tools']<=2
+        assert not by['failure']['completed'] and not mail
+        assert "can't reach live sources" in by['failure']['reply']
+        # One primary full-tool request may contain several parallel tool-call
+        # IDs, all of which require matching history rows. Only its first call
+        # reaches the injected failure hook; no second model/tool iteration runs.
+        assert by['failure']['calls']==2 and by['failure']['tools']>=1
     else:
         assert not by['failure']['completed'] and not mail
         assert by['failure']['tools']<=6
     print('PASS bounded failure, truthful delivery status and independent next-turn recovery; mail captured')
+    sys.exit(0)
+if args.scenario=='continuity-offline-stable':
+    by={r['case']:r for r in receipts}
+    assert by['failure']['completed'] and by['failure']['emails']==0
+    assert 'saved the full result locally because email is unavailable' in by['failure']['reply']
+    assert by['failure']['calls']<=3 and by['failure']['tools']>=1
+    assert by['recovery']['completed'] and '120' in by['recovery']['reply'] and by['recovery']['emails']==0
+    from hermes_cli.voice_continuity_store import ContinuityStore
+    saved=ContinuityStore().result(agent.session_id,by['failure']['task_id'])
+    assert saved and 'Verification note:' in saved['body']
+    print('PASS stable local fallback, offline email suppression and independent next-turn recovery; mail captured')
     sys.exit(0)
 if args.scenario=='continuity-seoul':
     by={r['case']:r for r in receipts}

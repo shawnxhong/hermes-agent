@@ -39,6 +39,21 @@ def test_tool_result_recovery_is_text_only_and_bounded():
     assert 'stale evidence' not in kwargs['messages'][1]['content']
 
 
+def test_offline_completion_is_one_text_only_bounded_call():
+    client=Mock()
+    payload={'usable':True,'answer':'Use local ingredients and a simple preparation.',
+             'summary':'Use local ingredients and keep the preparation simple.'}
+    client.with_options.return_value.chat.completions.create.return_value=SimpleNamespace(choices=[SimpleNamespace(
+        finish_reason='stop',message=SimpleNamespace(tool_calls=None,content=json.dumps(payload)))])
+    agent=SimpleNamespace(client=client,model='local',_interrupt_requested=False,_touch_activity=Mock())
+    result=voice._offline_completion(agent,'Draft a dinner plan.','Draft a dinner plan.')
+    assert result['summary']=='Use local ingredients and keep the preparation simple.'
+    kwargs=client.with_options.return_value.chat.completions.create.call_args.kwargs
+    assert 'tools' not in kwargs and kwargs['max_tokens']==512
+    assert voice._offline_completion(agent,"What's the weather today?","Weather today") is None
+    assert client.with_options.return_value.chat.completions.create.call_count==1
+
+
 def routing(**kw):
     return dict({'intent':'complex','relation':'new','route':'execute','task_summary':'Draft a report',
                  'question':'','domain':'general','api_calls':1},**kw)
@@ -183,8 +198,9 @@ def test_tool_budget_and_retries_are_enforced_without_schema_changes(rig):
     blocked=policy.before_tool('speak',{'text':'a long answer'})
     assert blocked['action']=='block' and 'host owns voice playback' in blocked['message']
     assert policy.before_tool('web_search',{'query':'one'}) is None
+    policy.after_tool('web_search',{'query':'one'},json.dumps({'success':True,'data':{'web':[]}}))
     assert policy.before_tool('web_search',{'query':'one'}) is None
-    policy.after_tool('web_search',{},json.dumps({'error':'offline'}))
+    policy.after_tool('web_search',{'query':'one'},json.dumps({'error':'offline'}))
     assert policy.before_tool('web_search',{'query':'different'})['action']=='block'
     assert policy.before_tool('web_extract',{'url':'https://guessed.example/'})['action']=='block'
     assert policy.before_tool('web_search',{'query':'one'})['action']=='block'
@@ -192,11 +208,39 @@ def test_tool_budget_and_retries_are_enforced_without_schema_changes(rig):
     assert policy.before_tool('memory',{'action':'replace'})['action']=='block'
 
 
+def test_transport_failure_exhausts_continuation_and_keeps_local_tools(rig):
+    policy=run(rig)['continuation'];rig[1]._api_call_count=1
+    policy.after_tool('web_extract',{}, {'results':[{'error':'network unreachable'}]})
+    assert policy.max_api_calls==1
+    assert policy.before_tool('browser_navigate',{'url':'https://example.com'})['action']=='block'
+    assert policy.before_tool('read_file',{'path':'notes.txt'}) is None
+
+
 def test_native_action_keeps_original_message_and_memory_permissions(rig):
     rig[2].return_value=routing(intent='action',route='native')
     policy=run(rig,'Email my colleague the requested message.')['continuation']
     assert policy.before_tool('send_message',{'target':'email:colleague@example.com'}) is None
     assert policy.before_tool('memory',{'action':'add'}) is None
+
+
+def test_native_voice_breaker_is_network_only_and_typed_turn_clears_it(rig):
+    rig[2].return_value=routing(intent='coding',route='native')
+    assert run(rig,'Inspect a local Python file.') is None
+    voice.after_tool(session_id=rig[1].session_id,tool_name='web_search',args={},
+                     result={'error_code':'transport_unreachable'})
+    assert voice.before_tool(session_id=rig[1].session_id,tool_name='web_search',args={})['action']=='block'
+    assert voice.before_tool(session_id=rig[1].session_id,tool_name='read_file',args={}) is None
+    assert run(rig,'A typed request.',modality='text') is None
+    assert voice.before_tool(session_id=rig[1].session_id,tool_name='web_search',args={}) is None
+
+
+def test_im_turn_clears_stale_voice_breaker(rig):
+    rig[2].return_value=routing(intent='coding',route='native')
+    run(rig,'Inspect a local file.')
+    voice.after_tool(session_id=rig[1].session_id,tool_name='web_search',args={},
+                     result={'error':'network unreachable'})
+    assert run(rig,'Hello from IM.',modality='text',platform='feishu') is None
+    assert voice.before_tool(session_id=rig[1].session_id,tool_name='web_search',args={}) is None
 
 
 def test_brief_validation_does_not_validate_a_truncated_preview():

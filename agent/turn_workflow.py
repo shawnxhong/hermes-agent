@@ -33,7 +33,7 @@ class TurnContinuation:
             raise ValueError('Invalid continuation temperature')
         self._agent = agent
         self._session = str(agent.session_id)
-        for name in ('stream_delta_callback','_stream_callback','interim_assistant_callback','quiet_mode'):
+        for name in ('stream_delta_callback','_stream_callback','interim_assistant_callback','tool_gen_callback','quiet_mode'):
             self._saved[name] = getattr(agent,name,None)
             setattr(agent,name,True if name=='quiet_mode' else None)
         agent._active_turn_workflow = self
@@ -96,7 +96,10 @@ def finish(agent, response, *, interrupted, failed, reason, messages):
         text = result['final_response']
         if not isinstance(text,str) or not text.strip():
             raise ValueError('Empty workflow delivery')
-        failed = failed or bool(result.get('failed'))
+        if result.get('recovered') is True and result.get('failed') is not True:
+            failed = False
+        else:
+            failed = failed or bool(result.get('failed'))
         count = policy.initial_api_calls+int(result.get('api_calls',0))
     except Exception:
         import logging

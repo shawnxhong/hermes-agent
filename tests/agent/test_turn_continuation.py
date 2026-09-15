@@ -122,6 +122,20 @@ def test_native_budget_exit_is_failed_and_does_not_start_another_inference(nativ
     assert current(agent) is None
 
 
+def test_native_budget_exit_can_be_explicitly_recovered_by_host(native,monkeypatch):
+    from tools import web_tools
+    agent,manager,_=native
+    monkeypatch.setattr(web_tools,'web_search_tool',lambda **kw:'{"error":"network unreachable"}')
+    calls=[{'id':'search','type':'function','function':{'name':'web_search','arguments':'{"query":"example"}'}}]
+    agent.client.chat.completions.create.return_value=response('',calls)
+    finalize=Mock(return_value={'final_response':'Recovered from stable local knowledge.','recovered':True})
+    manager._hooks['run_turn_workflow']=[lambda **kw:{'continuation':TurnContinuation('Context',finalize,max_api_calls=1)}]
+    result=agent.run_conversation('Prepare a stable guide.',input_modality='voice')
+    assert result['completed'] and not result['failed']
+    assert result['turn_exit_reason']=='workflow_execution_budget'
+    assert result['final_response']=='Recovered from stable local knowledge.'
+
+
 def test_cancelled_delivery_never_invokes_sender_and_session_rotation_cleans_registry(native):
     from agent.turn_workflow import finish
     agent,_,_=native

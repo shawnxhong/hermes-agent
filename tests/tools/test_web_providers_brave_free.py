@@ -81,6 +81,7 @@ class TestBraveFreeProviderSearch:
             captured["url"] = url
             captured["headers"] = kwargs.get("headers", {})
             captured["params"] = kwargs.get("params", {})
+            captured["timeout"] = kwargs.get("timeout")
             return self._mock_resp({"web": {"results": []}})
 
         with patch("httpx.get", side_effect=fake_get):
@@ -90,6 +91,27 @@ class TestBraveFreeProviderSearch:
         assert captured["headers"].get("X-Subscription-Token") == "BSAkey123"
         assert captured["params"].get("q") == "q"
         assert captured["params"].get("count") == 5
+        assert captured["timeout"].connect == 5.0
+        assert captured["timeout"].read == 15.0
+
+    def test_connect_failure_is_structured_transport_error(self, monkeypatch):
+        import httpx
+        monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "BSAkey123")
+        from plugins.web.brave_free.provider import BraveFreeWebSearchProvider
+
+        with patch("httpx.get", side_effect=httpx.ConnectError("network unreachable")):
+            result = BraveFreeWebSearchProvider().search("q")
+        assert result["success"] is False
+        assert result["error_code"] == "transport_unreachable"
+
+    def test_read_timeout_is_remote_transient(self, monkeypatch):
+        import httpx
+        monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "BSAkey123")
+        from plugins.web.brave_free.provider import BraveFreeWebSearchProvider
+
+        with patch("httpx.get", side_effect=httpx.ReadTimeout("response timeout")):
+            result = BraveFreeWebSearchProvider().search("q")
+        assert result["error_code"] == "remote_transient"
 
 
     def test_missing_web_key_returns_empty(self, monkeypatch):
@@ -111,6 +133,7 @@ class TestBraveFreeProviderSearch:
         result = BraveFreeWebSearchProvider().search("q", limit=5)
         assert result["success"] is False
         assert "BRAVE_SEARCH_API_KEY" in result["error"]
+        assert result["error_code"] == "configuration"
 
 
 # ---------------------------------------------------------------------------

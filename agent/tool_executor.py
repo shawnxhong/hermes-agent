@@ -444,6 +444,27 @@ class _ToolCancelledResult(str):
     """
 
 
+def _silent_offline_workflow_block(agent, blocked: bool, result: Any) -> bool:
+    """Hide only duplicate network calls blocked by a buffered voice turn.
+
+    Matching tool-result rows still enter history; this controls the compact
+    CLI projection only.  Other policy, approval and guardrail blocks remain
+    visible exactly as before.
+    """
+    if not blocked:
+        return False
+    try:
+        from agent.turn_workflow import current
+
+        if current(agent) is None:
+            return False
+        data = json.loads(result) if isinstance(result, str) else result
+        message = data.get("error", "") if isinstance(data, dict) else ""
+        return str(message).startswith("The network is unavailable for this turn.")
+    except Exception:
+        return False
+
+
 class _ConcurrentToolAuthorizationGate:
     """Serialize policy prompts and exclude human approval waits from batch deadlines.
 
@@ -1876,7 +1897,8 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
                 logging.debug("Tool progress callback error: %s", cb_err)
 
         # Print cute message per tool
-        if agent._should_emit_quiet_tool_messages():
+        if (agent._should_emit_quiet_tool_messages()
+                and not _silent_offline_workflow_block(agent,blocked,display_function_result)):
             cute_msg = _get_cute_tool_message_impl(
                 name, args, tool_duration, result=display_function_result,
             )
@@ -2595,9 +2617,10 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
             finally:
                 tool_duration = time.time() - tool_start_time
                 cute_msg = _get_cute_tool_message_impl(function_name, function_args, tool_duration, result=_spinner_result)
+                silent_block=_silent_offline_workflow_block(agent,_execution_blocked,_spinner_result)
                 if spinner:
-                    spinner.stop(cute_msg)
-                elif agent._should_emit_quiet_tool_messages():
+                    spinner.stop(None if silent_block else cute_msg)
+                elif agent._should_emit_quiet_tool_messages() and not silent_block:
                     agent._vprint(f"  {cute_msg}")
         else:
             try:

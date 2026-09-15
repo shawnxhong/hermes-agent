@@ -20,6 +20,8 @@ Environment variables:
 """
 
 import asyncio
+from contextlib import contextmanager
+from contextvars import ContextVar
 import email as email_lib
 import imaplib
 import logging
@@ -147,6 +149,24 @@ _AUTOMATED_HEADERS = {
 MAX_MESSAGE_LENGTH = 50_000
 
 SMTP_CONNECT_TIMEOUT = 30
+_SMTP_CONNECT_TIMEOUT_OVERRIDE: ContextVar[float | None] = ContextVar(
+    "email_smtp_connect_timeout_override", default=None
+)
+
+
+@contextmanager
+def smtp_connect_timeout(seconds: float):
+    """Temporarily narrow standalone SMTP connect time for a host-owned send."""
+    value = max(1.0, float(seconds))
+    token = _SMTP_CONNECT_TIMEOUT_OVERRIDE.set(value)
+    try:
+        yield
+    finally:
+        _SMTP_CONNECT_TIMEOUT_OVERRIDE.reset(token)
+
+
+def _standalone_smtp_connect_timeout() -> float:
+    return _SMTP_CONNECT_TIMEOUT_OVERRIDE.get() or SMTP_CONNECT_TIMEOUT
 
 
 def _close_imap(imap: "imaplib.IMAP4") -> None:
@@ -1535,6 +1555,7 @@ async def _standalone_send(
         return {"error": "Email not configured (EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_SMTP_HOST required)"}
 
     server = None
+    stage = "connect"
     try:
         msg = MIMEText(message, "plain", "utf-8")
         msg["From"] = address
@@ -1543,27 +1564,47 @@ async def _standalone_send(
         msg["Date"] = formatdate(localtime=True)
 
         ctx = _tls_context(smtp_tls_verify, smtp_host)
+        connect_timeout = _standalone_smtp_connect_timeout()
         if smtp_security == "tls":
             server = smtplib.SMTP_SSL(
-                smtp_host, smtp_port, timeout=SMTP_CONNECT_TIMEOUT, context=ctx
+                smtp_host, smtp_port, timeout=connect_timeout, context=ctx
             )
         else:
-            server = smtplib.SMTP(smtp_host, smtp_port, timeout=SMTP_CONNECT_TIMEOUT)
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=connect_timeout)
             if smtp_security == "starttls":
                 try:
                     server.starttls(context=ctx)
                 except Exception:
                     server.close()
                     raise
+        stage = "authentication"
         server.login(address, password)
+        stage = "data"
         server.send_message(msg)
         return {"success": True, "platform": "email", "chat_id": chat_id}
     except Exception as e:
         try:
             from tools.send_message_tool import _error as _e
-            return _e(f"Email send failed: {e}")
+            result = _e(f"Email send failed: {e}")
         except Exception:
-            return {"error": f"Email send failed: {e}"}
+            result = {"error": f"Email send failed: {e}"}
+        from hermes_cli.voice_network import (
+            AMBIGUOUS_DELIVERY,
+            CONFIGURATION,
+            UNKNOWN,
+            classify_network_result,
+        )
+
+        outcome = classify_network_result(e, delivery=True)
+        if isinstance(e, smtplib.SMTPAuthenticationError):
+            outcome = CONFIGURATION
+        if stage == "data":
+            outcome = AMBIGUOUS_DELIVERY
+            result["accepted_unknown"] = True
+        elif outcome != UNKNOWN:
+            result["definitive_not_accepted"] = True
+        result.update(error_code=outcome, delivery_stage=stage)
+        return result
     finally:
         if server is not None:
             try:
