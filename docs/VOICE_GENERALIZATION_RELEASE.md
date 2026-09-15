@@ -59,6 +59,13 @@ The deployed `providers.custom` entry mirrors the same local OVMS endpoint and
 sets `request_timeout_seconds` and `stale_timeout_seconds` to 90. This bounds a
 stalled local generation without changing the model, endpoint or thinking mode.
 
+This release is not the complete physical-network-loss design. In particular,
+one web tool call may still contain a provider rescue, group SMTP delivery may
+attempt multiple recipients, and the model can request one later search that is
+then blocked. The approved follow-up design is
+`OFFLINE_AUTO_DEGRADATION_PLAN.md`; its status is design-only until its release
+gates pass.
+
 ## Acceptance evidence
 
 - 13 focused files: 215 tests passed, zero failed.

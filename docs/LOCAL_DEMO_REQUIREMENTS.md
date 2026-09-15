@@ -20,8 +20,10 @@ Retain wake acknowledgement, task acknowledgement, first-follow-up explanation,
 question-to-tone gap and ASR answer window; continuity across topic changes;
 default recipient xiaoheng.hong@intel.com and one-off recipient overrides;
 truthful delivery, deduplication, cancellation and necessary permissions.
-Normal operation has network/Brave search. Offline strategy remains deferred
-pending observed tests; no cloud LLM dependency is acceptable.
+Normal operation has network/Brave search and no cloud LLM dependency is
+acceptable. The previously deferred offline work now has an approved updated
+design in `OFFLINE_AUTO_DEGRADATION_PLAN.md`. It is not yet implemented: the
+current voice path has a narrower per-turn search fail-fast guard only.
 
 This update records a requirements review, not a runtime change or acceptance
 claim. See VOICE_MODEL_FIRST_RESET.md for the Melbourne incident. Any earlier
