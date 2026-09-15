@@ -50,7 +50,7 @@ High-density modular layout with 6-7 typed information modules packed with concr
 ## Text Placement
 
 - Main title at top, prominent and impactful
-- Subtitle with module count ("Comprehensive Analysis Across X Dimensions")
+- Subtitle with module count ("X大维度全面解析...")
 - Module headers inside colored badges or labeled frames
 - Body text compact, multiple columns within modules
 - Numbers highlighted with accent colors, slightly larger than body text

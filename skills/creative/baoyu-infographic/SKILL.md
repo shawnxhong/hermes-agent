@@ -1,8 +1,8 @@
 ---
 name: baoyu-infographic
-description: "Infographics: 21 layouts x 21 styles."
+description: "Infographics: 21 layouts x 21 styles (信息图, 可视化)."
 version: 1.56.1
-author: Jim Liu
+author: 宝玉 (JimLiu)
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
@@ -19,7 +19,7 @@ Two dimensions: **layout** (information structure) × **style** (visual aestheti
 
 ## When to Use
 
-Trigger this skill when the user asks to create an infographic, visual summary, information graphic, or requests a dense information graphic. The user provides content (text, file path, URL, or topic) and optionally specifies layout, style, aspect ratio, or language.
+Trigger this skill when the user asks to create an infographic, visual summary, information graphic, or uses terms like "信息图", "可视化", or "高密度信息大图". The user provides content (text, file path, URL, or topic) and optionally specifies layout, style, aspect ratio, or language.
 
 ## Options
 
@@ -28,7 +28,7 @@ Trigger this skill when the user asks to create an infographic, visual summary, 
 | Layout | 21 options (see Layout Gallery), default: bento-grid |
 | Style | 21 options (see Style Gallery), default: craft-handmade |
 | Aspect | Named: landscape (16:9), portrait (9:16), square (1:1). Custom: any W:H ratio (e.g., 3:4, 4:3, 2.35:1) |
-| Language | en |
+| Language | en, zh, ja, etc. |
 
 ## Layout Gallery
 
@@ -118,8 +118,8 @@ If a shortcut has **Prompt Notes**, append them to the generated prompt (Step 5)
 
 | User Keyword | Layout | Recommended Styles | Default Aspect | Prompt Notes |
 |--------------|--------|--------------------|----------------|--------------|
-| high-density-info | `dense-modules` | `morandi-journal`, `pop-laboratory`, `retro-pop-grid` | portrait | — |
-| infographic | `bento-grid` | `craft-handmade` | landscape | Minimalist: clean canvas, ample whitespace, no complex background textures. Simple cartoon elements and icons only. |
+| 高密度信息大图 / high-density-info | `dense-modules` | `morandi-journal`, `pop-laboratory`, `retro-pop-grid` | portrait | — |
+| 信息图 / infographic | `bento-grid` | `craft-handmade` | landscape | Minimalist: clean canvas, ample whitespace, no complex background textures. Simple cartoon elements and icons only. |
 
 ## Output Structure
 
