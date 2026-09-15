@@ -7,7 +7,8 @@ Branch: `local-ovms-voice`
 
 ## Start here
 
-The current deployment candidate is the active-runtime English-only profile.
+The current deployed release is the active-runtime English-only profile at
+`999b5cd07` (base implementation `2ebf3bdf2`).
 Read [English-only Box demo profile](ENGLISH_ONLY_DEMO_PROFILE.md) before making
 language, routing, skill, or Box configuration changes. It preserves Weixin and
 Feishu transport plus Unicode file handling, while removing bilingual behavior
@@ -22,7 +23,7 @@ arbitrary English questions. The proposed upgrade is cancelled. Review current
 LOCAL_DEMO_REQUIREMENTS.md first; no runtime changes for this reset.
 Do not add another destination-specific patch.
 
-Current release: `5dc8172ba`, pushed and narrowly deployed; voice continuity is
+Previous generalization release: `5dc8172ba`, pushed and narrowly deployed; voice continuity is
 enabled. See [release validation and rollback](VOICE_CONTINUITY_RELEASE.md).
 219 focused source/merged-runtime tests passed; installed native/IM/typed isolation,
 mixed-topic and email follow-up replays passed. A real validation email was

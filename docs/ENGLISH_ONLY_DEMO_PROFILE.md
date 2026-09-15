@@ -118,3 +118,42 @@ checkout.
   catalog, English-only stop phrases and disabled legacy travel routing.
 - OVMS, Gateway and the home simulator are healthy after restart, and the voice
   process reaches wake-word standby.
+
+## 2026-09-15 Box deployment result
+
+Canonical commits `2ebf3bdf2` and `999b5cd07` are pushed to
+`origin/local-ovms-voice`. The reviewed runtime overlay is deployed to
+`intel@192.168.1.34`. Its protected rollback directory is:
+
+```text
+/home/intel/hermes-ovms-setup/backups/20260915_140643-english-only
+```
+
+The Box runtime branch predates two unrelated canonical CLI APIs. Replacing the
+whole current `cli.py` therefore failed fast with missing imports. The backup was
+used immediately: the deployed `cli.py` and `config_defaults.py` are based on the
+Box's own working baseline with only the English tool-ack/approval edits applied.
+All dedicated voice modules matched the canonical pre-change baseline byte for
+byte and safely received the full reviewed replacements.
+
+Post-deployment evidence:
+
+- The active config overlay is idempotently current and contains no Chinese text.
+- An AST scan found zero Chinese string literals in active voice/demo runtime
+  files; all three installed scenario skills also passed the text scan.
+- The disabled legacy travel plugin, old local memory files and old voice
+  continuity databases are archived, not deleted.
+- The home service preserved all six states and now returns only `id`, `name` and
+  `state`, with English names.
+- Live Qwen routing passed travel intake, travel detail completion, unrelated RSVP
+  isolation, coding passthrough, unrelated continuity isolation and reuse of a
+  saved itinerary for explicit email delivery. Every decision completed in one
+  router call.
+- `hermes-demo-home.service`, `hermes-gateway.service`, local OVMS with
+  `qwen3.6-35b-a3b`, and `hermes-box-voice` are healthy; voice reports `ready`.
+
+The working Kokoro TTS implementation and its internal legacy provider/model
+identifier remain unchanged. It receives English-only host output and adds no LLM
+prompt or bilingual routing branch. Replacing that audio engine is intentionally
+outside this harness/tool cleanup because it would risk the already accepted
+ASR/TTS path.
