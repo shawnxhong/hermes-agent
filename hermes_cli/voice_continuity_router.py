@@ -42,6 +42,10 @@ SCHEMA={'type':'object','additionalProperties':False,'properties':{
 
 OPEN_ENDED=re.compile(r'\b(?:advice|suggestions?|recommendations?|ideas?)\b',re.I)
 EXPLICIT_DELIVERABLE=re.compile(r'\b(?:detailed?|comprehensive|report|plan|itinerary|draft|proposal|analysis|schedule|comparison|guide|email|send|forward)\b',re.I)
+TRAVEL_PLANNING_CUE=re.compile(
+    r"\b(?:travel(?:l?ing)?|trip|vacation|holiday|itinerar(?:y|ies)|destination|"
+    r"tour(?:ing)?|fly(?:ing)?|flights?|airports?|departure|lodging|accommodation|"
+    r"hotels?|visit(?:ing)?|go(?:ing)?\s+to|days?\s+in)\b", re.I)
 
 
 def route(agent,text,store,session,pending):
@@ -80,6 +84,8 @@ def route(agent,text,store,session,pending):
             if value['relation']=='independent':
                 value.update(target='NEW',version=0)
                 if value['operation']!='native':value['operation']='answer'
+                if value['domain']=='travel' and not TRAVEL_PLANNING_CUE.search(text):
+                    value['domain']='general'
             if (value['target']=='NEW' and value['operation']=='answer'
                     and OPEN_ENDED.search(text) and not EXPLICIT_DELIVERABLE.search(text)):
                 value['detail']=False

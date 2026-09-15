@@ -29,6 +29,10 @@ SCHEMA = {'type':'object','additionalProperties':False,'properties':{
 
 OPEN_ENDED=re.compile(r'\b(?:advice|suggestions?|recommendations?|ideas?)\b',re.I)
 EXPLICIT_DELIVERABLE=re.compile(r'\b(?:detailed?|comprehensive|report|plan|itinerary|draft|proposal|analysis|schedule|comparison|guide|email|send|forward)\b',re.I)
+TRAVEL_PLANNING_CUE=re.compile(
+    r"\b(?:travel(?:l?ing)?|trip|vacation|holiday|itinerar(?:y|ies)|destination|"
+    r"tour(?:ing)?|fly(?:ing)?|flights?|airports?|departure|lodging|accommodation|"
+    r"hotels?|visit(?:ing)?|go(?:ing)?\s+to|days?\s+in)\b", re.I)
 
 
 class RoutingError(RuntimeError):
@@ -112,6 +116,13 @@ def route_task(agent, text, active=None, *, platform, modality):
                          or re.fullmatch(r'why[?!.\s]*',text.strip(),re.I))):
                 value.update(relation='followup',question='')
             result=validate_route(value,active)
+            # Qwen can copy an old task's domain even after correctly deciding
+            # that the current request is independent. Domain selection is only
+            # scenario activation, so require current-request evidence before a
+            # NEW turn can enter the travel skill.
+            if (result['relation']=='new' and result['domain']=='travel'
+                    and not TRAVEL_PLANNING_CUE.search(text)):
+                result['domain']='general'
             if (result['relation']=='new' and result['intent']=='complex'
                     and OPEN_ENDED.search(text) and not EXPLICIT_DELIVERABLE.search(text)):
                 result.update(intent='simple',route='simple')

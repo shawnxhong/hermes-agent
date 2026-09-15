@@ -27,6 +27,9 @@ upstream maintenance.
 - The general voice harness still owns only routing, short speech, result
   continuity and truthful host-side email delivery. It does not encode
   destination- or task-specific answer templates.
+- A new independent turn can enter the travel domain only when that turn itself
+  contains travel-planning evidence. This prevents an unfinished trip from
+  contaminating a later general question without special-casing that question.
 - Travel, simulated-home and local-media rules remain isolated in their skills.
   Each skill now contains one concise English contract.
 - The disabled legacy `travel-voice` plugin is archived from the deployed plugin
@@ -106,7 +109,7 @@ checkout.
 
 ## Acceptance
 
-- The focused suite passed **246 tests in 16 files**. It covers English routing, cross-topic continuity, email
+- The focused suite passed **248 tests in 16 files**. It covers English routing, cross-topic continuity, email
   follow-up, spoken clarification/approval, TTS truncation, demo media and the
   simulated-home schema migration.
 - Active deployed source and skill paths contain no Chinese literals or `zh`

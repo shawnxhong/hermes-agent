@@ -44,6 +44,16 @@ def test_independent_intent_cannot_overwrite_selected_previous_document():
     assert store.current('s')['id']==old['id']
 
 
+def test_independent_nontravel_question_cannot_inherit_selected_travel_domain():
+    store=ContinuityStore();store.start('s','Plan a Melbourne trip')
+    agent=agent_for(response(execution='content',relation='independent',operation='answer',
+                             target='NEW',summary='Define RSVP',domain='travel',delivery='none'))
+
+    result=route(agent,'What does RSVP mean? Answer briefly.',store,'s',None)
+
+    assert result['target']=='NEW' and result['domain']=='general'
+
+
 def test_invalid_handle_retries_once_then_fails_without_modifying_state():
     store=ContinuityStore();task=store.start('s','Meeting agenda')
     agent=agent_for(response(target='T99'),response(target='T99'))

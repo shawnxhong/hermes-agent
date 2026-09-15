@@ -63,6 +63,15 @@ def test_open_ended_advice_is_presentation_brief_not_a_domain_restriction():
     assert actual['intent']=='complex' and actual['route']=='execute'
 
 
+def test_independent_nontravel_question_cannot_inherit_active_travel_domain():
+    a=agent([result(intent='simple',domain='travel',question='')])
+    active={'phase':'awaiting_details','domain':'travel','request':'Plan a Melbourne trip'}
+
+    actual=route_task(a,'What does RSVP mean? Answer briefly.',active,platform='cli',modality='voice')
+
+    assert actual['relation']=='new' and actual['domain']=='general'
+
+
 def test_invalid_json_has_only_one_repair():
     a=agent([{},{}])
     with pytest.raises(RoutingError):route_task(a,'Plan a workshop',platform='cli',modality='voice')
