@@ -1,0 +1,273 @@
+{
+  "expected_runs": 32,
+  "recorded_runs": 32,
+  "complete_runs": 32,
+  "failed_runs": 0,
+  "by_mode": {
+    "keyboard": {
+      "runs": 16,
+      "mean_e2e_s": 68.978,
+      "median_e2e_s": 75.862,
+      "p95_e2e_s": 133.375,
+      "min_e2e_s": 6.497,
+      "max_e2e_s": 139.715
+    },
+    "voice": {
+      "runs": 16,
+      "mean_e2e_s": 92.816,
+      "median_e2e_s": 72.852,
+      "p95_e2e_s": 163.073,
+      "min_e2e_s": 19.071,
+      "max_e2e_s": 387.788
+    }
+  },
+  "scenarios": {
+    "casual_chat": {
+      "keyboard": 47.105,
+      "voice": 44.809,
+      "voice_minus_keyboard_s": -2.296
+    },
+    "flight_search": {
+      "keyboard": 78.655,
+      "voice": 100.898,
+      "voice_minus_keyboard_s": 22.243
+    },
+    "home_appliance_control": {
+      "keyboard": 104.941,
+      "voice": 40.073,
+      "voice_minus_keyboard_s": -64.868
+    },
+    "knowledge_qa": {
+      "keyboard": 57.236,
+      "voice": 58.624,
+      "voice_minus_keyboard_s": 1.388
+    },
+    "online_shopping": {
+      "keyboard": 48.157,
+      "voice": 62.86,
+      "voice_minus_keyboard_s": 14.703
+    },
+    "schedule_management": {
+      "keyboard": 29.687,
+      "voice": 275.43,
+      "voice_minus_keyboard_s": 245.743
+    },
+    "simple_coding": {
+      "keyboard": 72.364,
+      "voice": 82.442,
+      "voice_minus_keyboard_s": 10.078
+    },
+    "travel_planning": {
+      "keyboard": 113.681,
+      "voice": 77.394,
+      "voice_minus_keyboard_s": -36.287
+    }
+  },
+  "voice_critical_path_ranking": [
+    {
+      "component": "agent/model/tool turn",
+      "mean_s": 64.744,
+      "total_s": 1035.906
+    },
+    {
+      "component": "post-agent final TTS/render",
+      "mean_s": 20.265,
+      "total_s": 324.235
+    },
+    {
+      "component": "ASR after utterance",
+      "mean_s": 6.255,
+      "total_s": 100.072
+    },
+    {
+      "component": "turn-start acknowledgement/pre-agent",
+      "mean_s": 1.553,
+      "total_s": 24.849
+    }
+  ],
+  "voice_component_work_ranking": [
+    {
+      "component": "main streamed LLM calls",
+      "mean_s": 56.481,
+      "total_s": 903.7
+    },
+    {
+      "component": "ack and final audio playback",
+      "mean_s": 15.619,
+      "total_s": 249.899
+    },
+    {
+      "component": "voice router/summary auxiliary LLM calls",
+      "mean_s": 7.914,
+      "total_s": 126.624
+    },
+    {
+      "component": "TTS synthesis work (may overlap playback)",
+      "mean_s": 5.933,
+      "total_s": 94.93
+    },
+    {
+      "component": "tool execution work (may overlap)",
+      "mean_s": 1.303,
+      "total_s": 20.846
+    }
+  ],
+  "slowest_voice_cases": [
+    {
+      "case_id": "schedule_02",
+      "scenario": "schedule_management",
+      "e2e_s": 387.788,
+      "agent_turn_s": 350.247,
+      "asr_s": 8.487,
+      "post_agent_s": 27.529
+    },
+    {
+      "case_id": "schedule_01",
+      "scenario": "schedule_management",
+      "e2e_s": 163.073,
+      "agent_turn_s": 134.577,
+      "asr_s": 7.491,
+      "post_agent_s": 19.48
+    },
+    {
+      "case_id": "flights_01",
+      "scenario": "flight_search",
+      "e2e_s": 109.281,
+      "agent_turn_s": 66.883,
+      "asr_s": 11.123,
+      "post_agent_s": 29.743
+    },
+    {
+      "case_id": "flights_02",
+      "scenario": "flight_search",
+      "e2e_s": 92.515,
+      "agent_turn_s": 64.297,
+      "asr_s": 8.724,
+      "post_agent_s": 17.967
+    },
+    {
+      "case_id": "travel_01",
+      "scenario": "travel_planning",
+      "e2e_s": 92.088,
+      "agent_turn_s": 77.506,
+      "asr_s": 4.922,
+      "post_agent_s": 7.702
+    },
+    {
+      "case_id": "coding_02",
+      "scenario": "simple_coding",
+      "e2e_s": 83.781,
+      "agent_turn_s": 36.755,
+      "asr_s": 4.398,
+      "post_agent_s": 41.104
+    },
+    {
+      "case_id": "coding_01",
+      "scenario": "simple_coding",
+      "e2e_s": 81.103,
+      "agent_turn_s": 46.165,
+      "asr_s": 8.648,
+      "post_agent_s": 24.762
+    },
+    {
+      "case_id": "knowledge_01",
+      "scenario": "knowledge_qa",
+      "e2e_s": 75.158,
+      "agent_turn_s": 50.706,
+      "asr_s": 5.271,
+      "post_agent_s": 17.656
+    },
+    {
+      "case_id": "chat_01",
+      "scenario": "casual_chat",
+      "e2e_s": 70.547,
+      "agent_turn_s": 49.352,
+      "asr_s": 5.423,
+      "post_agent_s": 14.247
+    },
+    {
+      "case_id": "shopping_02",
+      "scenario": "online_shopping",
+      "e2e_s": 65.073,
+      "agent_turn_s": 40.207,
+      "asr_s": 4.679,
+      "post_agent_s": 18.661
+    },
+    {
+      "case_id": "travel_02",
+      "scenario": "travel_planning",
+      "e2e_s": 62.7,
+      "agent_turn_s": 31.985,
+      "asr_s": 5.026,
+      "post_agent_s": 24.164
+    },
+    {
+      "case_id": "shopping_01",
+      "scenario": "online_shopping",
+      "e2e_s": 60.647,
+      "agent_turn_s": 33.842,
+      "asr_s": 5.658,
+      "post_agent_s": 19.619
+    },
+    {
+      "case_id": "home_01",
+      "scenario": "home_appliance_control",
+      "e2e_s": 47.546,
+      "agent_turn_s": 22.657,
+      "asr_s": 6.628,
+      "post_agent_s": 16.735
+    },
+    {
+      "case_id": "knowledge_02",
+      "scenario": "knowledge_qa",
+      "e2e_s": 42.091,
+      "agent_turn_s": 12.079,
+      "asr_s": 4.425,
+      "post_agent_s": 24.062
+    },
+    {
+      "case_id": "home_02",
+      "scenario": "home_appliance_control",
+      "e2e_s": 32.601,
+      "agent_turn_s": 11.752,
+      "asr_s": 4.741,
+      "post_agent_s": 14.582
+    },
+    {
+      "case_id": "chat_02",
+      "scenario": "casual_chat",
+      "e2e_s": 19.071,
+      "agent_turn_s": 6.896,
+      "asr_s": 4.428,
+      "post_agent_s": 6.222
+    }
+  ],
+  "quality_counts": {
+    "keyboard": {
+      "pass": 9,
+      "partial": 2,
+      "fail": 5,
+      "unreviewed": 0
+    },
+    "voice": {
+      "pass": 5,
+      "partial": 2,
+      "fail": 9,
+      "unreviewed": 0
+    }
+  },
+  "voice_asr": {
+    "successful_transcripts": 16,
+    "mean_word_error_rate": 0.071,
+    "median_word_error_rate": 0.048,
+    "max_word_error_rate": 0.25
+  },
+  "voice_feedback": {
+    "mean_time_to_ack_audio_s": 6.291,
+    "median_time_to_ack_audio_s": 5.398,
+    "mean_time_to_first_final_audio_s": 78.692,
+    "median_time_to_first_final_audio_s": 55.555,
+    "mean_ack_playback_s": 1.513,
+    "mean_final_playback_s": 14.106
+  }
+}

@@ -1,0 +1,4804 @@
+{
+  "metadata": {
+    "generated_at": "2026-09-16T03:17:13+0800",
+    "host_id": "laptop",
+    "code_root": "/home/agentdemo/.hermes/hermes-agent",
+    "source_commit": "d63f996a757f6255fc1454239616ab4b4435e0f5",
+    "case_order": [
+      "travel_01",
+      "travel_02",
+      "home_01",
+      "home_02",
+      "flights_01",
+      "flights_02",
+      "shopping_01",
+      "shopping_02",
+      "schedule_01",
+      "schedule_02",
+      "coding_01",
+      "coding_02",
+      "chat_01",
+      "chat_02",
+      "knowledge_01",
+      "knowledge_02"
+    ],
+    "mode_order": "alternating keyboard-first/voice-first by case",
+    "latency_origin": "keyboard text submit; voice completed-WAV ASR submit",
+    "wake_word_included": false,
+    "microphone_capture_included": false,
+    "smtp_sent": false
+  },
+  "startup": {
+    "fixture_generation_s": 33.586,
+    "asr_prewarm_s": 1.581,
+    "ack_cache_prewarm_s": 1.442,
+    "keyboard_cli_agent_init_s": 0.77,
+    "voice_cli_agent_init_s": 0.053
+  },
+  "runs": [
+    {
+      "execution_index": 1,
+      "case_id": "travel_01",
+      "scenario": "travel_planning",
+      "mode": "keyboard",
+      "prompt": "I will travel to Paris from Shanghai for seven days in December 2026. Make a practical day-by-day plan including transportation.",
+      "submitted_text": "I will travel to Paris from Shanghai for seven days in December 2026. Make a practical day-by-day plan including transportation.",
+      "asr": {},
+      "response": "Now let me compile the full plan.\n\n---\n\n# Shanghai → Paris — 7-Day Practical Itinerary (December 2026)\n\n---\n\n## FLIGHT DETAILS\n\n**Outbound (Day 1):** Shanghai Pudong (PVG) → Paris CDG\n- Carriers: Air France or China Eastern (direct flights exist daily)\n- Flight time: ~12h 15m – 14h 25m\n- Typical one-way fare: ~$400–$750 USD; book early for December pricing\n- Suggestion: take an early-morning departure (~08:00–10:00 Shanghai time), arrive evening same day (~18:00–21:00 Paris time)\n- Paris local time is ~8 hours behind Shanghai (UTC+8 → UTC+1)\n\n**Return (Day 7):** Paris CDG → Shanghai Pudong (PVG)\n- Same carriers, similar duration\n- Book a late-evening flight so you get the full 7th day in Paris\n\n**Getting from CDG to central Paris:**\n- RER B train: 35 min, ~€11.80, direct to Cité/Mairie de Saint-Ondé/La Chapelle\n- Taxi to most central arrondissements: ~€55 flat rate\n- Airport shuttle/bus: ~€17–€19\n\n**Getting around in Paris:**\n- Metro: buy a **Navigo Découverte weekly pass** (~€30.75 for zones 1–5 — valid Monday through Sunday). If your 7 days span two weekends, calculate accordingly. Alternatively, a **10-trip Carnet** (~€19.40) or single €2.10 tickets work if you move less.\n- Walkable in central areas; Uber/Bolt for late-night returns.\n\n**Budget note:** Mid-December flights Shanghai↔Paris round-trip typically land between $500–$900 USD if booked 2–3 months ahead.\n\n---\n\n## CLIMATE & PACKING (December)\n\n| Parameter | Typical Range |\n|-----------|--------------|\n| Morning low | 2–4 °C (35–40 °F) |\n| Afternoon high | 6–8 °C (43–47 °F) |\n| Rainfall | ~13 rainy days in Dec, light rain common |\n| Daylight | Sunrise ~8:45, sunset ~16:50 |\n\n**What to pack:**\n- Waterproof insulated coat or down jacket\n- Waterproof boots\n- Layered clothing (thermal base, fleece, sweater)\n- Scarf, hat, gloves\n- Compact umbrella\n- Power adapter (France = Type E/EU, 230V)\n- Comfortable walking shoes — you will walk a lot\n\n---\n\n## DAY-BY-DAY ITINERARY\n\n### Day 1 — Sunday: Arrival & Acclimation\n| Time | Activity |\n|------|----------|\n| ~18:00 | Land CDG, clear immigration, collect luggage |\n| ~19:00 | RER B to Châtelet-Les Halles; transfer to hotel |\n| 20:00 | Check in, freshen up |\n| 21:00 | Gentle evening stroll along the Seine — Pont des Arts, Institut de France |\n| Dinner | Small bistro near Saint-Germain-des-Prés |\n\n**Tips:** No major sightseeing today — prioritize sleep and jet-lag adjustment. Light walking only. Book your hotel in the 1st–8th arrondissements to walk to attractions.\n\n---\n\n### Day 2 — Monday: The Louvre & Tuileries\n| Time | Activity | Notes |\n|------|----------|-------|\n| 09:00 | **Musée du Louvre** (Mona Lisa, Winged Victory, Venus de Milo) | Pre-book timed entry; arrives at Carrousel entrance to skip lines |\n| 13:00 | Lunch in **Palais Royal** area | Crémallerie Café or similar |\n| 14:30 | Walk through **Jardin des Tuileries** | Playful gardens, café Deux Mars |\n| 16:00 | **Place de la Concorde** → Champs-Élysées | Window-shopping, Citroën showroom |\n| 18:00 | **Arc de Triomphe** rooftop view | 286 steps; sunset view in winter is beautiful |\n| Evening | Dinner on Champs-Élysées or Le Marais |\n\n**Transport:** Metro Line 1 to Tuileries; Line 1 to Arc de Triomphe.\n\n---\n\n### Day 3 — Tuesday: Montmartre & artistic Paris\n| Time | Activity | Notes |\n|------|----------|-------|\n| 09:00 | **Sacré-Cœur Basilica** | Take funicular up or walk |\n| 10:30 | Wander **Place du Tertre** artists' square | Watch painters, sample pastries |\n| 12:00 | Lunch at **Le Consulat** or **Chez Antoine** | Classic Montmartre bistros |\n| 13:30 | **Musée de Montmartre** & its gardens | Less crowded, lovely |\n| 15:00 | Walk down to **Canal Saint-Martin** | Industrial-chic neighborhood |\n| 17:00 | Browse boutiques along **Rue Oberkampf** / **Réaumur** |\n| Evening | Dinner in Oberkampf / République area |\n\n**Transport:** Metro Line 12 to Abbesses (closest to Sacré-Cœur). Afterward, Line 4 to Châtelet then Line 8 to La Course.\n\n---\n\n### Day 4 — Wednesday: Left Bank & Musée d'Orsay\n| Time | Activity | Notes |\n|------|----------|-------|\n| 09:30 | **Musée d'Orsay** (Impressionist masterpieces) | Pre-book; arrive at opening to beat crowds |\n| 13:00 | Lunch at **Café Marly** or Saint-Germain cafés | Or grab a crêpe from a crêperie |\n| 14:30 | Walk along **Quai Branly** → **Musée de l'Orangerie** | Monet's Water Lilies |\n| 16:00 | **Luxembourg Gardens** | Perfect for a slow stroll |\n| 17:30 | **Saint-Sulpice** & **Shakespeare & Company** bookstore |\n| Evening | Dinner in Saint-Germain-des-Prés |\n\n**Transport:** Metro Line 12 to Sèvres-Lacroix or Line 10 to Odéon.\n\n---\n\n### Day 5 — Thursday: Palace of Versailles\n| Time | Activity | Notes |\n|------|----------|-------|\n| 08:30 | RER C to **Versailles Château-Rive Gauche** (~1h 15min) | Buy tickets online in advance |\n| 10:00 | **Château of Versailles** — State Apartments, Hall of Mirrors | Allow 2–3 hours inside |\n| 13:00 | Lunch at a nearby bistro |\n| 14:30 | **Gardens of Versailles** — fountains, groves, Trianon | Free entry to gardens |\n| 17:00 | Return to Paris via RER C |\n| Evening | Relax or catch the **Moulin Rouge** show (book ahead) | 20:30 or 21:30 showing; includes dinner option |\n\n**Transport:** RER C (from Musée d'Orsay station is closest — no transfer needed!). Return same way. Budget ~€5 total each way on RER.\n\n---\n\n### Day 6 — Friday: Le Marais, Culture & Shopping\n| Time | Activity | Notes |\n|------|----------|-------|\n| 09:30 | **Centre Pompidou** (modern art) | Pre-book; top-floor views worth the elevator |\n| 12:00 | Walk through **Le Marais** — Place des Vosges, boutique shopping |\n| 13:30 | Lunch at **L'As du Fallafel** (famous falafel, Rue des Rosiers) |\n| 15:00 | **Picasso Museum** or **Musée Carnavalet** (Paris history) |\n| 17:00 | Shopping: Le Marais fashion boutiques, vintage shops |\n| 19:00 | **Place de la Bastille** stroll |\n| Evening | Dinner along the Marais | Try a classic French bistro like **Le Baratin** |\n\n**Transport:** Metro Line 7 to Pont Marie or Line 3 to Rambullbut.\n\n---\n\n### Day 7 — Saturday: Île de la Cité, Notre-Dame Area & Farewell\n| Time | Activity | Notes |\n|------|----------|-------|\n| 09:00 | **Île de la Cité** — Notre-Dame exterior (restoration ongoing) | Interior expected to reopen late 2024 / early 2025; check status |\n| 10:00 | **Sainte-Chapelle** — stunning stained glass | Pre-book timed tickets; 30 min visit is enough |\n| 11:30 | Walk to **Shakespeare & Company** again or grab lunch at **Les Deux Magots** |\n| 13:00 | Lunch at **Au Vieux Paris de Rome** |\n| 14:30 | **Latin Quarter** — Panthéon, Sorbonne exterior |\n| 16:00 | Last-minute souvenir shopping on **Rue Mouffetard** |\n| 18:00 | Final Seine river cruise (Bateaux Mouches, ~€15) | Sunset views over Christmas markets (early Dec setup) |\n| 20:00 | Farewell dinner | Consider **Le Comptoir du Relais** or **Bofinger** |\n| 22:00 | Transfer to CDG for overnight or late return flight | Taxi from central Paris: ~€55 flat to CDG; allow 1h before flight |\n\n**Transport:** Metro Line 4 to Cité. After, RER B or taxi to CDG.\n\n---\n\n## ESTIMATED BUDGET (One Person, 7 Days)\n\n| Item | Cost (USD, approx.) |\n|------|--------------------|\n| Round-trip flight (PVG↔CDG) | $500 – $900 |\n| Paris hotel (mid-range, 6 nights) | $540 – $900 ($90–$150/night) |\n| Metro / RER weekly passes + Versailles RER | ~$50 |\n| Museum entries (Louvre, d'Orsay, Versailles, Sainte-Chapelle, Pompidou) | ~$100 |\n| Food (2–3 meals/day, cafés + a few restaurants) | $350 – $500 |\n| Miscellaneous (tips, souvenirs, extra transport) | $100 – $200 |\n| **Estimated total** | **$1,640 – $2,650** |\n\n---\n\n## KEY PRACTICAL TIPS\n\n1. **Book everything in advance** — December is busy (holiday season, Christmas markets start early December). Louvre, Versailles, Sainte-Chapelle, and Moulin Rouge tickets sell out days/weeks ahead.\n\n2. **Paris Museum Pass** ($~70 for 4 days) may save money if you visit 6+ paid museums — check if Louvre, Versailles, Pompidou, Sainte-Chapelle are covered.\n\n3. **Cash vs. card** — Cards (contactless) are accepted everywhere; keep small bills for tip jars, bakeries, and metro ticket machines.\n\n4. **Basic French phrases** help: \"Bonjour\" (hello), \"Merci\" (thank you), \"Une table pour une personne\" (a table for one).\n\n5. **SIM/eSIM** — Buy an eSIM (Airalo, Holafly) at the airport or beforehand; you'll need maps and translation.\n\n6. **Electronics** — Bring a Type E/EU adapter (France uses 230V, two round pins).\n\n7. **Safety** — Paris is generally safe but watch for pickpockets on the Metro and at tourist sites (keep bags zipped, front-facing).\n\n8. **Christmas markets** — Many open in early December and run through New Year's. Notre-Dame (Place du parvis Notre-Dame), Place du Carrousel, and La Défense all have large ones worth seeing.\n\n---\n\nLet me know if you want me to adjust the itinerary (e.g., fewer museums, more food-focused, add a second city like Lyon or the Loire Valley, or any specific interest).",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.003
+        },
+        {
+          "name": "first_text",
+          "at_s": 13.413
+        },
+        {
+          "name": "agent_end",
+          "at_s": 103.656
+        },
+        {
+          "name": "chat_end",
+          "at_s": 104.161
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 1,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 14111,
+          "completion_tokens": 137,
+          "total_tokens": 14248,
+          "seconds": 16.3,
+          "cache_read_tokens": 0,
+          "at_s": 16.742
+        },
+        {
+          "call": 2,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 17348,
+          "completion_tokens": 2893,
+          "total_tokens": 20241,
+          "seconds": 77.0,
+          "cache_read_tokens": 0,
+          "at_s": 103.633
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 9.494,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": null,
+          "tool_schema_count": 0,
+          "prompt_tokens": 281,
+          "completion_tokens": 21,
+          "at_s": 9.873
+        }
+      ],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 16.756,
+          "duration_s": 1.838,
+          "is_error": false,
+          "completed_s": 18.791
+        },
+        {
+          "name": "web_search",
+          "started_s": 16.756,
+          "duration_s": 2.017,
+          "is_error": false,
+          "completed_s": 18.785
+        },
+        {
+          "name": "web_search",
+          "started_s": 16.757,
+          "duration_s": 1.709,
+          "is_error": false,
+          "completed_s": 18.78
+        },
+        {
+          "name": "web_search",
+          "started_s": 24.998,
+          "duration_s": 1.67,
+          "is_error": false,
+          "completed_s": 26.673
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 104.161,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.003,
+        "agent_turn_s": 103.653,
+        "post_agent_s": 0.505,
+        "main_llm_s": 93.3,
+        "voice_aux_llm_s": 9.494,
+        "tool_work_s": 7.234,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 13.413,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 31459,
+        "completion_tokens": 3030,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Produced a detailed seven-day Paris itinerary and transportation plan."
+    },
+    {
+      "execution_index": 2,
+      "case_id": "travel_01",
+      "scenario": "travel_planning",
+      "mode": "voice",
+      "prompt": "I will travel to Paris from Shanghai for seven days in December 2026. Make a practical day-by-day plan including transportation.",
+      "submitted_text": "I will travel to Paris from Shanghai for 7 days in December 2026. Make a practical day-by-day plan including transportation.",
+      "asr": {
+        "success": true,
+        "transcript": "I will travel to Paris from Shanghai for 7 days in December 2026. Make a practical day-by-day plan including transportation.",
+        "input_audio_duration_s": 9.641,
+        "fixture_sha256": "849abb22482237f53444ac45f201f728aa9b8a3e4fc62f13319969c4374d0e01",
+        "filtered": false
+      },
+      "response": "I could not finish this step. Your earlier results are saved; no new email was sent.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 4.922
+        },
+        {
+          "name": "chat_start",
+          "at_s": 4.922
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 5.362,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 6.88
+        },
+        {
+          "name": "agent_end",
+          "at_s": 84.386
+        },
+        {
+          "name": "chat_end",
+          "at_s": 92.088
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 1,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 16703,
+          "completion_tokens": 34,
+          "total_tokens": 16737,
+          "seconds": 6.4,
+          "cache_read_tokens": 0,
+          "at_s": 17.486
+        },
+        {
+          "call": 2,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 17306,
+          "completion_tokens": 35,
+          "total_tokens": 17341,
+          "seconds": 3.0,
+          "cache_read_tokens": 0,
+          "at_s": 22.184
+        },
+        {
+          "call": 3,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 17827,
+          "completion_tokens": 37,
+          "total_tokens": 17864,
+          "seconds": 2.8,
+          "cache_read_tokens": 0,
+          "at_s": 26.642
+        },
+        {
+          "call": 4,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 18384,
+          "completion_tokens": 38,
+          "total_tokens": 18422,
+          "seconds": 2.9,
+          "cache_read_tokens": 0,
+          "at_s": 31.267
+        },
+        {
+          "call": 5,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 18546,
+          "completion_tokens": 37,
+          "total_tokens": 18583,
+          "seconds": 2.1,
+          "cache_read_tokens": 0,
+          "at_s": 33.367
+        },
+        {
+          "call": 6,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 18719,
+          "completion_tokens": 34,
+          "total_tokens": 18753,
+          "seconds": 2.1,
+          "cache_read_tokens": 0,
+          "at_s": 35.457
+        },
+        {
+          "call": 7,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 18880,
+          "completion_tokens": 32,
+          "total_tokens": 18912,
+          "seconds": 1.9,
+          "cache_read_tokens": 0,
+          "at_s": 37.405
+        },
+        {
+          "call": 8,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 19041,
+          "completion_tokens": 32,
+          "total_tokens": 19073,
+          "seconds": 1.9,
+          "cache_read_tokens": 0,
+          "at_s": 39.341
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 1.773,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": null,
+          "tool_schema_count": 0,
+          "prompt_tokens": 451,
+          "completion_tokens": 10,
+          "at_s": 8.703
+        },
+        {
+          "seconds": 4.154,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 411,
+          "completion_tokens": 107,
+          "at_s": 11.092
+        },
+        {
+          "seconds": 6.347,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 16703,
+          "completion_tokens": 34,
+          "at_s": 17.485
+        },
+        {
+          "seconds": 2.998,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 17306,
+          "completion_tokens": 35,
+          "at_s": 22.183
+        },
+        {
+          "seconds": 2.766,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 17827,
+          "completion_tokens": 37,
+          "at_s": 26.642
+        },
+        {
+          "seconds": 2.923,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 18384,
+          "completion_tokens": 38,
+          "at_s": 31.266
+        },
+        {
+          "seconds": 2.08,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 18546,
+          "completion_tokens": 37,
+          "at_s": 33.366
+        },
+        {
+          "seconds": 2.069,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 18719,
+          "completion_tokens": 34,
+          "at_s": 35.457
+        },
+        {
+          "seconds": 1.923,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 18880,
+          "completion_tokens": 32,
+          "at_s": 37.405
+        },
+        {
+          "seconds": 1.915,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 19041,
+          "completion_tokens": 32,
+          "at_s": 39.341
+        }
+      ],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 17.496,
+          "duration_s": 1.673,
+          "is_error": false,
+          "completed_s": 19.176
+        },
+        {
+          "name": "web_search",
+          "started_s": 22.194,
+          "duration_s": 1.666,
+          "is_error": false,
+          "completed_s": 23.867
+        },
+        {
+          "name": "web_search",
+          "started_s": 26.653,
+          "duration_s": 1.675,
+          "is_error": false,
+          "completed_s": 28.335
+        }
+      ],
+      "tts_synthesis": [
+        {
+          "start_s": 84.565,
+          "seconds": 2.531,
+          "characters": 84,
+          "text": "I could not finish this step. Your earlier results are saved; no new email was sent."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 5.363,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 87.097,
+          "seconds": 4.977,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 92.088,
+        "asr_s": 4.922,
+        "pre_agent_s": 1.958,
+        "agent_turn_s": 77.506,
+        "post_agent_s": 7.702,
+        "main_llm_s": 23.1,
+        "voice_aux_llm_s": 5.927,
+        "tool_work_s": 5.014,
+        "tts_synthesis_work_s": 2.531,
+        "audio_playback_s": 6.49,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 87.097,
+        "prompt_tokens": 145406,
+        "completion_tokens": 279,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 4.977,
+        "time_to_ack_audio_s": 5.363,
+        "asr_word_error_rate": 0.045
+      },
+      "quality_status": "fail",
+      "quality_note": "Returned that it could not finish and did not produce a new deliverable."
+    },
+    {
+      "execution_index": 3,
+      "case_id": "travel_02",
+      "scenario": "travel_planning",
+      "mode": "voice",
+      "prompt": "Plan a three-day trip from San Francisco to Tokyo starting October 6, 2026, with major sights and local transportation.",
+      "submitted_text": "Plan a three-day trip from San Francisco to Tokyo starting October 6, 2026, with mage sites and local transportation.",
+      "asr": {
+        "success": true,
+        "transcript": "Plan a three-day trip from San Francisco to Tokyo starting October 6, 2026, with mage sites and local transportation.",
+        "input_audio_duration_s": 8.943,
+        "fixture_sha256": "3e8e7ccd09e9a23130aa75fbfa8576f216f4fc91b5621cffe0edc7b4e752ffc2",
+        "filtered": false
+      },
+      "response": "The itinerary covers Tokyo from October 6–8, 2026, using the Yamanote Line and IC cards for transport. It includes Shibuya, Asakusa, and Odaiba, though live verification is unavailable and some attractions require advance reservations. The details are queued for email delivery.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 5.026
+        },
+        {
+          "name": "chat_start",
+          "at_s": 5.026
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 5.034,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 6.551
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 38.504,
+          "message": "voice_latency stage=email_enqueue job=7db103236ccf67b3b2a06f883d6420af6c9040a8f4212c6e23e0b08ce0157f78 status=queued"
+        },
+        {
+          "name": "agent_end",
+          "at_s": 38.536
+        },
+        {
+          "name": "chat_end",
+          "at_s": 62.7
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 9,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 19225,
+          "completion_tokens": 743,
+          "total_tokens": 19968,
+          "seconds": 25.4,
+          "cache_read_tokens": 0,
+          "at_s": 35.325
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 3.313,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 621,
+          "completion_tokens": 108,
+          "at_s": 9.896
+        },
+        {
+          "seconds": 25.4,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 19225,
+          "completion_tokens": 743,
+          "at_s": 35.324
+        },
+        {
+          "seconds": 3.147,
+          "schema": "spoken_summary",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 0,
+          "prompt_tokens": 966,
+          "completion_tokens": 65,
+          "at_s": 38.474
+        }
+      ],
+      "tools": [],
+      "tts_synthesis": [
+        {
+          "start_s": 38.75,
+          "seconds": 5.409,
+          "characters": 278,
+          "text": "The itinerary covers Tokyo from October 6–8, 2026, using the Yamanote Line and IC cards for transport. It includes Shibuya, Asakusa, and Odaiba, though live verification is unavailable and some attractions require advance reservations. The details are queued for email delivery."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 5.034,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 44.159,
+          "seconds": 18.523,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [
+        {
+          "body": "**San Francisco → Tokyo: 3-Day Itinerary (October 6–8, 2026)**\n\nFacts: Departure from San Francisco (SFO), arrival in Tokyo (NRT or HND), 3 full days starting October 6, 2026. Focus on major sights and local transport.\n\n---\n\n**Transport**\n\n- Outbound: SFO to Tokyo (Narita or Haneda). Flight time approximately 11–12 hours direct. Airlines include ANA, Japan Airlines, United. Book in advance for October dates.\n- Arrival transfer: From Narita, take the Narita Express (N'EX) or Keisei Skyliner to central Tokyo (Ueno/Shinjuku), approximately 60–90 minutes. From Haneda, take the Tokyo Monorail or Keikyu Line, approximately 15–30 minutes.\n- Return: Tokyo to SFO, same route in reverse.\n- Local transport: Tokyo Metro and JR Yamanote Line cover most major sights. Purchase a Suica or Pasmo IC card for convenient tap-and-go travel.\n\n---\n\n| Day | Area or theme | Morning | Afternoon | Evening and logistics |\n|---|---|---|---|---|\n| 1 | Arrival & Shinjuku/Shibuya | Arrive Tokyo, clear immigration, collect luggage. Take N'EX or monorail to hotel in Shinjuku or Shibuya area. Drop bags, freshen up. | Explore Shibuya: Shibuya Crossing, Hachiko Statue, shopping on Center Gai. Optional: visit Shibuya SKY observation deck for city views. | Dinner in Shibuya or Roppongi. Early rest after long flight. |\n| 2 | Traditional Tokyo & Asakusa | Visit Senso-ji Temple in Asakusa, Tokyo's oldest temple. Walk through Nakamise shopping street. Optional: riverboat from Asakusa to Hamarikyu Gardens. | Akihabara for electronics and anime culture, or teamLab Borderless digital art museum (reserve tickets in advance). | Dinner in Ueno or Akihabara area. Evening stroll along Sumida River. |\n| 3 | Imperial East & Modern Tokyo | Visit the Imperial Palace East Gardens (check opening dates; typically open weekdays, closed Fridays/Mondays). Walk through Marunouchi business district. | Visit Tokyo Station area, Nihonbashi, or take the Rinkai Line to Odaiba for futuristic views and teamLab Planets. | Dinner in Ginza or Tsukiji Outer Market area for seafood. Departure preparation. |\n\n---\n\n**Booking & Uncertainty Notes**\n\n- Flights: Book SFO–Tokyo flights 6–8 weeks in advance for best October pricing. Confirm whether you prefer Narita (NRT) or Haneda (HND) based on your hotel location.\n- Hotels: Book accommodation in Shinjuku, Shibuya, or near Ueno for convenient Yamanote Line access.\n- teamLab Borderless and teamLab Planets: Both require advance online reservations; they sell out quickly.\n- Imperial Palace East Gardens: Closed on Fridays, Mondays, and during seasonal closures. Verify dates for your visit.\n- October weather in Tokyo: Pleasant, approximately 18–24°C (64–75°F). Light jacket or sweater recommended for evenings.\n- No visa required for US citizens for stays up to 90 days. Confirm passport validity.\n\nVerification note: Live sources were unavailable or not used; confirm current and time-sensitive details.",
+          "summary": "The itinerary covers Tokyo from October 6–8, 2026, using the Yamanote Line and IC cards for transport. It includes Shibuya, Asakusa, and Odaiba, though live verification is unavailable and some attractions require advance reservations.",
+          "status": "queued",
+          "enqueue_s": 0.019
+        }
+      ],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 62.7,
+        "asr_s": 5.026,
+        "pre_agent_s": 1.525,
+        "agent_turn_s": 31.985,
+        "post_agent_s": 24.164,
+        "main_llm_s": 25.4,
+        "voice_aux_llm_s": 6.46,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 5.409,
+        "audio_playback_s": 20.036,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 44.159,
+        "prompt_tokens": 19225,
+        "completion_tokens": 743,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 18.523,
+        "time_to_ack_audio_s": 5.034,
+        "asr_word_error_rate": 0.1
+      },
+      "quality_status": "partial",
+      "quality_note": "Produced and queued a useful itinerary, but explicitly lacked live verification."
+    },
+    {
+      "execution_index": 4,
+      "case_id": "travel_02",
+      "scenario": "travel_planning",
+      "mode": "keyboard",
+      "prompt": "Plan a three-day trip from San Francisco to Tokyo starting October 6, 2026, with major sights and local transportation.",
+      "submitted_text": "Plan a three-day trip from San Francisco to Tokyo starting October 6, 2026, with major sights and local transportation.",
+      "asr": {},
+      "response": "Now I have enough information to build a comprehensive plan. Let me put it all together.\n\n---\n\n# San Francisco → Tokyo — 3-Day Trip\n**October 6–8, 2026**\n\n---\n\n## FLIGHT DETAILS\n\n**Outbound (Day 1 — Mon, Oct 6):** San Francisco (SFO) → Tokyo Haneda (HND) preferred over Narita (NRT)\n\n- **Airlines with direct flights:** ANA (NH), Japan Airlines (JAL), United (UA)\n- **Flight time:** ~11 hours 05 minutes (SFO→HND)\n- **Time change:** Japan is UTC+9; you gain 17 hours flying west (Oct 6, 2026 00:00 SFO = Oct 7, 2026 17:00 Tokyo)\n- **One-way economy fare:** ~$388–$700 USD (book ~4–6 weeks ahead)\n- **Haneda is strongly recommended** — it is 30 minutes from central Tokyo; Narita is 60–90 minutes\n\n**Getting from Haneda to central Tokyo:**\n- **Keikyu Line or Tokyo Monorail:** ~30 min, ¥350–¥500 to Shinagawa/Takadanobata/Shimbashi\n- **Taxi to major areas:** ¥3,500–¥6,000\n\n**Return (Day 3 — Wed, Oct 8):** Tokyo → San Francisco\n- Plan a late afternoon/evening return flight. Allow 1.5 hours to reach Haneda.\n\n**Tokyo Local Transportation:**\n- **Suica or Pasmo IC card** — buy a physical card at any station machine (~¥2,000 deposit, load as much as needed) or set up **Welcome Suica Mobile** on iPhone (valid 180 days). Use on all subway, JR lines, buses.\n- **JR Yamanote Line** — the circular green line that hits all major sights (Shinjuku, Shibuya, Ueno, Akihabara, Tokyo, Shinbashi, Shinagawa). This is your backbone.\n- **Tokyo Metro** — faster for east-west travel (Ginza, Marunouchi, Hanzomon lines).\n- **Google Maps or Jorudan app** — real-time routing with IC card fare estimates.\n- No day passes needed for 3 days unless you are doing many trips — per-ride costs are very reasonable.\n\n---\n\n## WEATHER (Early October Tokyo)\n\n| Parameter | Typical Range |\n|-----------|--------------|\n| Morning low | 15–17 °C (59–63 °F) |\n| Afternoon high | 22–25 °C (72–77 °F) |\n| Rainfall | ~235 mm in October (12 rainy days) — carry a light rain jacket or compact umbrella |\n| Daylight | Sunrise ~5:30, sunset ~17:45 |\n\n**What to pack:**\n- Light layers: short sleeves during the day, long sleeves/light jacket for evenings\n- Comfortable walking shoes — expect 15,000–25,000 steps/day\n- Compact umbrella\n- Light sweater for air-conditioned trains/malls\n- Power adapter (Japan = Type A / 100V, same as US but no ground pin on some outlets)\n\n---\n\n## DAY-BY-DAY ITINERARY\n\n### DAY 1 — Monday, October 6: Arrival + Asakusa & Traditional Tokyo\n\n| Time | Activity | Details |\n|------|----------|---------|\n| ~15:00 | Arrive Haneda (HND) | Clear immigration, get Suica/Welcome Suica, grab lunch at the airport |\n| ~16:00 | Transit to hotel (stay suggested in Ueno, Asakusa, or Ueno/Akihabara area for easy access) | Keikyu/Monorail to Shinagawa; transfer to JR Yamanote or subway |\n| ~17:30 | **Sensoji Temple** — Tokyo's oldest temple, founded 645 | Visit through the iconic Kaminarimon (Thunder Gate); shop Nakamise-dori market |\n| 19:00 | Dinner in Asakusa — try tempura or unagi |\n| Evening | Optional: **Tokyo Skytree** nearby (see from ground for free; roof ~¥2,100). Or **Sumida River night cruise** (~¥2,500) |\n\n**Transport:** Walkable from hotel; subway + JR Yamanote to other areas tomorrow.\n\n**Budget Day 1:**\n- Airport transit to hotel: ¥500\n- Sensoji is free; Skytree roof: ¥2,100\n- Dinner: ¥1,500–¥3,000\n\n---\n\n### DAY 2 — Tuesday, October 7: Modern Tokyo (Shibuya, Harajuku, Akihabara)\n\n| Time | Activity | Details |\n|------|----------|---------|\n| 08:30 | **Shinjuku Gyoen National Garden** | ¥500 adults; peaceful escape. Opens 9:00 |\n| 10:00 | **Meiji Jingu Shrine** via Harajuku | Free; stunning forest entrance. Wear slip-on shoes (remove for shrines) |\n| 11:00 | **Takeshita Street** — Harajuku's crazy fashion and crepes | ¥500–¥1,500 for street food |\n| 13:00 | Lunch in Harajuku or Omotesando |\n| 14:00 | **Akihabara** — electronics, anime, manga, retro gaming | Take Chuo Line from Akihabara station. Electric Town, Radio Kaikan, anime stores |\n| 16:00 | **TeamLab Borderless** (Ariake, new location) or **TeamLab Planets** (Toyosu) | Pre-book! ~¥3,200–¥3,500. Both are incredible immersive art experiences. Book well in advance for Oct. |\n| 18:30 | **Shibuya Scramble Crossing** — the iconic intersection | View from Starbucks, Shibuya SKY observatory (pre-book, ~¥3,000) |\n| 19:30 | **Hachiko Statue** and Shibuya 109 building area |\n| 20:00 | Dinner in Shibuya — ramen, yakitori, or izakaya |\n\n**Transport:** JR Yamanote from Ueno/Akihabara → Shinjuku/Shibuya (one stop). Inside each area, walk or use local subway. Total daily transit: ~¥300–¥500.\n\n**Budget Day 2:**\n- Shinjuku Gyoen: ¥500\n- TeamLab: ~¥3,200\n- Shibuya SKY (optional): ~¥3,000\n- Food: ¥2,000–¥4,000\n- Transit: ~¥400\n\n---\n\n### DAY 3 — Wednesday, October 8: Culture, Bay Area & Farewell\n\n| Time | Activity | Details |\n|------|----------|---------|\n| 08:30 | **Tsukiji Outer Market** — sushi breakfast, street food | Best sushi in Tokyo. ~¥2,000–¥5,000 for a sushi counter meal |\n| 10:00 | **Ginza** — upscale shopping, department stores, Kabuki-za Theatre | Walk, browse, window-shop. Matsuya, Takashimaya, Ginza Six |\n| 12:00 | Lunch in Ginza |\n| 13:30 | **Imperial Palace East Gardens** | Free; beautiful seasonal garden. Passport may be checked at security |\n| 15:00 | **Odaiba / TeamLab Palace** OR **Tokyo Metropolitan Government Building free observatory** | Odaiba: Yurikamome line (scenic automated tram) to Odaiba Kikoenteki. Free TeamLab Planets (Toyosu) or Odaiba's Rainbow Bridge views |\n| 17:00 | **Roppongi Hills or Tokyo Tower** — sunset views | Tokyo Tower: ~¥1,500 to main deck. Roppongi Hills Mori Tower: ~¥2,000 to observatory |\n| 18:30 | Farewell dinner — try a high-end sushi omakase or izakaya hopping in Shimbashi / Roppongi |\n\n**Transport:** JR Yamanote + subway. Yurikamome line to Odaiba. Total daily transit: ~¥500–¥700.\n\n**Budget Day 3:**\n- Tsukiji sushi lunch: ~¥3,000\n- Imperial Palace: Free\n- Tokyo Tower / Roppongi observatory: ~¥1,500–¥2,000\n- Food: ¥3,000–¥5,000 (sushi omakase could be ¥10,000+ for a splurge)\n- Transit: ~¥600\n\n---\n\n## HOTEL SUGGESTIONS (by area)\n\n| Area | Vibe | Price Range (per night, Oct) |\n|------|------|----------------------------|\n| **Ueno / Asakusa** | Traditional, budget-friendly, near Sensoji | $40–$80 |\n| **Shinjuku** | Central hub, great Yamanote access, nightlife | $60–$120 |\n| **Shibuya** | Trendy, young, close to Shibuya Scramble | $80–$150 |\n| **Ginza** | Upscale, clean, easy subway access | $80–$160 |\n| **Akabanebashi** | New, modern, near Tokyo Big Sight | $70–$120 |\n\n---\n\n## ESTIMATED TOTAL COST (Per Person, 3 Days)\n\n| Item | Cost (USD) |\n|------|------------|\n| Round-trip flight (SFO↔HND) | $380 – $700 |\n| Hotel (2 nights, mid-range) | $120 – $250 |\n| Food (3 days × 3 meals + snacks) | $150 – $300 |\n| Tokyo transit (Suica loads) | ~$20 |\n| Attractions / admissions | $80 – $150 |\n| Miscellaneous / souvenirs | $50 – $100 |\n| **Estimated total** | **$800 – $1,520** |\n\n---\n\n## KEY PRACTICAL TIPS\n\n1. **Buy / set up a Suica or Welcome Suica card at Haneda before you leave the airport** — it is your transit, vending machine, and convenience store payment method all in one.\n\n2. **Pre-book TeamLab** — slots sell out days/weeks in advance, especially for October. Book at teamlab.world.\n\n3. **Shibuya SKY** — also requires advance booking (shibuyasky.com). Sunset slots are most popular.\n\n4. **Internet** — rent a pocket Wi-Fi at Haneda or buy a SIM/eSIM (Ubigi, Airalo) before you arrive. Google Maps is essential for navigation.\n\n5. **Cash is still king in some places** — many small restaurants and temples only take cash. Carry ¥10,000–¥20,000 in bills.\n\n6. **Oct 31 = Halloween** — Shibuya becomes incredibly crowded with costume parades. If you want to experience it, plan accordingly; if you want to avoid it, stay away from Shibuya that day.\n\n7. **Convenience stores (7-Eleven, Lawson, FamilyMart)** — great for quick affordable breakfasts, onigiri, and drinks. Suica works at all of them.\n\n8. **Luggage** — use coin lockers at stations or \"takkyubin\" (luggage forwarding) to send bags from hotel to airport on your last day.\n\n---\n\nLet me know if you want me to adjust any part of the plan — add day trips (Kamakura, Nikko, Yokohama), shift the focus (more food, more anime/gaming, less temples), or refine the budget.",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.007
+        },
+        {
+          "name": "first_text",
+          "at_s": 12.298
+        },
+        {
+          "name": "agent_end",
+          "at_s": 122.752
+        },
+        {
+          "name": "chat_end",
+          "at_s": 123.201
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 3,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 20270,
+          "completion_tokens": 82,
+          "total_tokens": 20352,
+          "seconds": 14.3,
+          "cache_read_tokens": 0,
+          "at_s": 14.301
+        },
+        {
+          "call": 4,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 21047,
+          "completion_tokens": 82,
+          "total_tokens": 21129,
+          "seconds": 4.7,
+          "cache_read_tokens": 0,
+          "at_s": 20.615
+        },
+        {
+          "call": 5,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 21327,
+          "completion_tokens": 82,
+          "total_tokens": 21409,
+          "seconds": 3.4,
+          "cache_read_tokens": 0,
+          "at_s": 24.074
+        },
+        {
+          "call": 6,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 21653,
+          "completion_tokens": 128,
+          "total_tokens": 21781,
+          "seconds": 4.9,
+          "cache_read_tokens": 0,
+          "at_s": 28.961
+        },
+        {
+          "call": 7,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 24097,
+          "completion_tokens": 83,
+          "total_tokens": 24180,
+          "seconds": 8.4,
+          "cache_read_tokens": 0,
+          "at_s": 39.213
+        },
+        {
+          "call": 8,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 25784,
+          "completion_tokens": 2798,
+          "total_tokens": 28582,
+          "seconds": 81.6,
+          "cache_read_tokens": 0,
+          "at_s": 122.701
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 14.312,
+          "duration_s": 1.587,
+          "is_error": false,
+          "completed_s": 15.906
+        },
+        {
+          "name": "web_search",
+          "started_s": 20.624,
+          "duration_s": 0.004,
+          "is_error": false,
+          "completed_s": 20.631
+        },
+        {
+          "name": "web_search",
+          "started_s": 24.083,
+          "duration_s": 0.004,
+          "is_error": false,
+          "completed_s": 24.09
+        },
+        {
+          "name": "web_search",
+          "started_s": 28.969,
+          "duration_s": 1.781,
+          "is_error": false,
+          "completed_s": 30.792
+        },
+        {
+          "name": "web_search",
+          "started_s": 28.969,
+          "duration_s": 1.772,
+          "is_error": false,
+          "completed_s": 30.787
+        },
+        {
+          "name": "web_search",
+          "started_s": 28.982,
+          "duration_s": 1.806,
+          "is_error": false,
+          "completed_s": 30.781
+        },
+        {
+          "name": "web_search",
+          "started_s": 39.228,
+          "duration_s": 1.83,
+          "is_error": false,
+          "completed_s": 41.07
+        },
+        {
+          "name": "web_search",
+          "started_s": 39.231,
+          "duration_s": 1.716,
+          "is_error": false,
+          "completed_s": 41.064
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 123.201,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.007,
+        "agent_turn_s": 122.745,
+        "post_agent_s": 0.449,
+        "main_llm_s": 117.3,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 10.5,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 12.298,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 134178,
+        "completion_tokens": 3255,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Produced a detailed three-day Tokyo itinerary with transportation."
+    },
+    {
+      "execution_index": 5,
+      "case_id": "home_01",
+      "scenario": "home_appliance_control",
+      "mode": "keyboard",
+      "prompt": "Which appliances are currently on in the demo home? List every appliance and its state.",
+      "submitted_text": "Which appliances are currently on in the demo home? List every appliance and its state.",
+      "asr": {},
+      "response": "Here is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).\nHere is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).\n\nHere is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).\nHere is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).\nHere is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.003
+        },
+        {
+          "name": "first_text",
+          "at_s": 20.044
+        },
+        {
+          "name": "agent_end",
+          "at_s": 76.199
+        },
+        {
+          "name": "chat_end",
+          "at_s": 76.508
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 9,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 28588,
+          "completion_tokens": 62,
+          "total_tokens": 28650,
+          "seconds": 21.7,
+          "cache_read_tokens": 0,
+          "at_s": 21.751
+        },
+        {
+          "call": 10,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 28884,
+          "completion_tokens": 63,
+          "total_tokens": 28947,
+          "seconds": 9.5,
+          "cache_read_tokens": 0,
+          "at_s": 32.815
+        },
+        {
+          "call": 11,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 29120,
+          "completion_tokens": 36,
+          "total_tokens": 29156,
+          "seconds": 2.6,
+          "cache_read_tokens": 0,
+          "at_s": 35.449
+        },
+        {
+          "call": 12,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 29230,
+          "completion_tokens": 124,
+          "total_tokens": 29354,
+          "seconds": 5.1,
+          "cache_read_tokens": 0,
+          "at_s": 40.586
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "browser_exec",
+          "started_s": 21.76,
+          "duration_s": 1.596,
+          "is_error": false,
+          "completed_s": 23.361
+        },
+        {
+          "name": "tool_search",
+          "started_s": 32.824,
+          "duration_s": 0.042,
+          "is_error": false,
+          "completed_s": 32.87
+        },
+        {
+          "name": "tool_describe",
+          "started_s": 35.458,
+          "duration_s": 0.001,
+          "is_error": false,
+          "completed_s": 35.464
+        },
+        {
+          "name": "demo_home_status",
+          "started_s": 40.598,
+          "duration_s": 0.003,
+          "is_error": false,
+          "completed_s": 40.605
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 76.508,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.003,
+        "agent_turn_s": 76.196,
+        "post_agent_s": 0.309,
+        "main_llm_s": 38.9,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 1.642,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 20.044,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 115822,
+        "completion_tokens": 285,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "partial",
+      "quality_note": "Reported the correct appliance state, but repeated the same result after truncation continuations."
+    },
+    {
+      "execution_index": 6,
+      "case_id": "home_01",
+      "scenario": "home_appliance_control",
+      "mode": "voice",
+      "prompt": "Which appliances are currently on in the demo home? List every appliance and its state.",
+      "submitted_text": "which appliances are currently on in the demo home, list every appliance in its state.",
+      "asr": {
+        "success": true,
+        "transcript": "which appliances are currently on in the demo home, list every appliance in its state.",
+        "input_audio_duration_s": 5.973,
+        "fixture_sha256": "de4dd5f43c1c3da92126db30928b22fc2ac3a73cc786ff917a95884e92a431c2",
+        "filtered": false
+      },
+      "response": "In the demo home, the living room AC, second bedroom AC, lights, and living room TV are on. The main bedroom AC and robot vacuum are off. Would you like me to turn off the devices that are currently on?",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 6.628
+        },
+        {
+          "name": "chat_start",
+          "at_s": 6.628
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 6.637,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 8.154
+        },
+        {
+          "name": "first_text",
+          "at_s": 29.599
+        },
+        {
+          "name": "agent_end",
+          "at_s": 30.811
+        },
+        {
+          "name": "chat_end",
+          "at_s": 47.546
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 10,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 19258,
+          "completion_tokens": 24,
+          "total_tokens": 19282,
+          "seconds": 11.8,
+          "cache_read_tokens": 0,
+          "at_s": 24.692
+        },
+        {
+          "call": 11,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 19974,
+          "completion_tokens": 28,
+          "total_tokens": 20002,
+          "seconds": 3.3,
+          "cache_read_tokens": 0,
+          "at_s": 28.065
+        },
+        {
+          "call": 12,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 20179,
+          "completion_tokens": 48,
+          "total_tokens": 20227,
+          "seconds": 2.7,
+          "cache_read_tokens": 0,
+          "at_s": 30.785
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 4.695,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 891,
+          "completion_tokens": 123,
+          "at_s": 12.88
+        }
+      ],
+      "tools": [
+        {
+          "name": "skill_view",
+          "started_s": 24.705,
+          "duration_s": 0.011,
+          "is_error": false,
+          "completed_s": 24.72
+        },
+        {
+          "name": "demo_home_status",
+          "started_s": 28.075,
+          "duration_s": 0.003,
+          "is_error": false,
+          "completed_s": 28.082
+        }
+      ],
+      "tts_synthesis": [
+        {
+          "start_s": 31.053,
+          "seconds": 4.122,
+          "characters": 202,
+          "text": "In the demo home, the living room AC, second bedroom AC, lights, and living room TV are on. The main bedroom AC and robot vacuum are off. Would you like me to turn off the devices that are currently on?"
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 6.637,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 35.176,
+          "seconds": 12.355,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 47.546,
+        "asr_s": 6.628,
+        "pre_agent_s": 1.526,
+        "agent_turn_s": 22.657,
+        "post_agent_s": 16.735,
+        "main_llm_s": 17.8,
+        "voice_aux_llm_s": 4.695,
+        "tool_work_s": 0.014,
+        "tts_synthesis_work_s": 4.122,
+        "audio_playback_s": 13.868,
+        "time_to_first_text_s": 29.599,
+        "time_to_first_final_audio_s": 35.176,
+        "prompt_tokens": 59411,
+        "completion_tokens": 100,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 12.355,
+        "time_to_ack_audio_s": 6.637,
+        "asr_word_error_rate": 0.067
+      },
+      "quality_status": "pass",
+      "quality_note": "Correctly reported every simulated appliance state and offered the expected follow-up."
+    },
+    {
+      "execution_index": 7,
+      "case_id": "home_02",
+      "scenario": "home_appliance_control",
+      "mode": "voice",
+      "prompt": "Turn off the living room TV, then verify and report the state of every appliance in the demo home.",
+      "submitted_text": "turn off the living room TV, then verify and report the state of every appliance in the demo home.",
+      "asr": {
+        "success": true,
+        "transcript": "turn off the living room TV, then verify and report the state of every appliance in the demo home.",
+        "input_audio_duration_s": 6.481,
+        "fixture_sha256": "906881a59297950b8a942f4076dfb8cc26ba950a374aab4c4678c6e05f2268d3",
+        "filtered": false
+      },
+      "response": "Living room TV is now off. In the demo home, the living room AC, second bedroom AC, and lights are on; the main bedroom AC, living room TV, and robot vacuum are off.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 4.741
+        },
+        {
+          "name": "chat_start",
+          "at_s": 4.741
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 4.749,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 6.267
+        },
+        {
+          "name": "first_text",
+          "at_s": 17.013
+        },
+        {
+          "name": "agent_end",
+          "at_s": 18.019
+        },
+        {
+          "name": "chat_end",
+          "at_s": 32.601
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 13,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 20249,
+          "completion_tokens": 43,
+          "total_tokens": 20292,
+          "seconds": 4.5,
+          "cache_read_tokens": 0,
+          "at_s": 15.476
+        },
+        {
+          "call": 14,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 20500,
+          "completion_tokens": 42,
+          "total_tokens": 20542,
+          "seconds": 2.5,
+          "cache_read_tokens": 0,
+          "at_s": 18.003
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 4.712,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 865,
+          "completion_tokens": 127,
+          "at_s": 11.01
+        }
+      ],
+      "tools": [
+        {
+          "name": "demo_home_set",
+          "started_s": 15.485,
+          "duration_s": 0.014,
+          "is_error": false,
+          "completed_s": 15.504
+        }
+      ],
+      "tts_synthesis": [
+        {
+          "start_s": 18.241,
+          "seconds": 3.415,
+          "characters": 165,
+          "text": "Living room TV is now off. In the demo home, the living room AC, second bedroom AC, and lights are on; the main bedroom AC, living room TV, and robot vacuum are off."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 4.749,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 21.656,
+          "seconds": 10.928,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 32.601,
+        "asr_s": 4.741,
+        "pre_agent_s": 1.526,
+        "agent_turn_s": 11.752,
+        "post_agent_s": 14.582,
+        "main_llm_s": 7.0,
+        "voice_aux_llm_s": 4.712,
+        "tool_work_s": 0.014,
+        "tts_synthesis_work_s": 3.415,
+        "audio_playback_s": 12.441,
+        "time_to_first_text_s": 17.013,
+        "time_to_first_final_audio_s": 21.656,
+        "prompt_tokens": 40749,
+        "completion_tokens": 85,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 10.928,
+        "time_to_ack_audio_s": 4.749,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Changed the simulated living room TV to off and correctly verified all appliance states."
+    },
+    {
+      "execution_index": 8,
+      "case_id": "home_02",
+      "scenario": "home_appliance_control",
+      "mode": "keyboard",
+      "prompt": "Turn off the living room TV, then verify and report the state of every appliance in the demo home.",
+      "submitted_text": "Turn off the living room TV, then verify and report the state of every appliance in the demo home.",
+      "asr": {},
+      "response": "Living room TV has been turned off. Here is the verified state of every appliance:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | ON |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | ON |\n| 4 | Lights | `lights` | ON |\n| 5 | Living room TV | `living_room_tv` | **OFF** ✅ |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Verification confirmed:** The living room TV is now OFF. 3 of 6 appliances are ON (living room AC, second bedroom AC, lights) and 3 are OFF (main bedroom AC, living room TV, robot vacuum).\nLiving room TV has been turned off. Here is the verified state of every appliance:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | ON |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | ON |\n| 4 | Lights | `lights` | ON |\n| 5 | Living room TV | `living_room_tv` | **OFF** ✅ |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Verification confirmed:** The living room TV is now OFF. 3 of 6 appliances are ON (living room AC, second bedroom AC, lights) and 3 are OFF (main bedroom AC, living room TV, robot vacuum).\nVerification confirmed: the living room TV is OFF. Here is the full current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | ON |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | ON |\n| 4 | Lights | `lights` | ON |\n| 5 | Living room TV | `living_room_tv` | **OFF** ✅ |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\nLiving room TV changed from ON → OFF as requested. 3 appliances are ON, 3 are OFF.\nLiving room TV has been turned off. Here is the verified state of every appliance:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | ON |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | ON |\n| 4 | Lights | `lights` | ON |\n| 5 | Living room TV | `living_room_tv` | **OFF** ✅ |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Verification confirmed:** The living room TV is now OFF. 3 of 6 appliances are ON (living room AC, second bedroom AC, lights) and 3 are OFF (main bedroom AC, living room TV, robot vacuum).Here is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).\nHere is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).\nHere is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).Here is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).\nHere is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).\nHere is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).Here is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).Here is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).\nLiving room TV has been turned off. Here is the verified state of every appliance:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | ON |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | ON |\n| 4 | Lights | `lights` | ON |\n| 5 | Living room TV | `living_room_tv` | **OFF** ✅ |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Verification confirmed:** The living room TV is now OFF. 3 of 6 appliances are ON (living room AC, second bedroom AC, lights) and 3 are OFF (main bedroom AC, living room TV, robot vacuum).Here is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).Here is every appliance in the demo home and its current state:\n\n| # | Appliance | ID | State |\n|---|-----------|----|-------|\n| 1 | Living room air conditioner | `living_room_ac` | **ON** |\n| 2 | Main bedroom air conditioner | `master_bedroom_ac` | OFF |\n| 3 | Second bedroom air conditioner | `second_bedroom_ac` | **ON** |\n| 4 | Lights | `lights` | **ON** |\n| 5 | Living room TV | `living_room_tv` | **ON** |\n| 6 | Robot vacuum | `robot_vacuum` | OFF |\n\n**Summary:** 4 of 6 appliances are currently ON (living room AC, second bedroom AC, lights, living room TV). 2 are OFF (main bedroom AC, robot vacuum).",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.007
+        },
+        {
+          "name": "first_text",
+          "at_s": 34.681
+        },
+        {
+          "name": "agent_end",
+          "at_s": 132.96
+        },
+        {
+          "name": "chat_end",
+          "at_s": 133.375
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 13,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 30379,
+          "completion_tokens": 99,
+          "total_tokens": 30478,
+          "seconds": 37.4,
+          "cache_read_tokens": 0,
+          "at_s": 37.431
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "tool_describe",
+          "started_s": 37.437,
+          "duration_s": 0.001,
+          "is_error": false,
+          "completed_s": 37.443
+        },
+        {
+          "name": "demo_home_set",
+          "started_s": 37.444,
+          "duration_s": 0.014,
+          "is_error": false,
+          "completed_s": 37.462
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 133.375,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.007,
+        "agent_turn_s": 132.953,
+        "post_agent_s": 0.415,
+        "main_llm_s": 37.4,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 0.015,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 34.681,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 30379,
+        "completion_tokens": 99,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "partial",
+      "quality_note": "Changed and verified the TV state, but returned heavily duplicated output after truncation continuations."
+    },
+    {
+      "execution_index": 9,
+      "case_id": "flights_01",
+      "scenario": "flight_search",
+      "mode": "keyboard",
+      "prompt": "Find current nonstop flight options from San Francisco to New York for October 6, 2026. Compare practical choices, likely duration, and booking caveats.",
+      "submitted_text": "Find current nonstop flight options from San Francisco to New York for October 6, 2026. Compare practical choices, likely duration, and booking caveats.",
+      "asr": {},
+      "response": ".\n\n.",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.008
+        },
+        {
+          "name": "first_text",
+          "at_s": 8.256
+        },
+        {
+          "name": "agent_end",
+          "at_s": 139.487
+        },
+        {
+          "name": "chat_end",
+          "at_s": 139.715
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 14,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 33697,
+          "completion_tokens": 85,
+          "total_tokens": 33782,
+          "seconds": 10.6,
+          "cache_read_tokens": 0,
+          "at_s": 10.619
+        },
+        {
+          "call": 15,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 33847,
+          "completion_tokens": 93,
+          "total_tokens": 33940,
+          "seconds": 5.2,
+          "cache_read_tokens": 0,
+          "at_s": 15.858
+        },
+        {
+          "call": 16,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 35522,
+          "completion_tokens": 2,
+          "total_tokens": 35524,
+          "seconds": 13.1,
+          "cache_read_tokens": 0,
+          "at_s": 139.421
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "tool_call",
+          "started_s": 10.645,
+          "duration_s": 0.002,
+          "is_error": true,
+          "completed_s": 10.652
+        },
+        {
+          "name": "web_search",
+          "started_s": 15.869,
+          "duration_s": 1.63,
+          "is_error": false,
+          "completed_s": 17.507
+        },
+        {
+          "name": "web_search",
+          "started_s": 124.694,
+          "duration_s": 1.637,
+          "is_error": false,
+          "completed_s": 126.334
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 139.715,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.008,
+        "agent_turn_s": 139.479,
+        "post_agent_s": 0.228,
+        "main_llm_s": 28.9,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 3.269,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 8.256,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 103066,
+        "completion_tokens": 180,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "fail",
+      "quality_note": "Returned only punctuation after a long retrieval attempt."
+    },
+    {
+      "execution_index": 10,
+      "case_id": "flights_01",
+      "scenario": "flight_search",
+      "mode": "voice",
+      "prompt": "Find current nonstop flight options from San Francisco to New York for October 6, 2026. Compare practical choices, likely duration, and booking caveats.",
+      "submitted_text": "Find current nonstop flight options from San Francisco to New York for October 6, 2026. Compare practical choices, likely duration, and booking caveats.",
+      "asr": {
+        "success": true,
+        "transcript": "Find current nonstop flight options from San Francisco to New York for October 6, 2026. Compare practical choices, likely duration, and booking caveats.",
+        "input_audio_duration_s": 11.668,
+        "fixture_sha256": "b17245b4a208db8a32495f6c234936cda3f45adf73492be6755d004c55f12cee",
+        "filtered": false
+      },
+      "response": "The system failed to retrieve specific flight options for October 6, 2026, from San Francisco to New York. No practical choices, durations, or booking details could be provided due to this retrieval failure. The details are queued for email delivery.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 11.123
+        },
+        {
+          "name": "chat_start",
+          "at_s": 11.123
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 11.137,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 12.655
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 79.513,
+          "message": "voice_latency stage=email_enqueue job=8beeb0cd29cbb330d6d912222b14b799a7e4fbdc70681d6c39cd10ef61eef13c status=queued"
+        },
+        {
+          "name": "agent_end",
+          "at_s": 79.538
+        },
+        {
+          "name": "chat_end",
+          "at_s": 109.281
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 1,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 37292,
+          "completion_tokens": 192,
+          "total_tokens": 37484,
+          "seconds": 17.6,
+          "cache_read_tokens": 0,
+          "at_s": 17.432
+        },
+        {
+          "call": 2,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 38314,
+          "completion_tokens": 41,
+          "total_tokens": 38355,
+          "seconds": 19.5,
+          "cache_read_tokens": 0,
+          "at_s": 40.9
+        },
+        {
+          "call": 15,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 20653,
+          "completion_tokens": 43,
+          "total_tokens": 20696,
+          "seconds": 19.3,
+          "cache_read_tokens": 0,
+          "at_s": 41.909
+        },
+        {
+          "call": 3,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 38398,
+          "completion_tokens": 46,
+          "total_tokens": 38444,
+          "seconds": 3.5,
+          "cache_read_tokens": 0,
+          "at_s": 44.375
+        },
+        {
+          "call": 4,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 38616,
+          "completion_tokens": 42,
+          "total_tokens": 38658,
+          "seconds": 5.8,
+          "cache_read_tokens": 0,
+          "at_s": 50.254
+        },
+        {
+          "call": 16,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 21458,
+          "completion_tokens": 46,
+          "total_tokens": 21504,
+          "seconds": 6.9,
+          "cache_read_tokens": 0,
+          "at_s": 50.406
+        },
+        {
+          "call": 17,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 22199,
+          "completion_tokens": 46,
+          "total_tokens": 22245,
+          "seconds": 18.6,
+          "cache_read_tokens": 0,
+          "at_s": 70.691
+        },
+        {
+          "call": 18,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 22444,
+          "completion_tokens": 8,
+          "total_tokens": 22452,
+          "seconds": 4.1,
+          "cache_read_tokens": 0,
+          "at_s": 74.8
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 9.926,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 879,
+          "completion_tokens": 143,
+          "at_s": 22.617
+        },
+        {
+          "seconds": 19.261,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 20653,
+          "completion_tokens": 43,
+          "at_s": 41.908
+        },
+        {
+          "seconds": 6.92,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 21458,
+          "completion_tokens": 46,
+          "at_s": 50.405
+        },
+        {
+          "seconds": 18.593,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 22199,
+          "completion_tokens": 46,
+          "at_s": 70.691
+        },
+        {
+          "seconds": 4.082,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 22444,
+          "completion_tokens": 8,
+          "at_s": 74.8
+        },
+        {
+          "seconds": 4.691,
+          "schema": "spoken_summary",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 0,
+          "prompt_tokens": 531,
+          "completion_tokens": 54,
+          "at_s": 79.492
+        }
+      ],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 41.923,
+          "duration_s": 1.55,
+          "is_error": false,
+          "completed_s": 43.479
+        },
+        {
+          "name": "web_search",
+          "started_s": 50.421,
+          "duration_s": 1.665,
+          "is_error": false,
+          "completed_s": 52.092
+        },
+        {
+          "name": "web_search",
+          "started_s": 70.704,
+          "duration_s": 0.005,
+          "is_error": false,
+          "completed_s": 70.712
+        }
+      ],
+      "tts_synthesis": [
+        {
+          "start_s": 79.702,
+          "seconds": 13.003,
+          "characters": 250,
+          "text": "The system failed to retrieve specific flight options for October 6, 2026, from San Francisco to New York. No practical choices, durations, or booking details could be provided due to this retrieval failure. The details are queued for email delivery."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 11.138,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 92.706,
+          "seconds": 16.566,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [
+        {
+          "body": "I could not finish this step.\n\nSources retrieved for reference (not claim-by-claim verification):\nhttps://us.trip.com/flights/san-francisco-to-new-york/airfares-sfo-nyc/\nhttps://www.alaskaair.com/en/flights-from-san-francisco-to-new-york\nhttps://www.flightconnections.com/flights-from-sfo-to-jfk\nhttps://www.flightsfrom.com/JFK-SFO\nhttps://www.flightsfrom.com/SFO-JFK\nhttps://www.jetblue.com/en/flights-from-san-francisco-to-new-york\nhttps://www.kayak.com/flight-routes/San-Francisco-SFO/New-York-NYC\nhttps://www.trip.com/hot/flight-time-from-new-york-to-san-francisco/",
+          "summary": "The system failed to retrieve specific flight options for October 6, 2026, from San Francisco to New York. No practical choices, durations, or booking details could be provided due to this retrieval failure.",
+          "status": "queued",
+          "enqueue_s": 0.01
+        }
+      ],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 109.281,
+        "asr_s": 11.123,
+        "pre_agent_s": 1.532,
+        "agent_turn_s": 66.883,
+        "post_agent_s": 29.743,
+        "main_llm_s": 95.3,
+        "voice_aux_llm_s": 14.617,
+        "tool_work_s": 3.22,
+        "tts_synthesis_work_s": 13.003,
+        "audio_playback_s": 18.079,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 92.706,
+        "prompt_tokens": 239374,
+        "completion_tokens": 464,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 16.566,
+        "time_to_ack_audio_s": 11.138,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "fail",
+      "quality_note": "Explicitly failed to retrieve or provide the requested flight options."
+    },
+    {
+      "execution_index": 11,
+      "case_id": "flights_02",
+      "scenario": "flight_search",
+      "mode": "voice",
+      "prompt": "Find current morning flight options from Seattle to Los Angeles for October 9, 2026, and compare the practical choices.",
+      "submitted_text": "Find current morning flight options from Seattle to Los Angeles for October 9, 2026, and compare the practical choices.",
+      "asr": {
+        "success": true,
+        "transcript": "Find current morning flight options from Seattle to Los Angeles for October 9, 2026, and compare the practical choices.",
+        "input_audio_duration_s": 8.946,
+        "fixture_sha256": "b07a1a9fff715612a1f8d37fc20014310ab4cd1e5f13aff6dddff55cd08be593",
+        "filtered": false
+      },
+      "response": "I could not finish this step. Verification note: Live sources were unavailable or not used; confirm current and time-sensitive details. The details are queued for email delivery.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 8.724
+        },
+        {
+          "name": "chat_start",
+          "at_s": 8.724
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 8.736,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 10.251
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 74.524,
+          "message": "voice_latency stage=email_enqueue job=693c8dc2196667c72c380eb176a49904af86515bd2cb06a3a6d77d496e3bf1ab status=queued"
+        },
+        {
+          "name": "agent_end",
+          "at_s": 74.548
+        },
+        {
+          "name": "chat_end",
+          "at_s": 92.515
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 1,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 23906,
+          "completion_tokens": 33,
+          "total_tokens": 23939,
+          "seconds": 34.3,
+          "cache_read_tokens": 0,
+          "at_s": 4.543
+        },
+        {
+          "call": 5,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 41103,
+          "completion_tokens": 633,
+          "total_tokens": 41736,
+          "seconds": 103.1,
+          "cache_read_tokens": 0,
+          "at_s": 44.08
+        },
+        {
+          "call": 19,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 22505,
+          "completion_tokens": 20,
+          "total_tokens": 22525,
+          "seconds": 22.5,
+          "cache_read_tokens": 0,
+          "at_s": 44.472
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 11.659,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1168,
+          "completion_tokens": 133,
+          "at_s": 21.942
+        },
+        {
+          "seconds": 22.501,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 22505,
+          "completion_tokens": 20,
+          "at_s": 44.472
+        }
+      ],
+      "tools": [],
+      "tts_synthesis": [
+        {
+          "start_s": 74.702,
+          "seconds": 6.718,
+          "characters": 178,
+          "text": "I could not finish this step. Verification note: Live sources were unavailable or not used; confirm current and time-sensitive details. The details are queued for email delivery."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 8.736,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 81.421,
+          "seconds": 11.087,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [
+        {
+          "body": "I could not finish this step.\n\nVerification note: Live sources were unavailable or not used; confirm current and time-sensitive details.",
+          "summary": "I could not finish this step. Verification note: Live sources were unavailable or not used; confirm current and time-sensitive details.",
+          "status": "queued",
+          "enqueue_s": 0.009
+        }
+      ],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 92.515,
+        "asr_s": 8.724,
+        "pre_agent_s": 1.527,
+        "agent_turn_s": 64.297,
+        "post_agent_s": 17.967,
+        "main_llm_s": 159.9,
+        "voice_aux_llm_s": 11.659,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 6.718,
+        "audio_playback_s": 12.6,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 81.421,
+        "prompt_tokens": 87514,
+        "completion_tokens": 686,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 11.087,
+        "time_to_ack_audio_s": 8.736,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "fail",
+      "quality_note": "Returned a generic failure without the requested flight comparison."
+    },
+    {
+      "execution_index": 12,
+      "case_id": "flights_02",
+      "scenario": "flight_search",
+      "mode": "keyboard",
+      "prompt": "Find current morning flight options from Seattle to Los Angeles for October 9, 2026, and compare the practical choices.",
+      "submitted_text": "Find current morning flight options from Seattle to Los Angeles for October 9, 2026, and compare the practical choices.",
+      "asr": {},
+      "response": ".",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.004
+        },
+        {
+          "name": "first_text",
+          "at_s": 10.413
+        },
+        {
+          "name": "agent_end",
+          "at_s": 17.386
+        },
+        {
+          "name": "chat_end",
+          "at_s": 17.595
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 17,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 35556,
+          "completion_tokens": 40,
+          "total_tokens": 35596,
+          "seconds": 4.7,
+          "cache_read_tokens": 0,
+          "at_s": 5.034
+        },
+        {
+          "call": 18,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 36286,
+          "completion_tokens": 60,
+          "total_tokens": 36346,
+          "seconds": 5.0,
+          "cache_read_tokens": 0,
+          "at_s": 12.109
+        },
+        {
+          "call": 19,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 37079,
+          "completion_tokens": 2,
+          "total_tokens": 37081,
+          "seconds": 3.4,
+          "cache_read_tokens": 0,
+          "at_s": 17.365
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 5.071,
+          "duration_s": 2.017,
+          "is_error": false,
+          "completed_s": 7.095
+        },
+        {
+          "name": "web_search",
+          "started_s": 12.122,
+          "duration_s": 1.848,
+          "is_error": false,
+          "completed_s": 13.978
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 17.595,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.004,
+        "agent_turn_s": 17.382,
+        "post_agent_s": 0.209,
+        "main_llm_s": 13.1,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 3.865,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 10.413,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 108921,
+        "completion_tokens": 102,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "fail",
+      "quality_note": "Returned only punctuation instead of flight choices."
+    },
+    {
+      "execution_index": 13,
+      "case_id": "shopping_01",
+      "scenario": "online_shopping",
+      "mode": "keyboard",
+      "prompt": "Compare current US online prices and key differences for two popular 2 TB portable SSDs, then recommend one.",
+      "submitted_text": "Compare current US online prices and key differences for two popular 2 TB portable SSDs, then recommend one.",
+      "asr": {},
+      "response": "Now let me search specifically for early morning flight times on this route.",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.004
+        },
+        {
+          "name": "first_text",
+          "at_s": 5.391
+        },
+        {
+          "name": "agent_end",
+          "at_s": 20.843
+        },
+        {
+          "name": "chat_end",
+          "at_s": 21.099
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 20,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 37104,
+          "completion_tokens": 70,
+          "total_tokens": 37174,
+          "seconds": 7.3,
+          "cache_read_tokens": 0,
+          "at_s": 7.314
+        },
+        {
+          "call": 21,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 37874,
+          "completion_tokens": 56,
+          "total_tokens": 37930,
+          "seconds": 4.9,
+          "cache_read_tokens": 0,
+          "at_s": 15.406
+        },
+        {
+          "call": 22,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 38685,
+          "completion_tokens": 15,
+          "total_tokens": 38700,
+          "seconds": 3.8,
+          "cache_read_tokens": 0,
+          "at_s": 20.818
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 7.323,
+          "duration_s": 3.15,
+          "is_error": false,
+          "completed_s": 10.48
+        },
+        {
+          "name": "web_search",
+          "started_s": 15.412,
+          "duration_s": 1.549,
+          "is_error": false,
+          "completed_s": 16.969
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 21.099,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.004,
+        "agent_turn_s": 20.839,
+        "post_agent_s": 0.256,
+        "main_llm_s": 16.0,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 4.699,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 5.391,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 113663,
+        "completion_tokens": 141,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "fail",
+      "quality_note": "Cross-scene contamination: answered the preceding flight task instead of the SSD comparison."
+    },
+    {
+      "execution_index": 14,
+      "case_id": "shopping_01",
+      "scenario": "online_shopping",
+      "mode": "voice",
+      "prompt": "Compare current US online prices and key differences for two popular 2 TB portable SSDs, then recommend one.",
+      "submitted_text": "Compare current U.S. online prices and key differences for two popular two TB portable SSDs, then recommend one.",
+      "asr": {
+        "success": true,
+        "transcript": "Compare current U.S. online prices and key differences for two popular two TB portable SSDs, then recommend one.",
+        "input_audio_duration_s": 8.204,
+        "fixture_sha256": "e14b7f0a1ff867d9e0f9d063d0e3abfc8e82ca59cb44498651db026ea92db69d",
+        "filtered": false
+      },
+      "response": "The comparison could not be completed due to incomplete source retrieval. Time-sensitive pricing and specific differences for the Samsung T7 Shield and SanDisk Extreme SSDs remain unverified. The details are queued for email delivery.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 5.658
+        },
+        {
+          "name": "chat_start",
+          "at_s": 5.658
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 5.667,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 7.186
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 41.002,
+          "message": "voice_latency stage=email_enqueue job=b1d108607c78ecd1b44b9d138861f23ab14dc7846e715cffeb92aae43a319da2 status=queued"
+        },
+        {
+          "name": "agent_end",
+          "at_s": 41.028
+        },
+        {
+          "name": "chat_end",
+          "at_s": 60.647
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 20,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 22563,
+          "completion_tokens": 46,
+          "total_tokens": 22609,
+          "seconds": 3.1,
+          "cache_read_tokens": 0,
+          "at_s": 15.969
+        },
+        {
+          "call": 21,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 23428,
+          "completion_tokens": 45,
+          "total_tokens": 23473,
+          "seconds": 4.0,
+          "cache_read_tokens": 0,
+          "at_s": 21.567
+        },
+        {
+          "call": 22,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 24354,
+          "completion_tokens": 42,
+          "total_tokens": 24396,
+          "seconds": 4.0,
+          "cache_read_tokens": 0,
+          "at_s": 27.089
+        },
+        {
+          "call": 23,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 25575,
+          "completion_tokens": 41,
+          "total_tokens": 25616,
+          "seconds": 4.8,
+          "cache_read_tokens": 0,
+          "at_s": 33.437
+        },
+        {
+          "call": 24,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 25731,
+          "completion_tokens": 41,
+          "total_tokens": 25772,
+          "seconds": 2.6,
+          "cache_read_tokens": 0,
+          "at_s": 36.081
+        },
+        {
+          "call": 25,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 25898,
+          "completion_tokens": 20,
+          "total_tokens": 25918,
+          "seconds": 2.0,
+          "cache_read_tokens": 0,
+          "at_s": 38.139
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 5.62,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1376,
+          "completion_tokens": 129,
+          "at_s": 12.836
+        },
+        {
+          "seconds": 3.099,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 22563,
+          "completion_tokens": 46,
+          "at_s": 15.969
+        },
+        {
+          "seconds": 4.021,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 23428,
+          "completion_tokens": 45,
+          "at_s": 21.566
+        },
+        {
+          "seconds": 4.022,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 24354,
+          "completion_tokens": 42,
+          "at_s": 27.089
+        },
+        {
+          "seconds": 4.795,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 25575,
+          "completion_tokens": 41,
+          "at_s": 33.437
+        },
+        {
+          "seconds": 2.622,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 25731,
+          "completion_tokens": 41,
+          "at_s": 36.081
+        },
+        {
+          "seconds": 2.035,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 25898,
+          "completion_tokens": 20,
+          "at_s": 38.138
+        },
+        {
+          "seconds": 2.838,
+          "schema": "spoken_summary",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1042,
+          "completion_tokens": 44,
+          "at_s": 40.979
+        }
+      ],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 15.978,
+          "duration_s": 1.548,
+          "is_error": false,
+          "completed_s": 17.533
+        },
+        {
+          "name": "web_search",
+          "started_s": 21.58,
+          "duration_s": 1.466,
+          "is_error": false,
+          "completed_s": 23.054
+        },
+        {
+          "name": "web_search",
+          "started_s": 27.098,
+          "duration_s": 1.523,
+          "is_error": false,
+          "completed_s": 28.629
+        }
+      ],
+      "tts_synthesis": [
+        {
+          "start_s": 41.189,
+          "seconds": 4.505,
+          "characters": 234,
+          "text": "The comparison could not be completed due to incomplete source retrieval. Time-sensitive pricing and specific differences for the Samsung T7 Shield and SanDisk Extreme SSDs remain unverified. The details are queued for email delivery."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 5.667,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 45.695,
+          "seconds": 14.934,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [
+        {
+          "body": "I could not finish this step.\n\nSources retrieved for reference (not claim-by-claim verification):\nhttps://camelcamelcamel.com/product/B08HN37XC1\nhttps://camelcamelcamel.com/product/B09VLHR4JC\nhttps://gagadget.com/en/680370-samsung-t7-shield-vs-sandisk-extreme-portable/\nhttps://overeview.com/best-portable-ssd/\nhttps://techsifted.com/roundups/best-portable-ssd-2026/\nhttps://www.amazon.com/SAMSUNG-Resistant-Photographers-MU-PE2T0S-AM/dp/B09VLHR4JC\nhttps://www.amazon.com/SanDisk-2TB-Extreme-Portable-SDSSDE81-2T00-G25/dp/B08GV4YYV7\nhttps://www.amazon.com/SanDisk-Extreme-Portable-External-SDSSDE80-2T00-G25/dp/B07TNR2CXJ\nhttps://www.amazon.com/SanDisk-Portable-Backwards-Compatible-Resistance/dp/B0DN688B7V\nhttps://www.amazon.com/samsung-t7-shield/s?k=samsung+t7+shield\nhttps://www.amazon.com/sandisk-extreme-portable-ssd/s?k=sandisk+extreme+portable+ssd\nhttps://www.everythingusb.com/ssd.html\nhttps://www.reddit.com/r/DataHoarder/comments/102l844/sandisk_extreme_2tb_vs_samsung_t7_2tb_they_are/\nhttps://www.samsung.com/us/memory-storage/portable-ssd/portable-ssd-t7-shield-usb-3-2-2tb-black-sku-mu-pe2t0s-am/\nhttps://www.walmart.com/c/kp/samsung-t7-shield-2tb\n\nVerification note: Some requested source lookups were unavailable; confirm time-sensitive details.",
+          "summary": "The comparison could not be completed due to incomplete source retrieval. Time-sensitive pricing and specific differences for the Samsung T7 Shield and SanDisk Extreme SSDs remain unverified.",
+          "status": "queued",
+          "enqueue_s": 0.011
+        }
+      ],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 60.647,
+        "asr_s": 5.658,
+        "pre_agent_s": 1.528,
+        "agent_turn_s": 33.842,
+        "post_agent_s": 19.619,
+        "main_llm_s": 20.5,
+        "voice_aux_llm_s": 8.458,
+        "tool_work_s": 4.537,
+        "tts_synthesis_work_s": 4.505,
+        "audio_playback_s": 16.447,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 45.695,
+        "prompt_tokens": 147549,
+        "completion_tokens": 235,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 14.934,
+        "time_to_ack_audio_s": 5.667,
+        "asr_word_error_rate": 0.167
+      },
+      "quality_status": "fail",
+      "quality_note": "Named products but did not complete the requested current-price comparison or recommendation."
+    },
+    {
+      "execution_index": 15,
+      "case_id": "shopping_02",
+      "scenario": "online_shopping",
+      "mode": "voice",
+      "prompt": "Find current US online prices for noise-canceling headphones under 350 dollars and recommend two options.",
+      "submitted_text": "Find current U.S. online prices for noise-canceling headphones on $350 and recommend two options.",
+      "asr": {
+        "success": true,
+        "transcript": "Find current U.S. online prices for noise-canceling headphones on $350 and recommend two options.",
+        "input_audio_duration_s": 7.941,
+        "fixture_sha256": "ce6acec6249a401d9b78e40ab9a0090b847b00a12d1d500b964a40362a6f86cd",
+        "filtered": false
+      },
+      "response": "I could not finish this step. Sources retrieved for reference (not claim-by-claim verification): Verification note: Some requested source lookups were unavailable; confirm time-sensitive details. The details are queued for email delivery.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 4.679
+        },
+        {
+          "name": "chat_start",
+          "at_s": 4.679
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 4.687,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 6.205
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 46.388,
+          "message": "voice_latency stage=email_enqueue job=58ec9ad387a5d105a56420acbaf667270bf4c0efa59c341dfa3fd176d0fd5de2 status=queued"
+        },
+        {
+          "name": "agent_end",
+          "at_s": 46.412
+        },
+        {
+          "name": "chat_end",
+          "at_s": 65.073
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 26,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 25950,
+          "completion_tokens": 49,
+          "total_tokens": 25999,
+          "seconds": 10.2,
+          "cache_read_tokens": 0,
+          "at_s": 21.54
+        },
+        {
+          "call": 27,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 26780,
+          "completion_tokens": 42,
+          "total_tokens": 26822,
+          "seconds": 4.0,
+          "cache_read_tokens": 0,
+          "at_s": 27.169
+        },
+        {
+          "call": 28,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 27814,
+          "completion_tokens": 40,
+          "total_tokens": 27854,
+          "seconds": 4.6,
+          "cache_read_tokens": 0,
+          "at_s": 33.274
+        },
+        {
+          "call": 29,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 28778,
+          "completion_tokens": 40,
+          "total_tokens": 28818,
+          "seconds": 4.4,
+          "cache_read_tokens": 0,
+          "at_s": 39.137
+        },
+        {
+          "call": 30,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 28932,
+          "completion_tokens": 40,
+          "total_tokens": 28972,
+          "seconds": 2.6,
+          "cache_read_tokens": 0,
+          "at_s": 41.744
+        },
+        {
+          "call": 31,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 29097,
+          "completion_tokens": 20,
+          "total_tokens": 29117,
+          "seconds": 1.9,
+          "cache_read_tokens": 0,
+          "at_s": 43.644
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 5.11,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1497,
+          "completion_tokens": 125,
+          "at_s": 11.347
+        },
+        {
+          "seconds": 10.157,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 25950,
+          "completion_tokens": 49,
+          "at_s": 21.54
+        },
+        {
+          "seconds": 4.032,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 26780,
+          "completion_tokens": 42,
+          "at_s": 27.169
+        },
+        {
+          "seconds": 4.584,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 27814,
+          "completion_tokens": 40,
+          "at_s": 33.274
+        },
+        {
+          "seconds": 4.343,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 28778,
+          "completion_tokens": 40,
+          "at_s": 39.136
+        },
+        {
+          "seconds": 2.587,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 28932,
+          "completion_tokens": 40,
+          "at_s": 41.744
+        },
+        {
+          "seconds": 1.878,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 6144,
+          "tool_schema_count": 24,
+          "prompt_tokens": 29097,
+          "completion_tokens": 20,
+          "at_s": 43.644
+        },
+        {
+          "seconds": 2.722,
+          "schema": "spoken_summary",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1015,
+          "completion_tokens": 47,
+          "at_s": 46.367
+        }
+      ],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 21.552,
+          "duration_s": 1.563,
+          "is_error": false,
+          "completed_s": 23.124
+        },
+        {
+          "name": "web_search",
+          "started_s": 27.181,
+          "duration_s": 1.484,
+          "is_error": false,
+          "completed_s": 28.675
+        },
+        {
+          "name": "web_search",
+          "started_s": 33.287,
+          "duration_s": 1.48,
+          "is_error": false,
+          "completed_s": 34.779
+        }
+      ],
+      "tts_synthesis": [
+        {
+          "start_s": 46.649,
+          "seconds": 4.051,
+          "characters": 238,
+          "text": "I could not finish this step. Sources retrieved for reference (not claim-by-claim verification): Verification note: Some requested source lookups were unavailable; confirm time-sensitive details. The details are queued for email delivery."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 4.687,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 50.701,
+          "seconds": 14.357,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [
+        {
+          "body": "I could not finish this step.\n\nSources retrieved for reference (not claim-by-claim verification):\nhttps://camelcamelcamel.com/product/B0CCZ1L489\nhttps://camelcamelcamel.com/product/B0F3PQHWTZ\nhttps://consequence.net/2026/06/bose-quietcomfort-ultra-prime-day-2026-deal/\nhttps://electronics.sony.com/audio/headphones/headband/p/wh1000xm6-b\nhttps://lifehacker.com/tech/amazon-deal-sony-wh-1000xm6-headphones-gift-card\nhttps://mashable.com/roundup/best-noise-cancelling-headphones-2026-tested\nhttps://www.amazon.com/Bose-QuietComfort-Wireless-Cancelling-Headphones/dp/B0CCZ1L489\nhttps://www.amazon.com/Sony-WH-1000XM6-Headphones-Microphones-Studio-Quality/dp/B0F3PQHWTZ\nhttps://www.bose.com/p/headphones/bose-quietcomfort-ultra-headphones-2nd-gen/QCUH2-HEADPHONEARN.html\nhttps://www.businessinsider.com/guides/deals/bose-quietcomfort-ultra-headphones-prime-day-deal-2026-6\nhttps://www.cnet.com/tech/mobile/best-noise-canceling-headphones/\nhttps://www.rtings.com/headphones/reviews/best/by-feature/noise-cancelling\nhttps://www.techradar.com/audio/headphones/best-noise-cancelling-headphones\nhttps://www.theverge.com/21345733/best-noise-canceling-headphones\nhttps://www.zdnet.com/article/sony-wh-1000xm6-amazon-prime-day-deal-2026/\n\nVerification note: Some requested source lookups were unavailable; confirm time-sensitive details.",
+          "summary": "I could not finish this step. Sources retrieved for reference (not claim-by-claim verification): Verification note: Some requested source lookups were unavailable; confirm time-sensitive details.",
+          "status": "queued",
+          "enqueue_s": 0.01
+        }
+      ],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 65.073,
+        "asr_s": 4.679,
+        "pre_agent_s": 1.526,
+        "agent_turn_s": 40.207,
+        "post_agent_s": 18.661,
+        "main_llm_s": 27.7,
+        "voice_aux_llm_s": 7.832,
+        "tool_work_s": 4.527,
+        "tts_synthesis_work_s": 4.051,
+        "audio_playback_s": 15.87,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 50.701,
+        "prompt_tokens": 167351,
+        "completion_tokens": 231,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 14.357,
+        "time_to_ack_audio_s": 4.687,
+        "asr_word_error_rate": 0.25
+      },
+      "quality_status": "fail",
+      "quality_note": "Returned a source-lookup failure rather than two current recommendations."
+    },
+    {
+      "execution_index": 16,
+      "case_id": "shopping_02",
+      "scenario": "online_shopping",
+      "mode": "keyboard",
+      "prompt": "Find current US online prices for noise-canceling headphones under 350 dollars and recommend two options.",
+      "submitted_text": "Find current US online prices for noise-canceling headphones under 350 dollars and recommend two options.",
+      "asr": {},
+      "response": ".",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.007
+        },
+        {
+          "name": "first_text",
+          "at_s": 74.959
+        },
+        {
+          "name": "agent_end",
+          "at_s": 74.977
+        },
+        {
+          "name": "chat_end",
+          "at_s": 75.215
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 23,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 39480,
+          "completion_tokens": 111,
+          "total_tokens": 39591,
+          "seconds": 6.9,
+          "cache_read_tokens": 0,
+          "at_s": 66.346
+        },
+        {
+          "call": 24,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 41265,
+          "completion_tokens": 2,
+          "total_tokens": 41267,
+          "seconds": 6.1,
+          "cache_read_tokens": 0,
+          "at_s": 74.959
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 57.916,
+          "duration_s": 1.523,
+          "is_error": false,
+          "completed_s": 59.445
+        },
+        {
+          "name": "web_search",
+          "started_s": 66.356,
+          "duration_s": 1.502,
+          "is_error": false,
+          "completed_s": 68.816
+        },
+        {
+          "name": "web_search",
+          "started_s": 66.356,
+          "duration_s": 2.445,
+          "is_error": false,
+          "completed_s": 68.81
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 75.215,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.007,
+        "agent_turn_s": 74.97,
+        "post_agent_s": 0.238,
+        "main_llm_s": 13.0,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 5.47,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 74.959,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 80745,
+        "completion_tokens": 113,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "fail",
+      "quality_note": "Returned only punctuation instead of headphone prices and recommendations."
+    },
+    {
+      "execution_index": 17,
+      "case_id": "schedule_01",
+      "scenario": "schedule_management",
+      "mode": "keyboard",
+      "prompt": "List my current Hermes reminders and scheduled jobs, and tell me what will run next.",
+      "submitted_text": "List my current Hermes reminders and scheduled jobs, and tell me what will run next.",
+      "asr": {},
+      "response": "I've checked your current Hermes reminders and scheduled jobs. Here's the status:\n\n## Scheduled Jobs (Cron)\n- **No scheduled jobs currently exist.** Your cron system is empty - you can create one with `hermes cron create ...` or the `/cron` command in chat.\n\n## Reminders\n- There doesn't appear to be a dedicated reminder system accessible in this environment. The tool search only returned demo_home_status and local_media, which aren't related to reminders.\n\n## Next Running Item\n- **Nothing is scheduled to run next** since there are no active reminders or cron jobs.\n\nIf you'd like to set up any scheduled jobs or reminders, I can help you create them using the hermes cron command.",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.006
+        },
+        {
+          "name": "first_text",
+          "at_s": 8.477
+        },
+        {
+          "name": "agent_end",
+          "at_s": 33.201
+        },
+        {
+          "name": "chat_end",
+          "at_s": 33.426
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 25,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 41285,
+          "completion_tokens": 45,
+          "total_tokens": 41330,
+          "seconds": 9.7,
+          "cache_read_tokens": 0,
+          "at_s": 9.707
+        },
+        {
+          "call": 26,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 42180,
+          "completion_tokens": 45,
+          "total_tokens": 42225,
+          "seconds": 5.4,
+          "cache_read_tokens": 0,
+          "at_s": 16.614
+        },
+        {
+          "call": 27,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 42400,
+          "completion_tokens": 58,
+          "total_tokens": 42458,
+          "seconds": 3.8,
+          "cache_read_tokens": 0,
+          "at_s": 20.39
+        },
+        {
+          "call": 28,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 42515,
+          "completion_tokens": 40,
+          "total_tokens": 42555,
+          "seconds": 2.9,
+          "cache_read_tokens": 0,
+          "at_s": 24.013
+        },
+        {
+          "call": 29,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 42616,
+          "completion_tokens": 40,
+          "total_tokens": 42656,
+          "seconds": 2.8,
+          "cache_read_tokens": 0,
+          "at_s": 26.882
+        },
+        {
+          "call": 30,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 42828,
+          "completion_tokens": 153,
+          "total_tokens": 42981,
+          "seconds": 6.3,
+          "cache_read_tokens": 0,
+          "at_s": 33.181
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "web_search",
+          "started_s": 9.716,
+          "duration_s": 1.513,
+          "is_error": false,
+          "completed_s": 11.237
+        },
+        {
+          "name": "tool_search",
+          "started_s": 16.625,
+          "duration_s": 0.003,
+          "is_error": false,
+          "completed_s": 16.631
+        },
+        {
+          "name": "terminal",
+          "started_s": 20.4,
+          "duration_s": 0.659,
+          "is_error": false,
+          "completed_s": 21.063
+        },
+        {
+          "name": "tool_call",
+          "started_s": 24.023,
+          "duration_s": 0.001,
+          "is_error": true,
+          "completed_s": 24.031
+        },
+        {
+          "name": "tool_search",
+          "started_s": 26.889,
+          "duration_s": 0.003,
+          "is_error": false,
+          "completed_s": 26.897
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 33.426,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.006,
+        "agent_turn_s": 33.195,
+        "post_agent_s": 0.225,
+        "main_llm_s": 30.9,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 2.179,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 8.477,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 253824,
+        "completion_tokens": 381,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Correctly reported that the isolated cron store was empty and nothing would run next."
+    },
+    {
+      "execution_index": 18,
+      "case_id": "schedule_01",
+      "scenario": "schedule_management",
+      "mode": "voice",
+      "prompt": "List my current Hermes reminders and scheduled jobs, and tell me what will run next.",
+      "submitted_text": "List my current Hermes, Reminds, and Schedule jobs, and tell me what will run next.",
+      "asr": {
+        "success": true,
+        "transcript": "List my current Hermes, Reminds, and Schedule jobs, and tell me what will run next.",
+        "input_audio_duration_s": 5.534,
+        "fixture_sha256": "a1f65d07f5ceb6ceeada21e4cc568f0e864c345ce79b3adeb4d15eca41b9abfb",
+        "filtered": false
+      },
+      "response": "I could not finish this step. Verification note: Live sources were unavailable or not used; confirm current and time-sensitive details. The details are queued for email delivery.\nI could not finish this step. Verification note: Live sources were unavailable or not used; confirm current and time-sensitive details. The details are queued for email delivery.\nI could not finish this step. Verification note: Live sources were unavailable or not used; confirm current and time-sensitive details. The details are queued for email delivery.\nHere's every appliance in the demo home, listed by state:\n\n**Currently ON (3 devices):**\n1. Living room air conditioner\n2. Second bedroom air conditioner\n3. Lights\n\n**Currently OFF (3 devices):**\n4. Main bedroom air conditioner\n5. Living room TV\n6. Robot vacuum\n\nThree appliances are on and three are off.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 7.491
+        },
+        {
+          "name": "chat_start",
+          "at_s": 7.491
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 7.501,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 9.016
+        },
+        {
+          "name": "first_text",
+          "at_s": 102.41
+        },
+        {
+          "name": "agent_end",
+          "at_s": 143.593
+        },
+        {
+          "name": "chat_end",
+          "at_s": 163.073
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 32,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 29339,
+          "completion_tokens": 77,
+          "total_tokens": 29416,
+          "seconds": 9.7,
+          "cache_read_tokens": 0,
+          "at_s": 125.512
+        },
+        {
+          "call": 33,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 29601,
+          "completion_tokens": 41,
+          "total_tokens": 29642,
+          "seconds": 6.5,
+          "cache_read_tokens": 0,
+          "at_s": 134.42
+        },
+        {
+          "call": 34,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 29819,
+          "completion_tokens": 76,
+          "total_tokens": 29895,
+          "seconds": 9.0,
+          "cache_read_tokens": 0,
+          "at_s": 143.543
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 13.325,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1577,
+          "completion_tokens": 125,
+          "at_s": 22.361
+        }
+      ],
+      "tools": [
+        {
+          "name": "computer_use",
+          "started_s": 125.588,
+          "duration_s": 2.178,
+          "is_error": true,
+          "completed_s": 127.768
+        },
+        {
+          "name": "execute_code",
+          "started_s": 127.77,
+          "duration_s": 0.102,
+          "is_error": false,
+          "completed_s": 127.876
+        },
+        {
+          "name": "demo_home_status",
+          "started_s": 134.435,
+          "duration_s": 0.066,
+          "is_error": false,
+          "completed_s": 134.505
+        }
+      ],
+      "tts_synthesis": [
+        {
+          "start_s": 143.925,
+          "seconds": 8.027,
+          "characters": 178,
+          "text": "I could not finish this step. Verification note: Live sources were unavailable or not used; confirm current and time-sensitive details. The details are queued for email delivery."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 7.501,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 151.953,
+          "seconds": 11.097,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 163.073,
+        "asr_s": 7.491,
+        "pre_agent_s": 1.525,
+        "agent_turn_s": 134.577,
+        "post_agent_s": 19.48,
+        "main_llm_s": 25.2,
+        "voice_aux_llm_s": 13.325,
+        "tool_work_s": 2.346,
+        "tts_synthesis_work_s": 8.027,
+        "audio_playback_s": 12.61,
+        "time_to_first_text_s": 102.41,
+        "time_to_first_final_audio_s": 151.953,
+        "prompt_tokens": 88759,
+        "completion_tokens": 194,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 11.097,
+        "time_to_ack_audio_s": 7.501,
+        "asr_word_error_rate": 0.133
+      },
+      "quality_status": "fail",
+      "quality_note": "Cross-scene contamination: mixed failure text and demo-home appliance state instead of the schedule result."
+    },
+    {
+      "execution_index": 19,
+      "case_id": "schedule_02",
+      "scenario": "schedule_management",
+      "mode": "voice",
+      "prompt": "Create a one-time reminder for 9:00 AM tomorrow to review the demo checklist, then confirm the saved schedule.",
+      "submitted_text": "Create a one-time remind for 9.00 a.m. tomorrow to review the demo checklist, then confirm the save schedule.",
+      "asr": {
+        "success": true,
+        "transcript": "Create a one-time remind for 9.00 a.m. tomorrow to review the demo checklist, then confirm the save schedule.",
+        "input_audio_duration_s": 8.409,
+        "fixture_sha256": "98873c81699f154768b399483788a226e49c7af26dc086f07356f14a8050d1dc",
+        "filtered": false
+      },
+      "response": "I've tried using the available tools to create a reminder, but I'm unable to access a scheduling or reminder feature. My current access is limited to the demo_home_status and web_search capabilities. I cannot create the scheduled remind or confirm the schedule as requested.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 8.487
+        },
+        {
+          "name": "chat_start",
+          "at_s": 8.487
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 8.497,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 10.012
+        },
+        {
+          "name": "first_text",
+          "at_s": 208.89
+        },
+        {
+          "name": "agent_end",
+          "at_s": 360.259
+        },
+        {
+          "name": "chat_end",
+          "at_s": 387.788
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 35,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 29923,
+          "completion_tokens": 80,
+          "total_tokens": 30003,
+          "seconds": 22.2,
+          "cache_read_tokens": 0,
+          "at_s": 45.366
+        },
+        {
+          "call": 36,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 30250,
+          "completion_tokens": 55,
+          "total_tokens": 30305,
+          "seconds": 240.6,
+          "cache_read_tokens": 0,
+          "at_s": 294.905
+        },
+        {
+          "call": 37,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 30399,
+          "completion_tokens": 53,
+          "total_tokens": 30452,
+          "seconds": 44.4,
+          "cache_read_tokens": 0,
+          "at_s": 345.344
+        },
+        {
+          "call": 38,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 30561,
+          "completion_tokens": 79,
+          "total_tokens": 30640,
+          "seconds": 8.1,
+          "cache_read_tokens": 0,
+          "at_s": 353.462
+        },
+        {
+          "call": 39,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 30718,
+          "completion_tokens": 53,
+          "total_tokens": 30771,
+          "seconds": 5.9,
+          "cache_read_tokens": 0,
+          "at_s": 360.152
+        },
+        {
+          "call": 1,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 30595,
+          "completion_tokens": 5,
+          "total_tokens": 30600,
+          "seconds": 4.8,
+          "cache_read_tokens": 0,
+          "at_s": 365.173
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 12.86,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1560,
+          "completion_tokens": 137,
+          "at_s": 23.163
+        }
+      ],
+      "tools": [
+        {
+          "name": "todo_list",
+          "started_s": 45.382,
+          "duration_s": 0.002,
+          "is_error": false,
+          "completed_s": 45.387
+        },
+        {
+          "name": "tool_call",
+          "started_s": 54.317,
+          "duration_s": 0.002,
+          "is_error": true,
+          "completed_s": 54.322
+        },
+        {
+          "name": "search_files",
+          "started_s": 295.145,
+          "duration_s": 0.173,
+          "is_error": false,
+          "completed_s": 295.304
+        },
+        {
+          "name": "search_files",
+          "started_s": 300.857,
+          "duration_s": 0.051,
+          "is_error": false,
+          "completed_s": 300.912
+        },
+        {
+          "name": "tool_call",
+          "started_s": 345.358,
+          "duration_s": 0.004,
+          "is_error": true,
+          "completed_s": 345.366
+        },
+        {
+          "name": "computer_use",
+          "started_s": 353.474,
+          "duration_s": 0.796,
+          "is_error": true,
+          "completed_s": 354.275
+        }
+      ],
+      "tts_synthesis": [
+        {
+          "start_s": 360.493,
+          "seconds": 11.673,
+          "characters": 272,
+          "text": "I've tried using the available tools to create a reminder, but I'm unable to access a scheduling or reminder feature. My current access is limited to the demohomestatus and web_search capabilities. I cannot create the scheduled remind or confirm the schedule as requested."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 8.497,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 372.166,
+          "seconds": 15.606,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 387.788,
+        "asr_s": 8.487,
+        "pre_agent_s": 1.525,
+        "agent_turn_s": 350.247,
+        "post_agent_s": 27.529,
+        "main_llm_s": 326.0,
+        "voice_aux_llm_s": 12.86,
+        "tool_work_s": 1.028,
+        "tts_synthesis_work_s": 11.673,
+        "audio_playback_s": 17.119,
+        "time_to_first_text_s": 208.89,
+        "time_to_first_final_audio_s": 372.166,
+        "prompt_tokens": 182446,
+        "completion_tokens": 325,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 15.606,
+        "time_to_ack_audio_s": 8.497,
+        "asr_word_error_rate": 0.2
+      },
+      "quality_status": "fail",
+      "quality_note": "Spent 387.788 seconds in wrong tool paths and then reported that scheduling was inaccessible."
+    },
+    {
+      "execution_index": 20,
+      "case_id": "schedule_02",
+      "scenario": "schedule_management",
+      "mode": "keyboard",
+      "prompt": "Create a one-time reminder for 9:00 AM tomorrow to review the demo checklist, then confirm the saved schedule.",
+      "submitted_text": "Create a one-time reminder for 9:00 AM tomorrow to review the demo checklist, then confirm the saved schedule.",
+      "asr": {},
+      "response": "I need to convert \"9:00 AM tomorrow\" into a proper timestamp. Let me first check what the current date/time is and then create the cron job.\nLet me fix that and properly create the reminder with the correct command structure.",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.004
+        },
+        {
+          "name": "first_text",
+          "at_s": 5.005
+        },
+        {
+          "name": "agent_end",
+          "at_s": 25.692
+        },
+        {
+          "name": "chat_end",
+          "at_s": 25.947
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 31,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 42995,
+          "completion_tokens": 59,
+          "total_tokens": 43054,
+          "seconds": 6.5,
+          "cache_read_tokens": 0,
+          "at_s": 6.68
+        },
+        {
+          "call": 32,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 43958,
+          "completion_tokens": 93,
+          "total_tokens": 44051,
+          "seconds": 7.0,
+          "cache_read_tokens": 0,
+          "at_s": 23.466
+        },
+        {
+          "call": 33,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 44097,
+          "completion_tokens": 16,
+          "total_tokens": 44113,
+          "seconds": 2.2,
+          "cache_read_tokens": 0,
+          "at_s": 25.664
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "terminal",
+          "started_s": 6.704,
+          "duration_s": 0.78,
+          "is_error": true,
+          "completed_s": 7.485
+        },
+        {
+          "name": "terminal",
+          "started_s": 13.208,
+          "duration_s": 0.384,
+          "is_error": false,
+          "completed_s": 13.597
+        },
+        {
+          "name": "tool_call",
+          "started_s": 23.478,
+          "duration_s": 0.003,
+          "is_error": true,
+          "completed_s": 23.488
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 25.947,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.004,
+        "agent_turn_s": 25.688,
+        "post_agent_s": 0.255,
+        "main_llm_s": 15.7,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 1.167,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 5.005,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 131050,
+        "completion_tokens": 168,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "fail",
+      "quality_note": "Described an intention to create a reminder but did not complete or confirm the requested schedule."
+    },
+    {
+      "execution_index": 21,
+      "case_id": "coding_01",
+      "scenario": "simple_coding",
+      "mode": "keyboard",
+      "prompt": "Write a Python function that removes duplicates from a list while preserving order, and explain its time and space complexity.",
+      "submitted_text": "Write a Python function that removes duplicates from a list while preserving order, and explain its time and space complexity.",
+      "asr": {},
+      "response": "Here's a Python function that removes duplicates while preserving order, along with its complexity analysis:\n\n```python\ndef remove_duplicates_preserve_order(input_list):\n    \"\"\"\n    Removes duplicates from a list while preserving the original order.\n    \n    Args:\n        input_list: List of elements (must be hashable)\n        \n    Returns:\n        A new list with duplicates removed, preserving original order\n    \"\"\"\n    seen = set()\n    result = []\n    \n    for item in input_list:\n        if item not in seen:\n            seen.add(item)\n            result.append(item)\n            \n    return result\n```\n\n**Example usage:**\n```python\nmy_list = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]\nresult = remove_duplicates_preserve_order(my_list)\nprint(result)  # Output: [3, 1, 4, 5, 9, 2, 6]\n```\n\n## Complexity Analysis\n\n### Time Complexity: O(n)\n- We iterate through each element in the input list exactly once\n- For each element, checking if it exists in a set is O(1) on average\n- Adding to the result list is amortized O(1)\n- Total: n iterations × O(1) per operation = **O(n)**\n\n### Space Complexity: O(n)\n- The `seen` set can contain at most n unique elements\n- The `result` list can contain at most n unique elements  \n- Total: O(n) space for both data structures = **O(n)**\n\n## Why This Approach?\n\nThis method is optimal because:\n1. **Hash sets provide O(1) average case lookups** - much faster than linear searches\n2. **Order preservation** - we only add items when they first appear\n3. **Single pass** - we process each element exactly once\n4. **Memory efficient** - only stores what we need to track\n\n## Edge Cases Handled:\n- Empty lists: returns empty list\n- Single element: returns same list\n- All duplicates: returns list with unique elements only\n- Mixed data types: works with any hashable types (strings, numbers, tuples)\n\nThe function assumes all elements are hashable (which includes strings, numbers, and tuples, but not lists or dictionaries). If you need to handle unhashable types, you'd need a different approach using `result.count()` or converting elements to strings for comparison.",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.003
+        },
+        {
+          "name": "first_text",
+          "at_s": 2.137
+        },
+        {
+          "name": "agent_end",
+          "at_s": 18.635
+        },
+        {
+          "name": "chat_end",
+          "at_s": 18.87
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 34,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 44140,
+          "completion_tokens": 538,
+          "total_tokens": 44678,
+          "seconds": 18.4,
+          "cache_read_tokens": 0,
+          "at_s": 18.618
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 18.87,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.003,
+        "agent_turn_s": 18.632,
+        "post_agent_s": 0.235,
+        "main_llm_s": 18.4,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 2.137,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 44140,
+        "completion_tokens": 538,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Returned a correct order-preserving deduplication function and complexity explanation."
+    },
+    {
+      "execution_index": 22,
+      "case_id": "coding_01",
+      "scenario": "simple_coding",
+      "mode": "voice",
+      "prompt": "Write a Python function that removes duplicates from a list while preserving order, and explain its time and space complexity.",
+      "submitted_text": "Write a Python function that removes duplicates from a list while preserving ord, and explain its time and space complexity.",
+      "asr": {
+        "success": true,
+        "transcript": "Write a Python function that removes duplicates from a list while preserving ord, and explain its time and space complexity.",
+        "input_audio_duration_s": 8.0,
+        "fixture_sha256": "91fce67fd31fb53b3747c352ae4b3b38c97e3b9ccd0647dee329be74d3c85444",
+        "filtered": false
+      },
+      "response": "Here’s a Python function that removes duplicates while preserving order, along with a complexity analysis:\n\n```python\ndef remove_duplicates(lst):\n    seen = set()\n    result = []\n    for item in lst:\n        if item not in seen:\n            seen.add(item)\n            result.append(item)\n    return result\n```\n\n### How It Works\n1. **`seen`** tracks items we’ve already encountered.\n2. **`result`** collects the first occurrence of each item, preserving the original order.\n3. Each item is checked against `seen`; if it’s new, it’s added to both `seen` and `result`.\n\n### Time Complexity\n- **O(n)**: We iterate through the list once (n items).\n- Each `in` check and `add` operation on `set` is **O(1)** on average.\n- **Total**: **O(n)** time.\n\n### Space Complexity\n- **O(n)**: In the worst case, all elements are unique, requiring space for `seen` (up to n items) and `result` (up to n items).\n- **Total**: **O(n)** space.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 8.648
+        },
+        {
+          "name": "chat_start",
+          "at_s": 8.649
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 8.657,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 10.176
+        },
+        {
+          "name": "first_text",
+          "at_s": 17.95
+        },
+        {
+          "name": "agent_end",
+          "at_s": 56.341
+        },
+        {
+          "name": "chat_end",
+          "at_s": 81.103
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 40,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 30778,
+          "completion_tokens": 252,
+          "total_tokens": 31030,
+          "seconds": 40.3,
+          "cache_read_tokens": 0,
+          "at_s": 56.321
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 5.818,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1555,
+          "completion_tokens": 125,
+          "at_s": 16.034
+        }
+      ],
+      "tools": [],
+      "tts_synthesis": [
+        {
+          "start_s": 56.51,
+          "seconds": 5.92,
+          "characters": 330,
+          "text": "Here’s a Python function that removes duplicates while preserving order, along with a complexity analysis: How It Works seen tracks items we’ve already encountered. result collects the first occurrence of each item, preserving the original order. Each item is checked against seen; if it’s new, it’s added to both seen and result."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 8.658,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 62.431,
+          "seconds": 18.612,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 81.103,
+        "asr_s": 8.648,
+        "pre_agent_s": 1.527,
+        "agent_turn_s": 46.165,
+        "post_agent_s": 24.762,
+        "main_llm_s": 40.3,
+        "voice_aux_llm_s": 5.818,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 5.92,
+        "audio_playback_s": 20.125,
+        "time_to_first_text_s": 17.95,
+        "time_to_first_final_audio_s": 62.431,
+        "prompt_tokens": 30778,
+        "completion_tokens": 252,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 18.612,
+        "time_to_ack_audio_s": 8.658,
+        "asr_word_error_rate": 0.05
+      },
+      "quality_status": "pass",
+      "quality_note": "Returned a correct function and complexity explanation, although too verbose for speech."
+    },
+    {
+      "execution_index": 23,
+      "case_id": "coding_02",
+      "scenario": "simple_coding",
+      "mode": "voice",
+      "prompt": "Create a file named benchmark_fibonacci.py in the benchmark workspace containing an iterative Fibonacci function and a small self-test, then summarize what you wrote.",
+      "submitted_text": "Create a file named Benchmark Fibonacci. Pie in the Benchmark workspace containing an iterative Fibonacci function and a small self-test, then summarize what you wrote.",
+      "asr": {
+        "success": true,
+        "transcript": "Create a file named Benchmark Fibonacci. Pie in the Benchmark workspace containing an iterative Fibonacci function and a small self-test, then summarize what you wrote.",
+        "input_audio_duration_s": 10.791,
+        "fixture_sha256": "77ad9195f727f7486e6170635617e499b415084470b1953871842ad77897d6f5",
+        "filtered": false
+      },
+      "response": "I've created the file `/tmp/hermes-voice-keyboard-benchmark-fimizd55/workspace/Benchmark Fibonacci. Pie`. It contains:\n\n1. An `fibonacci_iterative(n)` function that computes the nth Fibonacci number iteratively with full input validation (rejects negative numbers and non-integers)\n2. A `test_fibonacci()` function that runs 10 tests covering base cases (0, 1), standard values (2, 3, 10, 20, 50), and error cases (negative, float, string inputs)\n\nAll tests passed when executed.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 4.398
+        },
+        {
+          "name": "chat_start",
+          "at_s": 4.398
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 4.405,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 5.922
+        },
+        {
+          "name": "first_text",
+          "at_s": 12.359
+        },
+        {
+          "name": "agent_end",
+          "at_s": 42.677
+        },
+        {
+          "name": "chat_end",
+          "at_s": 83.781
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 41,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 31068,
+          "completion_tokens": 736,
+          "total_tokens": 31804,
+          "seconds": 23.2,
+          "cache_read_tokens": 0,
+          "at_s": 33.109
+        },
+        {
+          "call": 42,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 31961,
+          "completion_tokens": 129,
+          "total_tokens": 32090,
+          "seconds": 5.0,
+          "cache_read_tokens": 0,
+          "at_s": 42.651
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 3.979,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1562,
+          "completion_tokens": 139,
+          "at_s": 9.935
+        }
+      ],
+      "tools": [
+        {
+          "name": "write_file",
+          "started_s": 33.125,
+          "duration_s": 0.117,
+          "is_error": false,
+          "completed_s": 33.248
+        },
+        {
+          "name": "terminal",
+          "started_s": 37.64,
+          "duration_s": 0.029,
+          "is_error": false,
+          "completed_s": 37.675
+        }
+      ],
+      "tts_synthesis": [
+        {
+          "start_s": 42.866,
+          "seconds": 7.958,
+          "characters": 467,
+          "text": "I've created the file /tmp/hermes-voice-keyboard-benchmark-fimizd55 per workspace/Benchmark Fibonacci. Pie. It contains: An fibonacciiterative(n) function that computes the nth Fibonacci number iteratively with full input validation (rejects negative numbers and non-integers) A testfibonacci() function that runs 10 tests covering base cases (0, 1), standard values (2, 3, 10, 20, 50), and error cases (negative, float, string inputs) All tests passed when executed."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 4.405,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 50.825,
+          "seconds": 32.929,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 83.781,
+        "asr_s": 4.398,
+        "pre_agent_s": 1.524,
+        "agent_turn_s": 36.755,
+        "post_agent_s": 41.104,
+        "main_llm_s": 28.2,
+        "voice_aux_llm_s": 3.979,
+        "tool_work_s": 0.146,
+        "tts_synthesis_work_s": 7.958,
+        "audio_playback_s": 34.442,
+        "time_to_first_text_s": 12.359,
+        "time_to_first_final_audio_s": 50.825,
+        "prompt_tokens": 63029,
+        "completion_tokens": 865,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 32.929,
+        "time_to_ack_audio_s": 4.405,
+        "asr_word_error_rate": 0.038
+      },
+      "quality_status": "fail",
+      "quality_note": "ASR changed benchmark_fibonacci.py to 'Benchmark Fibonacci. Pie', so the requested file was not created."
+    },
+    {
+      "execution_index": 24,
+      "case_id": "coding_02",
+      "scenario": "simple_coding",
+      "mode": "keyboard",
+      "prompt": "Create a file named benchmark_fibonacci.py in the benchmark workspace containing an iterative Fibonacci function and a small self-test, then summarize what you wrote.",
+      "submitted_text": "Create a file named benchmark_fibonacci.py in the benchmark workspace containing an iterative Fibonacci function and a small self-test, then summarize what you wrote.",
+      "asr": {},
+      "response": "Perfect! The file has been created and tested successfully.\n\n## Summary of What I Created:\n\n**File:** `/tmp/hermes-voice-keyboard-benchmark-fimizd55/workspace/benchmark_fibonacci.py`\n\n**Function:** `fibonacci_iterative(n)`\n- Computes the nth Fibonacci number using an iterative approach\n- Time complexity: O(n)\n- Space complexity: O(1)\n- Includes comprehensive input validation (TypeError for non-integers, ValueError for negative numbers)\n\n**Self-test Function:** `self_test()`\n- Tests 13 cases from fibonacci(0) to fibonacci(50)\n- Includes error handling tests for negative and non-integer inputs\n- Reports pass/fail counts and returns boolean success status\n- All 15 tests passed successfully\n\n**Example usage:**\n```python\nfrom benchmark_fibonacci import fibonacci_iterative\nresult = fibonacci_iterative(10)  # Returns 55\n```\n\nThe file is ready to use and passes all self-tests.",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.007
+        },
+        {
+          "name": "first_text",
+          "at_s": 73.181
+        },
+        {
+          "name": "agent_end",
+          "at_s": 125.648
+        },
+        {
+          "name": "chat_end",
+          "at_s": 125.858
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 35,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 44717,
+          "completion_tokens": 849,
+          "total_tokens": 45566,
+          "seconds": 99.7,
+          "cache_read_tokens": 0,
+          "at_s": 99.794
+        },
+        {
+          "call": 36,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 45598,
+          "completion_tokens": 59,
+          "total_tokens": 45657,
+          "seconds": 5.7,
+          "cache_read_tokens": 0,
+          "at_s": 105.717
+        },
+        {
+          "call": 37,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 46778,
+          "completion_tokens": 62,
+          "total_tokens": 46840,
+          "seconds": 7.1,
+          "cache_read_tokens": 0,
+          "at_s": 112.871
+        },
+        {
+          "call": 38,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 46925,
+          "completion_tokens": 48,
+          "total_tokens": 46973,
+          "seconds": 3.6,
+          "cache_read_tokens": 0,
+          "at_s": 116.518
+        },
+        {
+          "call": 39,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 47189,
+          "completion_tokens": 215,
+          "total_tokens": 47404,
+          "seconds": 9.0,
+          "cache_read_tokens": 0,
+          "at_s": 125.621
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [
+        {
+          "name": "write_file",
+          "started_s": 99.822,
+          "duration_s": 0.108,
+          "is_error": false,
+          "completed_s": 99.938
+        },
+        {
+          "name": "read_file",
+          "started_s": 105.73,
+          "duration_s": 0.08,
+          "is_error": false,
+          "completed_s": 105.816
+        },
+        {
+          "name": "terminal",
+          "started_s": 112.889,
+          "duration_s": 0.018,
+          "is_error": true,
+          "completed_s": 112.915
+        },
+        {
+          "name": "terminal",
+          "started_s": 116.538,
+          "duration_s": 0.031,
+          "is_error": false,
+          "completed_s": 116.576
+        }
+      ],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 125.858,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.007,
+        "agent_turn_s": 125.641,
+        "post_agent_s": 0.21,
+        "main_llm_s": 125.1,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 0.237,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 73.181,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 231207,
+        "completion_tokens": 1233,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Created the requested correctly named file in the isolated workspace and ran its self-test."
+    },
+    {
+      "execution_index": 25,
+      "case_id": "chat_01",
+      "scenario": "casual_chat",
+      "mode": "keyboard",
+      "prompt": "How are you today?",
+      "submitted_text": "How are you today?",
+      "asr": {},
+      "response": "I'm doing well, thank you for asking! I'm ready and focused on helping you with any tasks or questions you might have. Is there something specific I can assist you with today?",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.003
+        },
+        {
+          "name": "first_text",
+          "at_s": 9.816
+        },
+        {
+          "name": "agent_end",
+          "at_s": 10.914
+        },
+        {
+          "name": "chat_end",
+          "at_s": 11.087
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 40,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 47402,
+          "completion_tokens": 39,
+          "total_tokens": 47441,
+          "seconds": 10.9,
+          "cache_read_tokens": 0,
+          "at_s": 10.894
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 11.087,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.003,
+        "agent_turn_s": 10.911,
+        "post_agent_s": 0.173,
+        "main_llm_s": 10.9,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 9.816,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 47402,
+        "completion_tokens": 39,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Answered naturally and directly."
+    },
+    {
+      "execution_index": 26,
+      "case_id": "chat_01",
+      "scenario": "casual_chat",
+      "mode": "voice",
+      "prompt": "How are you today?",
+      "submitted_text": "How are you today?",
+      "asr": {
+        "success": true,
+        "transcript": "How are you today?",
+        "input_audio_duration_s": 2.111,
+        "fixture_sha256": "027880b784d23204c5c0f3b36e8af9963c7f8d5efcbf0bc3c600585bfb230f15",
+        "filtered": false
+      },
+      "response": "The assistant reports feeling well and expresses readiness to assist with tasks like trip planning, appliance checks, or coding. It invites the user to specify their current needs.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 5.423
+        },
+        {
+          "name": "chat_start",
+          "at_s": 5.423
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 5.431,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 6.948
+        },
+        {
+          "name": "agent_end",
+          "at_s": 56.3
+        },
+        {
+          "name": "chat_end",
+          "at_s": 70.547
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 43,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 32080,
+          "completion_tokens": 50,
+          "total_tokens": 32130,
+          "seconds": 42.1,
+          "cache_read_tokens": 0,
+          "at_s": 54.609
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 5.481,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1538,
+          "completion_tokens": 120,
+          "at_s": 12.463
+        },
+        {
+          "seconds": 42.102,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 24,
+          "prompt_tokens": 32080,
+          "completion_tokens": 50,
+          "at_s": 54.609
+        },
+        {
+          "seconds": 1.646,
+          "schema": "spoken_summary",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 0,
+          "prompt_tokens": 193,
+          "completion_tokens": 42,
+          "at_s": 56.257
+        }
+      ],
+      "tools": [],
+      "tts_synthesis": [
+        {
+          "start_s": 56.491,
+          "seconds": 3.794,
+          "characters": 180,
+          "text": "The assistant reports feeling well and expresses readiness to assist with tasks like trip planning, appliance checks, or coding. It invites the user to specify their current needs."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 5.432,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 60.285,
+          "seconds": 10.245,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 70.547,
+        "asr_s": 5.423,
+        "pre_agent_s": 1.525,
+        "agent_turn_s": 49.352,
+        "post_agent_s": 14.247,
+        "main_llm_s": 42.1,
+        "voice_aux_llm_s": 7.127,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 3.794,
+        "audio_playback_s": 11.758,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 60.285,
+        "prompt_tokens": 32080,
+        "completion_tokens": 50,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 10.245,
+        "time_to_ack_audio_s": 5.432,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "partial",
+      "quality_note": "Answered the intent, but the voice summarizer used unnatural third-person meta language."
+    },
+    {
+      "execution_index": 27,
+      "case_id": "chat_02",
+      "scenario": "casual_chat",
+      "mode": "voice",
+      "prompt": "Tell me a short, workplace-safe joke about computers.",
+      "submitted_text": "Tell me a short, workplace-safe joke about computers.",
+      "asr": {
+        "success": true,
+        "transcript": "Tell me a short, workplace-safe joke about computers.",
+        "input_audio_duration_s": 3.949,
+        "fixture_sha256": "1e4c8c9c2221d3c83fe84dd8339805ff5b8a2e81dfd50e96d539a988bf8c2c7b",
+        "filtered": false
+      },
+      "response": "Why do programmers prefer dark mode? Because light attracts bugs!",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 4.428
+        },
+        {
+          "name": "chat_start",
+          "at_s": 4.428
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 4.436,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 5.953
+        },
+        {
+          "name": "agent_end",
+          "at_s": 12.849
+        },
+        {
+          "name": "chat_end",
+          "at_s": 19.071
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 44,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 32145,
+          "completion_tokens": 13,
+          "total_tokens": 32158,
+          "seconds": 2.2,
+          "cache_read_tokens": 0,
+          "at_s": 12.802
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 4.572,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1558,
+          "completion_tokens": 95,
+          "at_s": 10.557
+        },
+        {
+          "seconds": 2.2,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 24,
+          "prompt_tokens": 32145,
+          "completion_tokens": 13,
+          "at_s": 12.801
+        }
+      ],
+      "tools": [],
+      "tts_synthesis": [
+        {
+          "start_s": 13.023,
+          "seconds": 1.991,
+          "characters": 65,
+          "text": "Why do programmers prefer dark mode? Because light attracts bugs!"
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 4.436,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 15.014,
+          "seconds": 4.043,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 19.071,
+        "asr_s": 4.428,
+        "pre_agent_s": 1.525,
+        "agent_turn_s": 6.896,
+        "post_agent_s": 6.222,
+        "main_llm_s": 2.2,
+        "voice_aux_llm_s": 4.572,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 1.991,
+        "audio_playback_s": 5.556,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 15.014,
+        "prompt_tokens": 32145,
+        "completion_tokens": 13,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 4.043,
+        "time_to_ack_audio_s": 4.436,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Returned a short workplace-safe computer joke."
+    },
+    {
+      "execution_index": 28,
+      "case_id": "chat_02",
+      "scenario": "casual_chat",
+      "mode": "keyboard",
+      "prompt": "Tell me a short, workplace-safe joke about computers.",
+      "submitted_text": "Tell me a short, workplace-safe joke about computers.",
+      "asr": {},
+      "response": "Why was the computer cold?\n\nBecause it left its Windows open! 😄",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.007
+        },
+        {
+          "name": "first_text",
+          "at_s": 82.489
+        },
+        {
+          "name": "agent_end",
+          "at_s": 82.945
+        },
+        {
+          "name": "chat_end",
+          "at_s": 83.124
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 41,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 47461,
+          "completion_tokens": 17,
+          "total_tokens": 47478,
+          "seconds": 82.9,
+          "cache_read_tokens": 0,
+          "at_s": 82.922
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 83.124,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.007,
+        "agent_turn_s": 82.938,
+        "post_agent_s": 0.179,
+        "main_llm_s": 82.9,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 82.489,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 47461,
+        "completion_tokens": 17,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Returned a short workplace-safe computer joke."
+    },
+    {
+      "execution_index": 29,
+      "case_id": "knowledge_01",
+      "scenario": "knowledge_qa",
+      "mode": "keyboard",
+      "prompt": "Why does the sky look blue?",
+      "submitted_text": "Why does the sky look blue?",
+      "asr": {},
+      "response": "The sky looks blue due to **Rayleigh scattering**:\n\n1. Sunlight appears white but contains all colors of the rainbow\n2. When sunlight enters Earth's atmosphere, it collides with gas molecules (mostly nitrogen and oxygen)\n3. Shorter wavelengths (blue and violet) scatter more easily than longer wavelengths (red, orange, yellow)\n4. Our eyes are more sensitive to blue than violet\n5. The scattered blue light reaches our eyes from all directions, making the sky appear blue\n\nThis is why sunsets are red/orange - at sunset, sunlight travels through more atmosphere, scattering away the blue and letting the longer red wavelengths through.",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.005
+        },
+        {
+          "name": "first_text",
+          "at_s": 2.097
+        },
+        {
+          "name": "agent_end",
+          "at_s": 6.241
+        },
+        {
+          "name": "chat_end",
+          "at_s": 6.497
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 42,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 47494,
+          "completion_tokens": 135,
+          "total_tokens": 47629,
+          "seconds": 6.2,
+          "cache_read_tokens": 0,
+          "at_s": 6.221
+        }
+      ],
+      "aux_api_calls": [],
+      "tools": [],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 6.497,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.005,
+        "agent_turn_s": 6.236,
+        "post_agent_s": 0.256,
+        "main_llm_s": 6.2,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 2.097,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 47494,
+        "completion_tokens": 135,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Correctly explained Rayleigh scattering."
+    },
+    {
+      "execution_index": 30,
+      "case_id": "knowledge_01",
+      "scenario": "knowledge_qa",
+      "mode": "voice",
+      "prompt": "Why does the sky look blue?",
+      "submitted_text": "Why does the sky look blue?",
+      "asr": {
+        "success": true,
+        "transcript": "Why does the sky look blue?",
+        "input_audio_duration_s": 2.483,
+        "fixture_sha256": "d6f329b3e0c550eef31ffb5d9c6fe4cc4d092b5a6efa73d6bd22f0d8e7d557cf",
+        "filtered": false
+      },
+      "response": "The sky appears blue due to Rayleigh scattering, where shorter blue wavelengths scatter more easily in the atmosphere than other colors. At sunrise and sunset, increased atmospheric scattering removes blue light, leaving red and orange hues.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 5.271
+        },
+        {
+          "name": "chat_start",
+          "at_s": 5.271
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 5.279,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 6.796
+        },
+        {
+          "name": "agent_end",
+          "at_s": 57.502
+        },
+        {
+          "name": "chat_end",
+          "at_s": 75.158
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 45,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 32166,
+          "completion_tokens": 99,
+          "total_tokens": 32265,
+          "seconds": 43.5,
+          "cache_read_tokens": 0,
+          "at_s": 55.663
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 5.346,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1579,
+          "completion_tokens": 106,
+          "at_s": 12.175
+        },
+        {
+          "seconds": 43.445,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 24,
+          "prompt_tokens": 32166,
+          "completion_tokens": 99,
+          "at_s": 55.662
+        },
+        {
+          "seconds": 1.805,
+          "schema": "spoken_summary",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 0,
+          "prompt_tokens": 246,
+          "completion_tokens": 52,
+          "at_s": 57.469
+        }
+      ],
+      "tools": [],
+      "tts_synthesis": [
+        {
+          "start_s": 57.741,
+          "seconds": 4.426,
+          "characters": 241,
+          "text": "The sky appears blue due to Rayleigh scattering, where shorter blue wavelengths scatter more easily in the atmosphere than other colors. At sunrise and sunset, increased atmospheric scattering removes blue light, leaving red and orange hues."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 5.279,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 62.167,
+          "seconds": 12.973,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 75.158,
+        "asr_s": 5.271,
+        "pre_agent_s": 1.525,
+        "agent_turn_s": 50.706,
+        "post_agent_s": 17.656,
+        "main_llm_s": 43.5,
+        "voice_aux_llm_s": 7.151,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 4.426,
+        "audio_playback_s": 14.486,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 62.167,
+        "prompt_tokens": 32166,
+        "completion_tokens": 99,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 12.973,
+        "time_to_ack_audio_s": 5.279,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Correctly and concisely explained Rayleigh scattering."
+    },
+    {
+      "execution_index": 31,
+      "case_id": "knowledge_02",
+      "scenario": "knowledge_qa",
+      "mode": "voice",
+      "prompt": "What is the difference between RAM and storage in a computer?",
+      "submitted_text": "What is the difference between RM and storage in a computer?",
+      "asr": {
+        "success": true,
+        "transcript": "What is the difference between RM and storage in a computer?",
+        "input_audio_duration_s": 4.293,
+        "fixture_sha256": "7d5af390b0d174c5457114d9443af6d7d8b0e75e7d790d3de2e6cef8ad9ecbc0",
+        "filtered": false
+      },
+      "response": "In computing, RM refers to Resource Manager, which allocates system resources like CPU and memory, while storage involves devices like hard drives for permanent data persistence. They serve different purposes: one manages active resources, and the other preserves data.",
+      "error": null,
+      "events": [
+        {
+          "name": "asr_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "asr_end",
+          "at_s": 4.425
+        },
+        {
+          "name": "chat_start",
+          "at_s": 4.425
+        },
+        {
+          "name": "voice_latency_log",
+          "at_s": 4.433,
+          "message": "voice_latency stage=ack_audio source=cache"
+        },
+        {
+          "name": "agent_start",
+          "at_s": 5.95
+        },
+        {
+          "name": "agent_end",
+          "at_s": 18.029
+        },
+        {
+          "name": "chat_end",
+          "at_s": 42.091
+        }
+      ],
+      "main_api_calls": [
+        {
+          "call": 46,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 32240,
+          "completion_tokens": 87,
+          "total_tokens": 32327,
+          "seconds": 4.5,
+          "cache_read_tokens": 0,
+          "at_s": 16.127
+        },
+        {
+          "call": 1,
+          "model": "qwen3.6-35b-a3b",
+          "provider": "custom",
+          "prompt_tokens": 33782,
+          "completion_tokens": 320,
+          "total_tokens": 34102,
+          "seconds": 15.0,
+          "cache_read_tokens": 0,
+          "at_s": 33.062
+        }
+      ],
+      "aux_api_calls": [
+        {
+          "seconds": 5.582,
+          "schema": "voice_continuity_route",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 1024,
+          "tool_schema_count": 0,
+          "prompt_tokens": 1551,
+          "completion_tokens": 117,
+          "at_s": 11.567
+        },
+        {
+          "seconds": 4.514,
+          "schema": null,
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 24,
+          "prompt_tokens": 32240,
+          "completion_tokens": 87,
+          "at_s": 16.127
+        },
+        {
+          "seconds": 1.85,
+          "schema": "spoken_summary",
+          "model": "qwen3.6-35b-a3b",
+          "max_tokens": 512,
+          "tool_schema_count": 0,
+          "prompt_tokens": 244,
+          "completion_tokens": 57,
+          "at_s": 17.989
+        }
+      ],
+      "tools": [],
+      "tts_synthesis": [
+        {
+          "start_s": 18.228,
+          "seconds": 7.387,
+          "characters": 269,
+          "text": "In computing, RM refers to Resource Manager, which allocates system resources like CPU and memory, while storage involves devices like hard drives for permanent data persistence. They serve different purposes: one manages active resources, and the other preserves data."
+        }
+      ],
+      "playback": [
+        {
+          "kind": "ack",
+          "start_s": 4.433,
+          "seconds": 1.513,
+          "file_suffix": ".wav"
+        },
+        {
+          "kind": "final",
+          "start_s": 25.615,
+          "seconds": 16.459,
+          "file_suffix": ".wav"
+        }
+      ],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 42.091,
+        "asr_s": 4.425,
+        "pre_agent_s": 1.525,
+        "agent_turn_s": 12.079,
+        "post_agent_s": 24.062,
+        "main_llm_s": 19.5,
+        "voice_aux_llm_s": 7.432,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 7.387,
+        "audio_playback_s": 17.972,
+        "time_to_first_text_s": 0.0,
+        "time_to_first_final_audio_s": 25.615,
+        "prompt_tokens": 66022,
+        "completion_tokens": 407,
+        "ack_playback_s": 1.513,
+        "final_playback_s": 16.459,
+        "time_to_ack_audio_s": 4.433,
+        "asr_word_error_rate": 0.091
+      },
+      "quality_status": "fail",
+      "quality_note": "ASR changed RAM to RM, so the model answered Resource Manager rather than memory."
+    },
+    {
+      "execution_index": 32,
+      "case_id": "knowledge_02",
+      "scenario": "knowledge_qa",
+      "mode": "keyboard",
+      "prompt": "What is the difference between RAM and storage in a computer?",
+      "submitted_text": "What is the difference between RAM and storage in a computer?",
+      "asr": {},
+      "response": "**RAM (Random Access Memory)** and **Storage** serve fundamentally different purposes:\n\n## RAM - The \"Working Memory\"\n- **Purpose**: Temporarily holds data actively in use by programs and the operating system\n- **Speed**: Very fast (nanoseconds)\n- **Volatility**: Volatile - loses all data when power is turned off\n- **Capacity**: Typically 4-32GB for consumer devices\n- **Analogy**: Like the workspace on your desk - everything you're actively using\n\n## Storage - The \"Long-term Memory\"\n- **Purpose**: Permanently stores files, programs, and the operating system\n- **Speed**: Much slower (milliseconds)\n- **Volatility**: Non-volatile - retains data without power\n- **Capacity**: Typically 256GB-2TB+ for consumer devices\n- **Analogy**: Like the filing cabinet where you keep things when not in use\n\n## Key Differences:\n\n| Feature | RAM | Storage |\n|---------|-----|---------|\n| Data persistence | Loses data on power-off | Keeps data permanently |\n| Speed | Very fast (GB/s) | Slower (MB/s) |\n| Cost per byte | Expensive | Cheap |\n| Main function | Active program/data | File storage |\n\n## Practical Example:\nWhen you open a large video editor:\n- The program loads from **storage** into **RAM**\n- Your video files are read from **storage** into **RAM** as you edit\n- When you save, data moves from **RAM** back to **storage**\n- When you shut down, **RAM** clears but **storage** keeps your saved work\n\nThink of it this way: RAM is for working on something right now; storage is for keeping things for later.\nWhen you save, data moves from **RAM** back to **storage**\n- When you shut down, **RAM** clears but **storage** keeps your saved work\n\nThink of it this way: RAM is for working on something right now; storage is for keeping things for later.\nWhen you save, data moves from **RAM** back to **storage**\n- When you shut down, **RAM** clears but **storage** keeps your saved work\n\nThink of it this way: RAM is for working on something right now; storage is for keeping things for later.\nWhen you save, data moves from **RAM** back to **storage**\n- When you shut down, **RAM** clears but **storage** keeps your saved work\n\nThink of it this way: RAM is for working on something right now; storage is for keeping things for later.",
+      "error": null,
+      "events": [
+        {
+          "name": "chat_start",
+          "at_s": 0.0
+        },
+        {
+          "name": "agent_start",
+          "at_s": 0.008
+        },
+        {
+          "name": "first_text",
+          "at_s": 83.877
+        },
+        {
+          "name": "agent_end",
+          "at_s": 107.728
+        },
+        {
+          "name": "chat_end",
+          "at_s": 107.975
+        }
+      ],
+      "main_api_calls": [],
+      "aux_api_calls": [],
+      "tools": [],
+      "tts_synthesis": [],
+      "playback": [],
+      "captured_deliverables": [],
+      "console_tail": "\n",
+      "metrics": {
+        "e2e_s": 107.975,
+        "asr_s": 0.0,
+        "pre_agent_s": 0.008,
+        "agent_turn_s": 107.72,
+        "post_agent_s": 0.247,
+        "main_llm_s": 0.0,
+        "voice_aux_llm_s": 0.0,
+        "tool_work_s": 0.0,
+        "tts_synthesis_work_s": 0.0,
+        "audio_playback_s": 0.0,
+        "time_to_first_text_s": 83.877,
+        "time_to_first_final_audio_s": 0.0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "ack_playback_s": 0.0,
+        "final_playback_s": 0.0,
+        "time_to_ack_audio_s": 0.0,
+        "asr_word_error_rate": 0.0
+      },
+      "quality_status": "pass",
+      "quality_note": "Correctly explained RAM versus persistent storage."
+    }
+  ]
+}

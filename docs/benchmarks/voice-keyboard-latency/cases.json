@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "description": "English-only laptop benchmark cases for keyboard versus local ASR/TTS voice turns.",
+  "cases": [
+    {
+      "id": "travel_01",
+      "scenario": "travel_planning",
+      "prompt": "I will travel to Paris from Shanghai for seven days in December 2026. Make a practical day-by-day plan including transportation."
+    },
+    {
+      "id": "travel_02",
+      "scenario": "travel_planning",
+      "prompt": "Plan a three-day trip from San Francisco to Tokyo starting October 6, 2026, with major sights and local transportation."
+    },
+    {
+      "id": "home_01",
+      "scenario": "home_appliance_control",
+      "prompt": "Which appliances are currently on in the demo home? List every appliance and its state."
+    },
+    {
+      "id": "home_02",
+      "scenario": "home_appliance_control",
+      "prompt": "Turn off the living room TV, then verify and report the state of every appliance in the demo home."
+    },
+    {
+      "id": "flights_01",
+      "scenario": "flight_search",
+      "prompt": "Find current nonstop flight options from San Francisco to New York for October 6, 2026. Compare practical choices, likely duration, and booking caveats."
+    },
+    {
+      "id": "flights_02",
+      "scenario": "flight_search",
+      "prompt": "Find current morning flight options from Seattle to Los Angeles for October 9, 2026, and compare the practical choices."
+    },
+    {
+      "id": "shopping_01",
+      "scenario": "online_shopping",
+      "prompt": "Compare current US online prices and key differences for two popular 2 TB portable SSDs, then recommend one."
+    },
+    {
+      "id": "shopping_02",
+      "scenario": "online_shopping",
+      "prompt": "Find current US online prices for noise-canceling headphones under 350 dollars and recommend two options."
+    },
+    {
+      "id": "schedule_01",
+      "scenario": "schedule_management",
+      "prompt": "List my current Hermes reminders and scheduled jobs, and tell me what will run next."
+    },
+    {
+      "id": "schedule_02",
+      "scenario": "schedule_management",
+      "prompt": "Create a one-time reminder for 9:00 AM tomorrow to review the demo checklist, then confirm the saved schedule."
+    },
+    {
+      "id": "coding_01",
+      "scenario": "simple_coding",
+      "prompt": "Write a Python function that removes duplicates from a list while preserving order, and explain its time and space complexity."
+    },
+    {
+      "id": "coding_02",
+      "scenario": "simple_coding",
+      "prompt": "Create a file named benchmark_fibonacci.py in the benchmark workspace containing an iterative Fibonacci function and a small self-test, then summarize what you wrote."
+    },
+    {
+      "id": "chat_01",
+      "scenario": "casual_chat",
+      "prompt": "How are you today?"
+    },
+    {
+      "id": "chat_02",
+      "scenario": "casual_chat",
+      "prompt": "Tell me a short, workplace-safe joke about computers."
+    },
+    {
+      "id": "knowledge_01",
+      "scenario": "knowledge_qa",
+      "prompt": "Why does the sky look blue?"
+    },
+    {
+      "id": "knowledge_02",
+      "scenario": "knowledge_qa",
+      "prompt": "What is the difference between RAM and storage in a computer?"
+    }
+  ]
+}
