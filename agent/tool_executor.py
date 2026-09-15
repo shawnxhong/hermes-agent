@@ -56,6 +56,18 @@ from tools.budget_config import BudgetConfig, DEFAULT_BUDGET, budget_for_context
 logger = logging.getLogger(__name__)
 
 
+def _resolve_tool_dispatch_name(name: str) -> str:
+    """Keep older dispatcher installations usable during narrow deployments.
+
+    Registry tools retain their installed names when the pre-rename module
+    has no alias map. The agent-owned todo branch uses the new internal name
+    regardless of the registry generation; no tool schemas are changed.
+    """
+    import model_tools
+    aliases = getattr(model_tools, "_LEGACY_TOOL_ALIASES", {})
+    return "todo_list" if name == "todo" else aliases.get(name, name)
+
+
 def _pairing_tool_call_id(tool_call: Any) -> str:
     """Return the canonical id used by the persisted assistant message."""
     return coalesce_tool_call_id(tool_call)
@@ -1175,8 +1187,7 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
         function_name = tool_call.function.name
         # Legacy tool-name aliases (2026-08 renames) — map BEFORE the
         # agent-loop branches (todo_list etc. dispatch above the registry).
-        from model_tools import _LEGACY_TOOL_ALIASES as _lta
-        function_name = _lta.get(function_name, function_name)
+        function_name = _resolve_tool_dispatch_name(function_name)
 
         function_args, malformed_args_result = _parse_tool_arguments(
             tool_call.function.arguments
@@ -2036,8 +2047,7 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
         function_name = tool_call.function.name
         # Legacy tool-name aliases (2026-08 renames) — map BEFORE the
         # agent-loop branches (todo_list etc. dispatch above the registry).
-        from model_tools import _LEGACY_TOOL_ALIASES as _lta
-        function_name = _lta.get(function_name, function_name)
+        function_name = _resolve_tool_dispatch_name(function_name)
 
         function_args, malformed_args_result = _parse_tool_arguments(
             tool_call.function.arguments
