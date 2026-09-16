@@ -296,7 +296,8 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
                 count=1
                 summary=base._summary(agent,body,
                                       {'retrieved_sources':sources,'retrieval_incomplete':retrieval_failed},
-                                      task['request']+'\nCurrent request: '+execution_text)
+                                      task['request']+'\nCurrent request: '+execution_text,
+                                      early_delivery=True)
             except Exception as error:
                 if agent._interrupt_requested:
                     return finish('Cancelled. No new email was sent.',calls=count,failed=True)

@@ -15147,13 +15147,17 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         *,
         voice_input: bool,
         interrupted: bool,
+        delivery=None,
     ) -> str:
-        """Queue one bounded final utterance after model/tool completion."""
+        """Queue bounded final speech, omitting any already committed prefix."""
         if text_queue is None or not voice_input or interrupted:
             return ""
         spoken = prepare_voice_tts_text(response)
         if not spoken:
             return ""
+        if delivery is not None:
+            delivery.finish(spoken)
+            return spoken
         from tools.tts_tool import ImmediateTTSUtterance
 
         self._voice_last_tts_text = (self._voice_last_tts_text or "") + spoken
@@ -17914,6 +17918,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             stream_callback = None
             stop_event = None
             ack_barrier = None
+            sentence_delivery = None
             _tts_normal_exit = False
 
             if self._voice_tts_enabled_for_turn(voice_input):
@@ -17980,10 +17985,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
                 # Model deltas still use the normal terminal streaming path,
                 # but are deliberately withheld from TTS.  Voice output is
-                # spoken once from the bounded final response after tools have
-                # completed, so long reports and tool-loop fragments are not
-                # read aloud.
+                # bounded to final answers after tools complete. Only the
+                # separate final-summary completion may deliver its first
+                # sentence early; native tool-loop fragments are never spoken.
                 stream_callback = None
+
+                from hermes_cli.voice_sentence_delivery import make_delivery
+                sentence_delivery = make_delivery(self, text_queue, stop_event)
 
                 # Queue ack before any answer, but let inference run while it
                 # plays. Only microphone monitoring waits for its audio marker.
@@ -18075,6 +18083,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     self, "_pending_one_turn_model_restore", None
                 )
                 self._pending_one_turn_model_restore = None
+                from hermes_cli.voice_sentence_delivery import current_delivery
+                _delivery_token = current_delivery.set(sentence_delivery)
                 try:
                     if voice_input:
                         logger.info('voice_latency stage=agent_start session=%s', self.session_id)
@@ -18107,6 +18117,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         "error": _summary,
                     }
                 finally:
+                    current_delivery.reset(_delivery_token)
                     if _one_turn_model_restore:
                         self._restore_model_runtime_snapshot(_one_turn_model_restore)
                     # Surface any credit notices queued during the turn (cold-start
@@ -18371,15 +18382,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 except Exception:
                     pass
 
-            # Only now is the final answer known.  Queue one short utterance,
-            # after verbal ack / clarify / approval items already handled by
-            # this worker, then drain the pipeline before reopening the mic.
+            # Queue final speech (or the remaining summary suffix), after ack /
+            # clarify / approval items. Drain all audio before reopening mic.
             if use_streaming_tts and text_queue is not None:
                 self._enqueue_voice_final_tts(
                     text_queue,
                     response,
                     voice_input=voice_input,
                     interrupted=bool(_interrupted_this_turn or interrupt_msg),
+                    delivery=sentence_delivery,
                 )
                 text_queue.put(None)
                 if tts_thread is not None:
@@ -18600,6 +18611,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             if stop_event is not None and not _tts_normal_exit:
                 logger.info("TTS CUT: exception finally block setting stop_event")
                 stop_event.set()
+            if sentence_delivery is not None and stop_event is not None and stop_event.is_set():
+                sentence_delivery.cancel_pending()
             if tts_thread is not None and tts_thread.is_alive():
                 tts_thread.join(timeout=5)
     

@@ -4190,6 +4190,14 @@ class ImmediateTTSUtterance(str):
     """
 
 
+def _tts_segment_state(callback, state):
+    if callback is not None:
+        try:
+            callback(state)
+        except Exception:
+            logger.debug('TTS segment observer failed', exc_info=True)
+
+
 class TTSPlaybackBarrier:
     """Queue marker that fires only after all preceding audio has played."""
 
@@ -4292,12 +4300,21 @@ class _SyncSentencePipeline:
         )
         self._player.start()
 
-    def speak(self, cleaned: str) -> None:
+    def speak(self, cleaned: str, on_state=None, is_current=lambda: True) -> None:
         """Queue one sentence. Blocks only when the lookahead bound is full."""
-        if self._stop.is_set():
+        if self._stop.is_set() or not is_current():
+            _tts_segment_state(on_state, 'cancelled')
             return
-        future = self._executor.submit(self._synthesize_to_tmp, cleaned)
-        self._queue.put((cleaned, future))
+        def synthesize():
+            if self._stop.is_set() or not is_current():
+                _tts_segment_state(on_state, 'cancelled')
+                return None
+            _tts_segment_state(on_state, 'synthesizing')
+            path = self._synthesize_to_tmp(cleaned)
+            _tts_segment_state(on_state, 'cancelled' if self._stop.is_set() else 'ready' if path else 'failed')
+            return path
+        future = self._executor.submit(synthesize)
+        self._queue.put((cleaned, future, on_state, is_current))
 
     def barrier(self, marker: TTSPlaybackBarrier) -> None:
         """Signal *marker* after every earlier sentence finishes playback."""
@@ -4379,16 +4396,21 @@ class _SyncSentencePipeline:
             if isinstance(item, TTSPlaybackBarrier):
                 item.set()
                 continue
-            _sentence, future = item
+            _sentence, future, on_state, is_current = item
             tmp_path = None
             try:
                 tmp_path = future.result()
-                if (tmp_path and not self._stop.is_set()
+                if (tmp_path and not self._stop.is_set() and is_current()
                         and os.path.isfile(tmp_path)
                         and os.path.getsize(tmp_path) > 0):
                     from tools.voice_mode import play_audio_file
-                    play_audio_file(tmp_path)
+                    _tts_segment_state(on_state, 'playing')
+                    played = play_audio_file(tmp_path)
+                    _tts_segment_state(on_state, 'cancelled' if self._stop.is_set() else 'played' if played else 'failed')
+                elif self._stop.is_set() or not is_current():
+                    _tts_segment_state(on_state, 'cancelled')
             except Exception as exc:
+                _tts_segment_state(on_state, 'failed')
                 logger.warning("Sync per-sentence TTS failed: %s", exc)
             finally:
                 if tmp_path:
@@ -4690,7 +4712,9 @@ def stream_tts_to_speaker(
 
         def _speak_sentence(sentence: str):
             """Display sentence and route to the appropriate audio path."""
+            on_state = getattr(sentence, 'on_state', None)
             if stop_event.is_set():
+                _tts_segment_state(on_state, 'cancelled')
                 return
             cleaned = _strip_markdown_for_tts(sentence).strip()
             if not cleaned:
@@ -4699,6 +4723,7 @@ def stream_tts_to_speaker(
             cleaned_lower = cleaned.lower().rstrip(".!,")
             for prev in _spoken_sentences:
                 if prev.lower().rstrip(".!,") == cleaned_lower:
+                    _tts_segment_state(on_state, 'duplicate_skipped')
                     return
             _spoken_sentences.append(cleaned)
             # Display raw sentence on screen before TTS processing
@@ -4708,7 +4733,8 @@ def stream_tts_to_speaker(
             # pipelined: this enqueues and returns, so sentence n+1 is already
             # synthesizing while sentence n is still playing.
             if sync_pipeline is not None:
-                sync_pipeline.speak(cleaned)
+                sync_pipeline.speak(cleaned, on_state=on_state,
+                                    is_current=getattr(sentence, 'is_current', lambda: True))
                 return
             # Truncate very long sentences to the provider's per-request cap.
             if stream_max_len and len(cleaned) > stream_max_len:
@@ -4792,7 +4818,7 @@ def stream_tts_to_speaker(
                 # deliberately short acknowledgement.
                 for sentence in chunker.flush():
                     _speak_sentence(sentence)
-                _speak_sentence(str(delta))
+                _speak_sentence(delta)
                 continue
 
             if isinstance(delta, TTSPlaybackBarrier):
