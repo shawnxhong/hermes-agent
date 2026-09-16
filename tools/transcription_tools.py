@@ -1829,8 +1829,13 @@ def build_local_transcribe_kwargs(stt_config: Optional[Dict[str, Any]] = None) -
     stt_config = stt_config if isinstance(stt_config, dict) else _load_stt_config()
     local_cfg = stt_config.get("local") or {}
 
+    # Keep the established default; faster decoding is an explicit, measured
+    # opt-in. Invalid host configuration must not break speech recognition.
+    beam = local_cfg.get("beam_size", 5)
+    if isinstance(beam, bool) or not isinstance(beam, int) or not 1 <= beam <= 10:
+        beam = 5
     kwargs: Dict[str, Any] = {
-        "beam_size": 5,
+        "beam_size": beam,
         # Don't feed the previous window's text back as a prompt: a single
         # hallucinated token otherwise seeds a self-reinforcing run of them.
         "condition_on_previous_text": False,
@@ -1961,6 +1966,7 @@ def _transcribe_local(
 ) -> Dict[str, Any]:
     """Transcribe using faster-whisper (local, free)."""
     global _local_model, _local_model_name
+    started = time.monotonic()
 
     if not _HAS_FASTER_WHISPER:
         if not _try_lazy_install_stt():
@@ -2012,8 +2018,10 @@ def _transcribe_local(
             # faster-whisper's vocabulary/context hint parameter.
             transcribe_kwargs["initial_prompt"] = prompt
 
+        loaded_at = time.monotonic()
         try:
             segments, info = model.transcribe(file_path, **transcribe_kwargs)
+            prepared_at = time.monotonic()
             transcript = _join_confident_segments(segments, local_config)
         except Exception as exc:
             # CUDA runtime libs sometimes only fail at dlopen-on-first-use,
@@ -2034,8 +2042,17 @@ def _transcribe_local(
                 _local_model = model
                 _local_model_name = model_name
             segments, info = model.transcribe(file_path, **transcribe_kwargs)
+            prepared_at = time.monotonic()
             transcript = _join_confident_segments(segments, local_config)
 
+        finished_at = time.monotonic()
+        logger.info(
+            "voice_latency stage=asr_complete load_config_seconds=%.3f "
+            "frontend_seconds=%.3f decode_seconds=%.3f total_seconds=%.3f beam=%s",
+            loaded_at - started, prepared_at - loaded_at,
+            finished_at - prepared_at, finished_at - started,
+            transcribe_kwargs["beam_size"],
+        )
         logger.info(
             "Transcribed %s via local whisper (%s, lang=%s, %.1fs audio)",
             Path(file_path).name, model_name, info.language, info.duration,

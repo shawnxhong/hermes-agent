@@ -213,6 +213,39 @@ def test_sync_playback_barrier_waits_for_prior_audio(monkeypatch):
     assert done.is_set()
 
 
+@pytest.mark.parametrize('ack_fails', [False, True])
+def test_ack_and_fast_final_answer_remain_fifo_without_cache(monkeypatch, ack_fails):
+    from tools import tts_tool
+
+    plays = []
+    def synth(*, text, output_path, **kwargs):
+        if ack_fails and text == 'Acknowledgement.':
+            return json.dumps({'success': False})
+        Path(output_path).write_text(text)
+        return json.dumps({'success': True, 'file_path': output_path})
+
+    monkeypatch.setattr(ts, 'resolve_streaming_provider', lambda *a, **k: None)
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_turn_ack', lambda text: None)
+    monkeypatch.setattr(tts_tool, 'text_to_speech_tool', synth)
+    monkeypatch.setattr('tools.voice_mode.play_audio_file',
+                        lambda path: plays.append(Path(path).read_text()))
+    q = queue.Queue()
+    marker = tts_tool.TTSPlaybackBarrier()
+    q.put(tts_tool.ImmediateTTSUtterance('Acknowledgement.'))
+    q.put(marker)
+    q.put(tts_tool.ImmediateTTSUtterance('Final answer.'))
+    q.put(None)
+    stop, done = threading.Event(), threading.Event()
+    worker = threading.Thread(target=tts_tool.stream_tts_to_speaker,
+                              args=(q, stop, done), daemon=True)
+    worker.start()
+    worker.join(3)
+    assert not worker.is_alive()
+    assert marker.wait(0)
+    assert done.is_set()
+    assert plays == (['Final answer.'] if ack_fails else ['Acknowledgement.', 'Final answer.'])
+
+
 # ── Dispatch: universal per-sentence sync fallback ───────────────────────
 
 

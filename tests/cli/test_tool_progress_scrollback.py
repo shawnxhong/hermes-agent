@@ -282,6 +282,26 @@ class TestVoiceToolAck:
         assert old_queue.empty()
         assert new_queue.get_nowait() == "Sure, let me check."
 
+    def test_turn_start_ack_tracks_playback_without_waiting(self):
+        from tools.tts_tool import ImmediateTTSUtterance, TTSPlaybackBarrier
+
+        cli = _make_cli(tool_progress="off")
+        text_queue = queue.Queue()
+        self._arm(cli, text_queue, timing="turn_start")
+        returned = []
+        worker = threading.Thread(target=lambda: returned.append(
+            cli._maybe_enqueue_voice_tool_ack(track_playback=True)), daemon=True)
+        worker.start()
+        worker.join(1)
+        assert not worker.is_alive()
+        assert isinstance(text_queue.get_nowait(), ImmediateTTSUtterance)
+        barrier = text_queue.get_nowait()
+        assert isinstance(barrier, TTSPlaybackBarrier)
+        assert returned == [barrier]
+        assert not barrier.wait(timeout=0)
+        cli._on_tool_progress("tool.started", "web_search", "weather", {})
+        assert text_queue.empty()
+
     def test_turn_start_ack_waits_for_playback_barrier(self):
         from tools.tts_tool import ImmediateTTSUtterance, TTSPlaybackBarrier
 
