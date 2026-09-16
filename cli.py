@@ -15074,7 +15074,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             self._voice_tool_ack_fired = False
             self._voice_tool_ack_saw_text = False
 
-    def _maybe_enqueue_voice_tool_ack(self, *, wait_until_spoken: bool = False) -> None:
+    def _maybe_enqueue_voice_tool_ack(self, *, wait_until_spoken: bool = False, track_playback: bool = False):
         """Queue the one-shot acknowledgement, optionally waiting for playback."""
         if _scene_switching(self):
             return
@@ -15099,9 +15099,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # reference so headset bleed cannot barge-in on Hermes itself.
             self._voice_last_tts_text = (self._voice_last_tts_text or "") + phrase
             text_queue.put_nowait(ImmediateTTSUtterance(phrase))
-            if wait_until_spoken:
+            barrier = None
+            if wait_until_spoken or track_playback:
                 barrier = TTSPlaybackBarrier()
                 text_queue.put_nowait(barrier)
+            if wait_until_spoken:
                 if barrier.wait(timeout=30.0):
                     logger.info(
                         "Voice acknowledgement played before agent start "
@@ -15115,6 +15117,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     "Voice tool acknowledgement queued (language=%s)",
                     self._voice_tool_ack_language,
                 )
+            return barrier
         except Exception:
             logger.debug("Could not enqueue voice tool acknowledgement", exc_info=True)
 
@@ -17910,6 +17913,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             tts_thread = None
             stream_callback = None
             stop_event = None
+            ack_barrier = None
             _tts_normal_exit = False
 
             if self._voice_tts_enabled_for_turn(voice_input):
@@ -17981,25 +17985,20 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 # read aloud.
                 stream_callback = None
 
-                # On this machine the local command TTS needs about a second
-                # to synthesize even a short phrase. Queue and fully play the
-                # acknowledgement before starting inference so no fast tool
-                # can complete first. ``first_tool`` remains the compatible
-                # default; the user's config opts into ``turn_start``.
+                # Queue ack before any answer, but let inference run while it
+                # plays. Only microphone monitoring waits for its audio marker.
                 if (
                     voice_input
                     and getattr(self, "_voice_tool_ack_timing", "first_tool")
                     == "turn_start"
                 ):
-                    self._maybe_enqueue_voice_tool_ack(wait_until_spoken=True)
+                    ack_barrier = self._maybe_enqueue_voice_tool_ack(track_playback=True)
 
-            # Arm turn-wide barge-in after the turn-start ack, but before the
-            # model thread. It still covers the complete generation/tool/TTS
-            # phase without competing with acknowledgement playback.
+            # Do not capture speaker echo during ack. This asynchronous gate
+            # never holds up the model thread or lets a stale turn reopen mic.
             if self._voice_mode and self._voice_continuous:
-                threading.Thread(
-                    target=self._voice_full_duplex_listener, daemon=True
-                ).start()
+                from hermes_cli.voice_ack import arm_listener_after_ack
+                arm_listener_after_ack(self, ack_barrier, text_queue, stop_event)
 
             # When voice mode is active, prepend a brief instruction so the
             # model responds concisely. The prefix is API-call-local only —
@@ -18077,6 +18076,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 )
                 self._pending_one_turn_model_restore = None
                 try:
+                    if voice_input:
+                        logger.info('voice_latency stage=agent_start session=%s', self.session_id)
                     result = self.agent.run_conversation(
                         user_message=agent_message,
                         conversation_history=self.conversation_history[:-1],  # Exclude the message we just added
