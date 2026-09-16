@@ -40,6 +40,24 @@ def strip_end_phrase(text):
     return re.sub(r'(?i)(?<!\w)(?:' + expression + r'|over[\s,\-]+and[\s,\-]+out)[\s.!?,;:…\"\'”’]*$', '', text).rstrip(' ,;:-')
 
 
+def pending_hint_text():
+    """Text for a combined first-wake cue; leave manual capture's file intact."""
+    cfg = settings() or {}
+    hint = cfg.get('hint_file')
+    with _hint_lock:
+        if _hint_played or not hint or not Path(hint).is_file():
+            return None
+    phrase = cfg.get('phrase') or "That's all"
+    return f"Say {phrase} when you finish speaking."
+
+
+def mark_hint_played():
+    """Only call after the complete instruction finished without cancellation."""
+    global _hint_played
+    with _hint_lock:
+        _hint_played = True
+
+
 def prepare_recording_endpoint(recorder):
     """Warm before the recording cue; explain once with capture still paused."""
     global _hint_played

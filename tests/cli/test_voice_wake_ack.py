@@ -128,3 +128,59 @@ def test_real_cli_wake_callback_pauses_then_acknowledges_then_captures(monkeypat
     HermesCLI._on_wake_word(cli)
     assert events==['pause','ack','capture']
     cli.new_session.assert_not_called()
+
+
+def combined_rig(monkeypatch, tmp_path, rig):
+    from tools import voice_endpoint as ep
+    cli, cfg, cache, play = rig
+    hint = tmp_path / 'hint.wav'
+    hint.touch()
+    monkeypatch.setattr(ep, '_hint_played', False)
+    monkeypatch.setattr(ep, 'settings', lambda: {'hint_file': str(hint), 'phrase': "That's all"})
+    cli._voice_recorder = SimpleNamespace(prepare_endpoint=Mock(return_value=True))
+    return ep, cli, cfg, cache, play
+
+
+def test_first_wake_is_one_clip_then_later_wakes_are_short(monkeypatch, tmp_path, rig):
+    ep, cli, cfg, cache, play = combined_rig(monkeypatch, tmp_path, rig)
+    events = []
+    cli._voice_recorder.prepare_endpoint.side_effect = lambda: events.append('warm') or True
+    cache.side_effect = lambda c: events.append(c['text']) or tmp_path/'combined.wav'
+    play.side_effect = lambda p: events.append('play') or True
+    cli._voice_start_recording.side_effect = lambda: ep.prepare_recording_endpoint(cli._voice_recorder)
+    ack.start_wake_capture(cli)
+    assert events[:3] == ['warm', "Hi, I'm here. Say That's all when you finish speaking.", 'play']
+    play.assert_called_once()
+    assert ep._hint_played
+    assert cfg['text'] == "Hi, I'm here."  # settings must not be mutated
+    ack.start_wake_capture(cli)
+    assert cache.call_args.args[0]['text'] == "Hi, I'm here."
+    assert play.call_count == 2
+
+
+@pytest.mark.parametrize('failure', ['synthesis', 'playback', 'cancel'])
+def test_failed_or_cancelled_combined_hint_is_not_consumed(monkeypatch, tmp_path, rig, failure):
+    ep, cli, cfg, cache, play = combined_rig(monkeypatch, tmp_path, rig)
+    if failure == 'synthesis':
+        cache.side_effect = RuntimeError('synthesis unavailable')
+    elif failure == 'playback':
+        play.return_value = False
+    else:
+        def cancel(path):
+            cli._scene_generation = 1
+            return True
+        play.side_effect = cancel
+    ack.start_wake_capture(cli)
+    assert not ep._hint_played
+    if failure == 'cancel':
+        cli._voice_start_recording.assert_not_called()
+    else:
+        cli._voice_start_recording.assert_called_once()
+
+
+def test_unavailable_endpoint_does_not_promise_end_phrase(monkeypatch, tmp_path, rig):
+    ep, cli, cfg, cache, play = combined_rig(monkeypatch, tmp_path, rig)
+    cli._voice_recorder.prepare_endpoint.return_value = False
+    ack.start_wake_capture(cli)
+    assert cache.call_args.args[0]['text'] == "Hi, I'm here."
+    assert not ep._hint_played

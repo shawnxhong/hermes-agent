@@ -80,14 +80,32 @@ def start_wake_capture(cli):
         if config["enabled"] and cli._voice_tts and not cancelled():
             cli._voice_tts_done.clear()
             try:
+                from tools import voice_endpoint
+                hint = voice_endpoint.pending_hint_text()
+                combined_hint = False
+                if hint:
+                    # Warm the detector BEFORE either sentence, never between
+                    # greeting and instructions. No microphone stream opens here.
+                    recorder = getattr(cli, '_voice_recorder', None)
+                    if recorder is None:
+                        recorder = voice_mode.create_audio_recorder()
+                        cli._voice_recorder = recorder
+                    prepare = getattr(recorder, 'prepare_endpoint', None)
+                    if callable(prepare) and prepare():
+                        config = {**config, 'text': config['text'].rstrip() + ' ' + hint}
+                        combined_hint = True
+                if cancelled():
+                    return
                 path = cached_audio(config)
                 if cancelled():
                     return
                 cli._voice_last_tts_text = config["text"]
                 if not voice_mode.play_audio_file(str(path)):
                     raise RuntimeError("Wake acknowledgement playback failed")
+                if combined_hint and not cancelled():
+                    voice_endpoint.mark_hint_played()
                 # Allow the short speaker tail to settle before microphone open.
-                time.sleep(0.15)
+                time.sleep(0.65 if combined_hint else 0.15)
                 logger.info("Wake acknowledgement played before capture")
             except Exception:
                 # Keep the existing recording beep/capture usable on TTS failure.

@@ -73,3 +73,17 @@ than retained by the normal recorder.
 Validation must separate deterministic PCM/worker tests, real local KWS +
 Whisper file replay, and human microphone/noise acceptance. Synthetic replay
 does not establish multi-speaker recall or room false-positive rates.
+# First-wake instruction
+
+When wake acknowledgement and the cached end-phrase hint are enabled, the first
+wake prepares the recording-end detector before speaking. It synthesizes and
+caches one complete greeting plus instruction, rather than playing a greeting,
+initializing the detector, then opening a second audio clip. Example:
+"Hi, I'm here. Say That's all when you finish speaking."
+
+The instruction is marked heard only after successful, uncancelled playback.
+Later wakes use the short greeting. Manual recording still uses the existing
+hint file, and unavailable endpoint detection does not advertise an end phrase.
+The short post-instruction gap before the recording beep is preserved; it is
+not a gap between the two spoken sentences. No microphone stream is opened by
+the preparatory step. First synthesis is cached; deployment can pre-generate it.
