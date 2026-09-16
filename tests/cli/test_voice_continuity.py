@@ -57,6 +57,18 @@ def test_substantive_update_auto_emails_new_version_even_without_detail_hint(rig
     assert sender.call_count==2
 
 
+def test_followup_answer_cannot_replace_saved_report(rig):
+    _,router,sender=rig
+    router.return_value=decision(detail=True)
+    done(run(rig,'Draft an onboarding plan.'),'The complete onboarding plan.')
+    store=ContinuityStore();task=store.current('s');version=task['artifact_version']
+    router.return_value=decision(target=task['id'],relation='followup',operation='answer')
+    done(run(rig,'Why this schedule?'),'Because it is manageable.')
+    assert store.current('s')['artifact_version']==version
+    assert store.result('s',task['id'],version)['body']=='The complete onboarding plan.'
+    sender.assert_called_once()
+
+
 def test_short_numbered_answer_needs_no_fallible_summary_call(rig,monkeypatch):
     summary=Mock(side_effect=AssertionError('Do not reclassify a short list'))
     monkeypatch.setattr(base,'_summary',summary)

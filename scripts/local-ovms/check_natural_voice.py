@@ -22,6 +22,7 @@ shutil.copytree(repo/'scripts/local-ovms/plugins/general-voice', home/'plugins/g
 from run_agent import AIAgent
 from hermes_state import SessionDB
 from hermes_cli import general_voice, voice_continuity, voice_outbox, voice_presentation
+from hermes_cli.voice_continuity_store import ContinuityStore
 
 mail=[]
 def capture(recipient, body):
@@ -65,6 +66,10 @@ for name,request,expected_mail,expected_summaries in cases:
                    ('the provided text', 'the assistant reports', 'the text lists', 'not a direct spoken reply'))
     row['passed']=(natural and bool(value.get('completed')) and len(mail)==expected_mail
                    and (expected_summaries is None or row['summary_calls']==expected_summaries))
+    if name=='explanation':
+        store=ContinuityStore();task=store.current(agent.session_id)
+        row['report_preserved']=bool(task and store.result(agent.session_id,task['id'],task['artifact_version'])['body']==mail[-1]['body'])
+        row['passed']=row['passed'] and row['report_preserved']
     receipts.append(row);print(json.dumps(row),flush=True)
     (home/'receipt.json').write_text(json.dumps(receipts,indent=2))
 print('Receipt:',home/'receipt.json',flush=True)
