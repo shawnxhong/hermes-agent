@@ -1022,6 +1022,18 @@ def _mark_tui_input_modes_active() -> None:
     _tui_input_modes_active = True
 
 
+def _unknown_startup_toolsets(toolsets, mcp_names):
+    """Validate plugin toolsets only after their in-flight discovery completes."""
+    invalid = [name for name in toolsets
+               if name not in mcp_names and not validate_toolset(name)]
+    if invalid:
+        from hermes_cli.plugins import discover_plugins
+
+        discover_plugins()
+        invalid = [name for name in invalid if not validate_toolset(name)]
+    return invalid
+
+
 def _prepare_deferred_agent_startup() -> None:
     """Run Termux-deferred agent discovery before the first real agent turn."""
     global _deferred_agent_startup_done
@@ -5543,7 +5555,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # live registry aliases (registered during discover_mcp_tools),
             # but discovery hasn't run yet at this point, so exclude them.
             mcp_names = set((CLI_CONFIG.get("mcp_servers") or {}).keys())
-            invalid = [t for t in toolsets if not validate_toolset(t) and t not in mcp_names]
+            invalid = _unknown_startup_toolsets(toolsets, mcp_names)
             if invalid:
                 self._console_print(f"[bold red]Warning: Unknown toolsets: {', '.join(invalid)}[/]")
         
