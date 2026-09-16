@@ -145,8 +145,8 @@ def run_service():
     env = os.environ.copy()
     env.update(HERMES_CLI_VOICE_AUTO_START="1", HERMES_CLI_WAKE_READY_CUE="1",
                HERMES_CLI_PTT_ONESHOT="1", TERM="xterm-256color", PYTHONUNBUFFERED="1")
-    # Same CLI/skill as hermes-mode, without rewriting shared configuration.
-    command = [str(Path.home() / ".local/bin/hermes"), "--cli", "--skills", "travel-concierge"]
+    # Start neutral; scene buttons explicitly select skills after startup.
+    command = [str(Path.home() / ".local/bin/hermes"), "--cli"]
     controller = VoiceProcess(command,
         lambda: subprocess.run(["pw-play", str(goodbye)], check=True, timeout=15), env=env, log=logger)
     signal.signal(signal.SIGTERM, controller.request_stop)
@@ -208,7 +208,7 @@ def run_interactive():
     env = os.environ.copy()
     env.update(HERMES_CLI_VOICE_AUTO_START="1", HERMES_CLI_WAKE_READY_CUE="1",
                HERMES_CLI_PTT_ONESHOT="1")
-    command = [str(Path.home() / ".local/bin/hermes"), "--cli", "--skills", "travel-concierge"]
+    command = [str(Path.home() / ".local/bin/hermes"), "--cli"]
     try:
         return subprocess.run(command, env=env).returncode
     except KeyboardInterrupt:
