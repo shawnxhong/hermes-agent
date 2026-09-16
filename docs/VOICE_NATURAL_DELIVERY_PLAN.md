@@ -54,6 +54,12 @@ model and native loop in a temporary profile, with captured email only. Initial
 live testing exposed document-narration in compression despite passing unit
 tests; the compression prompt now explicitly treats the result as the assistant's
 own completed work, and live acceptance checks for the observed narration forms.
+Streaming stress testing also exposed invented later-day activities from a
+repetitive single-day input. Compression now explicitly forbids adding steps or
+facts absent from the result. Follow-up live outputs retained first-day scope
+and explicitly preserved the unavailability of later-day details. An initial
+test incorrectly rejected the phrase "subsequent days remain unavailable";
+that is preserved uncertainty, not invented later-day activities.
 
 Release identity, final test counts, local receipt path, unchanged service facts
 and rollback are recorded in the private ops repository. Human acoustic and
