@@ -31,6 +31,8 @@ def connect():
     db.execute('CREATE TABLE IF NOT EXISTS jobs '
                '(id TEXT PRIMARY KEY, scope TEXT, recipient TEXT, body TEXT, '
                'status TEXT, created REAL, finished REAL, elapsed REAL, receipts TEXT)')
+    db.execute('CREATE TABLE IF NOT EXISTS job_sessions (job_id TEXT PRIMARY KEY, session_id TEXT)')
+    db.execute('CREATE TABLE IF NOT EXISTS cancelled_sessions (session_id TEXT PRIMARY KEY)')
     db.commit()
     return db
 
@@ -66,6 +68,10 @@ def enqueue(store, session, task, recipient, interrupted=lambda: False, *, versi
     db = connect()
     try:
         with db:
+            db.execute('BEGIN IMMEDIATE')
+            if db.execute('SELECT 1 FROM cancelled_sessions WHERE session_id=?', (session,)).fetchone():
+                raise RuntimeError('Delivery cancelled by scene switch')
+            db.execute('INSERT OR IGNORE INTO job_sessions VALUES (?,?)', (key, session))
             db.execute('INSERT OR IGNORE INTO jobs VALUES (?,?,?,?,?,?,?,?,?)',
                        (key, task['id'], addresses, artifact['body'], 'queued',
                         time.time(), None, None, None))
@@ -83,6 +89,19 @@ def enqueue(store, session, task, recipient, interrupted=lambda: False, *, versi
             return 'saved'
     log.info('voice_latency stage=email_enqueue job=%s status=%s', key, status)
     return 'queued' if status in {'queued', 'running'} else status
+
+
+def cancel_session(session):
+    """Cancel only unsent jobs from this CLI session; preserve running receipts."""
+    db = connect()
+    try:
+        with db:
+            db.execute('INSERT OR IGNORE INTO cancelled_sessions VALUES (?)', (session,))
+            db.execute("UPDATE jobs SET status='cancelled', finished=? WHERE status='queued' "
+                       "AND id IN (SELECT job_id FROM job_sessions WHERE session_id=?)",
+                       (time.time(), session))
+    finally:
+        db.close()
 
 
 def resume():
@@ -124,7 +143,9 @@ def drain(sender=None):
                 if row is None:
                     return
                 with db:
-                    db.execute("UPDATE jobs SET status='running' WHERE id=?", (row['id'],))
+                    claimed = db.execute("UPDATE jobs SET status='running' WHERE id=? AND status='queued'", (row['id'],))
+                if not claimed.rowcount:
+                    continue
                 started = time.monotonic()
                 receipts = []
 

@@ -1,0 +1,5 @@
+#!/bin/sh
+# The target profile is inherited through HERMES_HOME, as for Hermes CLI.
+hermes_scene_root="${HERMES_HOME:-$HOME/.hermes}/hermes-agent"
+cd "$hermes_scene_root" || exit 1
+exec "$hermes_scene_root/venv/bin/python" -m hermes_cli.voice_scenes "$@"

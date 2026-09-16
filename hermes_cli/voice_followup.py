@@ -48,6 +48,9 @@ def resume_question_session(cli):
 
 
 def start_followup(cli, response, *, voice_input, make_message):
+    from hermes_cli.voice_scenes import switching
+    if switching(cli):
+        return False
     spoken = prepare_voice_tts_text(response or "")
     if not voice_input or not spoken:
         return False
