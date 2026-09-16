@@ -51,7 +51,7 @@ def test_independent_nontravel_question_cannot_inherit_selected_travel_domain():
 
     result=route(agent,'What does RSVP mean? Answer briefly.',store,'s',None)
 
-    assert result['target']=='NEW' and result['domain']=='general'
+    assert result['target']=='NEW' and 'domain' not in result and 'summary' not in result
 
 
 def test_invalid_handle_retries_once_then_fails_without_modifying_state():
@@ -76,10 +76,10 @@ def test_native_execution_class_cannot_become_a_buffered_content_answer():
     assert result['operation']=='native' and result['delivery']=='none'
 
 
-def test_open_ended_advice_is_stably_brief_but_explicit_plan_stays_detailed():
+def test_advice_does_not_override_model_deliverable_intent():
     brief=route(agent_for(response(relation='independent',target='NEW',operation='answer',detail=True)),
                 'Could you give me some advice about Melbourne?',ContinuityStore(),'s',None)
-    assert brief['detail'] is False
+    assert brief['detail'] is True
     detailed=route(agent_for(response(relation='independent',target='NEW',operation='answer',detail=True)),
                    'Please create a detailed Melbourne itinerary.',ContinuityStore(),'s2',None)
     assert detailed['detail'] is True

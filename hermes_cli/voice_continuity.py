@@ -26,8 +26,7 @@ def enabled(cfg=None):
         from hermes_cli.general_voice import config
         cfg=config()
     from utils import is_truthy_value
-    raw=cfg.get('continuity') if isinstance(cfg,dict) else None
-    return isinstance(raw,dict) and is_truthy_value(raw.get('enabled'),default=False)
+    return isinstance(cfg,dict) and is_truthy_value(cfg.get('enabled'),default=False)
 
 
 def _address(text,default,*,delivery_requested=False):
@@ -64,6 +63,8 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
     text=user_message.strip()
     task=store.current(session)
     def finish(reply,*,calls=0,failed=False):
+        from hermes_cli.voice_presentation import mark_presented
+        mark_presented()
         store.record_turn(session,text,reply)
         return base._handled(reply,calls=calls,failed=failed)
     def send_selected(task,version,recipient):
@@ -90,10 +91,6 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         return finish(send_selected(task,job['version'],text))
     if not pending and not task and (YES.fullmatch(text) or NO.fullmatch(text)):
         return None  # A native-harness question/approval is not our confirmation.
-    if not pending and YES.fullmatch(text):
-        return finish('There is no pending confirmation. No additional email was sent.')
-    if not pending and NO.fullmatch(text):
-        return finish('There is no pending delivery. No additional email was sent.')
     if (not pending and task and UNRESOLVED_CHOICE.search(text)
             and re.search(r'\b(?:email|send|forward)\b',text,re.I)
             and not base.NO_EMAIL.search(text)
@@ -136,6 +133,8 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
     if op=='answer' and not pending and decision.get('relation')!='followup':
         decision.update(target='NEW',version=0)
     if op=='native':
+        from hermes_cli.voice_presentation import native_decision
+        native_decision(decision)
         # Original harness owns external action/coding authorization, not this state.
         if pending:store.consume(session,pending['id'],status='cancelled')
         if task:store.close(session,task)  # Keep saved topics, release current-turn ownership.
@@ -181,8 +180,10 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
     recipient,confirm_address=_address(execution_text,cfg.get('default_recipient',''),delivery_requested=decision['delivery']=='email')
     email=(decision['delivery']=='email' or
            (not task['facts'].get('suppress_auto_email',False)
-            and (task['facts'].get('initial_email',False) or decision['detail'])
-            and (not selected or not selected.get('detailed',False))))
+            and (task['facts'].get('initial_email',False) or decision['detail']
+                 or (selected and selected.get('detailed',False) and op in {'revise','expand'}))
+            and (not selected or not selected.get('detailed',False)
+                 or op in {'revise','expand'})))
     if base.NO_EMAIL.search(text):email=False
     if op=='send' and selected and confirm_address and (RECIPIENT_QUESTION.search(decision['question']) or decision['question'].strip() in {recipient,recipient.replace('@','.')}):
         decision['question']=''  # The host's recipient slot, never a content-reference slot.
@@ -220,6 +221,10 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
                 retrieved_sources.update(re.findall(r'https?://[^\s<>"\]\)]+',json.dumps(data,ensure_ascii=False)))
     def finalize(*,response_text,failed,turn_exit_reason,messages):
         nonlocal task
+        from hermes_cli.voice_presentation import mark_presented
+        mark_presented()
+        if agent._interrupt_requested:
+            raise RuntimeError('Delivery cancelled')
         count=0
         offline_result=None
         if turn_state is not None and turn_state.offline:
@@ -257,12 +262,8 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         if not body or re.fullmatch(r'\s*(NO_REPLY_EXPECTED|NO_REPLY|SILENT_REPLY)\s*',body):
             return finish('No complete result was produced. No email was sent.',failed=True)
         if body.endswith('?') and base._brief(body):
-            previous=task.get('last_question','')
-            normalize=lambda value:re.sub(r'\W','',value).casefold()
-            if previous and normalize(previous)==normalize(body):
-                return finish('I have your answer, but I could not complete this step. You can continue with a different request.',failed=True)
-            task=store.await_details(session,task,body)
-            store.pend(session,task,'requirements',{'question':body})
+            # A question is conversation, not proof of a blocking requirements
+            # slot. Next-turn routing has the actual recent question/answer.
             return finish(body)
         sources=sorted(retrieved_sources | set((selected or {}).get('sources',[])))
         allowed={url.rstrip('.,;') for url in sources}
@@ -291,18 +292,11 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
             summary=offline_result['summary']
         elif retrieval_unavailable:
             summary='I could not retrieve live sources, so I could not verify the requested current details.'
-        elif not base._brief(summary) or native_route['intent']=='complex':
-            try:
-                count=1
-                summary=base._summary(agent,body,
-                                      {'retrieved_sources':sources,'retrieval_incomplete':retrieval_failed},
-                                      task['request']+'\nCurrent request: '+execution_text,
-                                      early_delivery=True)
-            except Exception as error:
-                if agent._interrupt_requested:
-                    return finish('Cancelled. No new email was sent.',calls=count,failed=True)
-                log.warning('Voice summarization failed; retaining native result: %s',error)
-                summary=base._fallback_summary(body);count=1
+        else:
+            from hermes_cli.voice_presentation import spoken_body
+            summary,used=spoken_body(agent,summary,execution_text,
+                                    evidence={'retrieved_sources':sources,'retrieval_incomplete':retrieval_failed})
+            count+=used
         # Provenance comes from successful tools in THIS turn, never model-written
         # URLs or unrelated historical tool messages. A revision may combine
         # its parent's evidence with newly retrieved evidence for the same task.
@@ -324,19 +318,10 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         if offline_result:
             result['recovered']=True
         return result
-    context={'selected_result':selected['body'][:22000] if selected else None,
-             'retrieval_guidance':(('This is open-ended general guidance, not a live-fact request. '
-                                    'Answer from stable knowledge without tools and offer to check current details if useful. '
-                                    if native_route['intent']=='simple' and base.OPEN_ENDED.search(execution_text)
-                                    and not base.EXPLICIT_DELIVERABLE.search(execution_text) else
-                                    'For this brief answer, use at most one search and no repeated extraction. '
-                                    if native_route['intent']=='simple' else
-                                    'Use available retrieval when it materially improves current or external facts. ')
-                                   +'If retrieval is unavailable, give the useful answer you can and label uncertainty.'
-                                   if decision.get('execution')=='research' else ''),
-             'prior_retrieved_sources':selected.get('sources',[]) if selected else [],
-             'current_operation':op,'delivery_owner':'Host. Do not ask for email or use send_message.',
-             'content_only':'Return only the requested content. Email submission happens AFTER your answer, outside model tools. Do not discuss email success, failure, or unavailable delivery tools.',
-             'confirmed_recipient':recipient if not confirm_address else None,
-             'current_request':execution_text}
+    context={'current_operation':op}
+    if selected:
+        context['selected_result']=selected['body'][:22000]
+        context['prior_retrieved_sources']=selected.get('sources',[])
+    if decision.get('execution')=='research':
+        context['retrieval_guidance']='Use external evidence for facts that need it. If unavailable, label what could not be verified.'
     return base.execute_native(agent,execution_text,session,store,task,native_route,cfg,delivery=finalize,extra_context=context,observe_tool=observe_tool)

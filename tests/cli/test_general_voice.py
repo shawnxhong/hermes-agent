@@ -63,7 +63,19 @@ def routing(**kw):
 def rig(monkeypatch):
     cfg={'enabled':True,'default_recipient':'default@example.com'}
     monkeypatch.setattr(voice,'config',lambda:cfg)
-    router=Mock(return_value=routing());monkeypatch.setattr(voice,'route_task',router)
+    from hermes_cli import voice_continuity
+    router=Mock(return_value=routing())
+    def unified(agent,text,store,session,pending):
+        value=router(agent,text,store,session,pending)
+        current=store.current(session)
+        native=value['intent'] in {'coding','action'}
+        return {'execution':value['intent'] if native else 'content',
+                'relation':'independent' if value['relation']=='new' else 'followup',
+                'target':current['id'] if current and value['relation']!='new' else 'NEW',
+                'operation':'native' if native else 'unclear' if value['intent']=='other' else 'explain' if value['relation']=='followup' and value['intent']=='simple' else 'answer',
+                'detail':value['intent']=='complex','delivery':'none','version':0,
+                'question':'','api_calls':1}
+    monkeypatch.setattr(voice_continuity,'route',unified)
     sender=Mock(return_value={'success':True});monkeypatch.setattr(voice,'_send',sender)
     from hermes_cli import voice_outbox
     monkeypatch.setattr(voice_outbox,'kick',lambda:voice_outbox.drain(sender=sender))
@@ -87,7 +99,7 @@ def test_complete_task_executes_then_summarizes_and_sends(rig):
     result=complete(policy)
     sender.assert_called_once_with('default@example.com','The complete detailed report.')
     assert result['final_response'].endswith('queued for email delivery.')
-    assert summary.call_count==1
+    summary.assert_not_called()  # A short deliverable needs no spoken rewrite.
 
 
 def test_native_question_then_execution_uses_the_same_task(rig):
@@ -96,11 +108,14 @@ def test_native_question_then_execution_uses_the_same_task(rig):
     first_turn=run(rig)
     assert complete(first_turn,'Who is the audience?')['final_response'].endswith('?')
     first=TaskStore().current(agent.session_id)
-    assert first['pending_question']=='Who is the audience?'
+    from hermes_cli.voice_continuity_store import ContinuityStore
+    assert ContinuityStore().pending(agent.session_id) is None
+    assert ContinuityStore().recent_turns(agent.session_id)[-1]['reply']=='Who is the audience?'
     router.return_value=routing(relation='answer')
     policy=run(rig,'Twenty colleagues.')
     assert TaskStore().current(agent.session_id)['id']==first['id']
-    assert 'Twenty colleagues.' in policy['continuation'].context
+    assert 'Draft a report.' in policy['continuation'].context
+    assert 'Twenty colleagues.' not in policy['continuation'].context  # Already the user message.
     complete(policy)
     assert sender.call_count==1
 
@@ -112,7 +127,7 @@ def test_fragmented_asr_preserves_pending_task_and_question(rig):
     before=TaskStore().current(agent.session_id)
     router.return_value=routing(intent='other',relation='new',route='native')
     answer=run(rig,'Um, my badge is like...')
-    assert answer['final_response'].endswith('?')
+    assert 'paused' in answer['final_response']
     assert TaskStore().current(agent.session_id)==before
     sender.assert_not_called()
     router.return_value=routing(relation='answer')
@@ -158,7 +173,7 @@ def test_coding_preserves_native_harness(rig):
 @pytest.mark.parametrize('reason',['workflow_execution_budget','partial_stream_recovery','text_response(finish_reason=length)'])
 def test_incomplete_execution_never_emails(rig,reason):
     result=complete(run(rig),reason=reason)
-    assert result['failed'] and 'No automatic result email' in result['final_response']
+    assert result['failed'] and 'no new email' in result['final_response']
     rig[3].assert_not_called();rig[4].assert_not_called()
 
 
@@ -182,7 +197,7 @@ def test_sender_failure_and_summary_failure_are_honest(rig):
 
 def test_explicit_no_email_and_missing_recipient(rig):
     result=complete(run(rig,"Draft a report but don't email it."))
-    assert 'not emailed' in result['final_response'];rig[3].assert_not_called()
+    assert result['final_response']=='The complete detailed report.';rig[3].assert_not_called()
     rig[0]['default_recipient']=''
     result=complete(run(rig,'Draft another report.'))
     assert result['final_response'].endswith('?');rig[3].assert_not_called()
@@ -223,9 +238,9 @@ def test_transport_failure_exhausts_continuation_and_keeps_local_tools(rig):
 
 def test_native_action_keeps_original_message_and_memory_permissions(rig):
     rig[2].return_value=routing(intent='action',route='native')
-    policy=run(rig,'Email my colleague the requested message.')['continuation']
-    assert policy.before_tool('send_message',{'target':'email:colleague@example.com'}) is None
-    assert policy.before_tool('memory',{'action':'add'}) is None
+    assert run(rig,'Email my colleague the requested message.') is None
+    assert voice.before_tool(session_id=rig[1].session_id,tool_name='send_message',args={'target':'email:colleague@example.com'}) is None
+    assert voice.before_tool(session_id=rig[1].session_id,tool_name='memory',args={'action':'add'}) is None
 
 
 def test_native_voice_breaker_is_network_only_and_typed_turn_clears_it(rig):
@@ -280,15 +295,15 @@ def test_travel_suggestions_use_the_same_native_harness_as_other_questions(rig):
     rig[2].return_value=routing(intent='simple',domain='travel',route='simple')
     result=run(rig,'I want to visit New York. Any suggestions?')
     assert 'continuation' in result
-    assert 'I want to visit New York' in result['continuation'].context
+    assert 'I want to visit New York' not in result['continuation'].context
     assert 'any loaded scenario skill' in result['continuation'].context
-    assert 'requires an intake question' in result['continuation'].context
+    assert 'requires an intake question' not in result['continuation'].context
     rig[3].assert_not_called()
 
 
 def test_silent_control_marker_is_not_an_email_deliverable(rig):
     result=complete(run(rig),'NO_REPLY_EXPECTED')
-    assert result['failed'] and 'No automatic email' in result['final_response']
+    assert result['failed'] and 'No email was sent' in result['final_response']
     rig[3].assert_not_called()
 
 
@@ -296,7 +311,7 @@ def test_long_explanation_is_summarized_without_replacing_or_emailing_report(rig
     complete(run(rig));task=TaskStore().current(rig[1].session_id)
     rig[2].return_value=routing(intent='simple',relation='followup',route='simple')
     result=complete(run(rig,'Why?'),'Detailed explanation. '*50)
-    assert rig[3].call_count==1 and rig[4].call_count==2
+    assert rig[3].call_count==1 and rig[4].call_count==1
     assert 'submitted' not in result['final_response']
     assert TaskStore().current(rig[1].session_id)['artifact_version']==task['artifact_version']
 

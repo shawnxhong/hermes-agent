@@ -15152,7 +15152,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         """Queue bounded final speech, omitting any already committed prefix."""
         if text_queue is None or not voice_input or interrupted:
             return ""
-        spoken = prepare_voice_tts_text(response)
+        spoken = prepare_voice_tts_text(response, max_sentences=4, max_en_words=80)
         if not spoken:
             return ""
         if delivery is not None:
@@ -18085,6 +18085,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 self._pending_one_turn_model_restore = None
                 from hermes_cli.voice_sentence_delivery import current_delivery
                 _delivery_token = current_delivery.set(sentence_delivery)
+                from hermes_cli.voice_presentation import turn_presentation, finish_native
+                from hermes_cli.general_voice import config as voice_delivery_config
+                _presentation_token = turn_presentation.set(
+                    {'handled': False} if voice_input and voice_delivery_config() else None)
                 try:
                     if voice_input:
                         logger.info('voice_latency stage=agent_start session=%s', self.session_id)
@@ -18097,6 +18101,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         moa_config=_moa_cfg,
                         input_modality="voice" if voice_input else "text",
                     )
+                    result = finish_native(self.agent, result, message, self.agent.session_id)
                     if getattr(self, "_pending_moa_disable_after_turn", False):
                         _restore = getattr(self, "_pending_moa_restore_model", None) or {}
                         for _key, _value in _restore.items():
@@ -18117,6 +18122,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         "error": _summary,
                     }
                 finally:
+                    turn_presentation.reset(_presentation_token)
                     current_delivery.reset(_delivery_token)
                     if _one_turn_model_restore:
                         self._restore_model_runtime_snapshot(_one_turn_model_restore)
@@ -18543,7 +18549,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 and not use_streaming_tts
                 and not (_interrupted_this_turn or interrupt_msg)
             ):
-                spoken_response = prepare_voice_tts_text(response)
+                spoken_response = prepare_voice_tts_text(response, max_sentences=4, max_en_words=80)
                 if spoken_response:
                     self._voice_speak_response_async(spoken_response)
 

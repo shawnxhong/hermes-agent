@@ -71,10 +71,10 @@ def capture(recipient,body):
 general_voice._send=capture
 summary_checks=[]
 original_summary=general_voice._summary
-def checked_summary(agent,body,evidence=None,task_request=None):
+def checked_summary(agent,body,evidence=None,task_request=None,**kwargs):
     record={'body':body,'evidence':evidence,'request':task_request};summary_checks.append(record)
     try:
-        value=original_summary(agent,body,evidence,task_request)
+        value=original_summary(agent,body,evidence,task_request,**kwargs)
         record.update(summary=value,valid=True)
         return value
     except Exception as error:
@@ -82,17 +82,14 @@ def checked_summary(agent,body,evidence=None,task_request=None):
         raise
 general_voice._summary=checked_summary
 routes=[]
-original_router=general_voice.route_task
+from hermes_cli import voice_continuity
+original_router=voice_continuity.route
 def traced_router(*a,**kw):
     result=original_router(*a,**kw)
     routes.append(result)
     print('ROUTE '+json.dumps(result),flush=True)
     return result
-general_voice.route_task=traced_router
-if args.continuity:
-    from hermes_cli import voice_continuity
-    original_router=voice_continuity.route
-    voice_continuity.route=traced_router
+voice_continuity.route=traced_router
 agent=AIAgent(model='qwen3.6-35b-a3b',provider='custom',base_url='http://localhost:8000/v3',api_key='local-ovms',
     api_mode='chat_completions',quiet_mode=True,max_iterations=12,
     enabled_toolsets=sorted(_get_platform_tools(cfg,'cli')) if args.native_tools else ['web'],

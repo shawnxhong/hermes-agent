@@ -42,6 +42,21 @@ def test_short_answer_then_details_by_default_email(rig):
     sender.assert_called_once_with('xiaoheng.hong@intel.com','Detailed information about the original four restaurants.')
 
 
+@pytest.mark.parametrize('operation',['revise','expand'])
+def test_substantive_update_auto_emails_new_version_even_without_detail_hint(rig,operation):
+    _,router,sender=rig
+    router.return_value=decision(detail=True)
+    done(run(rig,'Draft an onboarding plan.'),'The original onboarding plan.')
+    task=ContinuityStore().current('s')
+    router.return_value=decision(target=task['id'],relation='followup',operation=operation,detail=False)
+    done(run(rig,'Change that plan for remote staff.'),'The revised remote onboarding plan.')
+    assert sender.call_count==2
+    assert sender.call_args.args[1]=='The revised remote onboarding plan.'
+    router.return_value=decision(target=task['id'],operation='explain',detail=False)
+    done(run(rig,'Why?'),'It makes onboarding easier.')
+    assert sender.call_count==2
+
+
 def test_short_numbered_answer_needs_no_fallible_summary_call(rig,monkeypatch):
     summary=Mock(side_effect=AssertionError('Do not reclassify a short list'))
     monkeypatch.setattr(base,'_summary',summary)
@@ -94,8 +109,10 @@ def test_invalid_address_confirmation_yes_is_zero_model_and_once(rig):
     assert reply['final_response']=='Did you mean xiaoheng.hong@intel.com?'
     before=router.call_count
     assert 'queued' in run(rig,'Yes, I mean that. Could you just send me the email?')['final_response']
+    # Once consumed, an ordinary yes returns to semantic routing, not a fixed
+    # email-status branch. An actual repeated send remains deduplicated.
     run(rig,'Yes, I mean that. Just send me the email.')
-    assert router.call_count==before and sender.call_count==1
+    assert router.call_count==before+1 and sender.call_count==1
 
 
 def test_override_is_one_delivery_and_typed_pending_address(rig):
@@ -230,11 +247,12 @@ def test_semantic_denial_cancels_candidate_without_sending(rig):
     sender.assert_not_called()
 
 
-def test_typed_answer_to_voice_requirements_continues_but_new_task_passes_through(rig):
+def test_legacy_pending_requirements_remain_compatible_for_typed_answer(rig):
     _,router,sender=rig
     router.return_value=decision(detail=True,question='Who is the audience?')
     done(run(rig,'Draft a meeting agenda.'),'Who is the audience?')
     task=ContinuityStore().current('s')
+    ContinuityStore().pend('s',task,'requirements',{'question':'Who is the audience?'})
     router.return_value=decision(target=task['id'],detail=True)
     done(run(rig,'Twenty colleagues.','text'),'Agenda for twenty colleagues.')
     sender.assert_called_once()
@@ -290,12 +308,12 @@ def test_open_ended_advice_keeps_brief_budget_and_avoids_optional_tools(rig):
     value=run(rig,'Could you give me some advice about Melbourne?')
     policy=value['continuation']
     assert policy.max_api_calls==6 and policy.max_output_tokens==512
-    assert 'Answer from stable knowledge without tools' in policy.context
+    assert 'Use external evidence for facts that need it' in policy.context
     assert policy.before_tool('web_search',{'query':'one'}) is None
     assert policy.before_tool('web_search',{'query':'two'})['action']=='block'
 
 
-def test_distinct_essential_questions_are_allowed_but_exact_repeat_stops(rig):
+def test_questions_are_recorded_without_creating_blocking_requirements(rig):
     _,router,sender=rig
     router.return_value=decision(detail=True)
     done(run(rig,'Prepare a client workshop.'),'How long should the workshop be?')
@@ -304,10 +322,11 @@ def test_distinct_essential_questions_are_allowed_but_exact_repeat_stops(rig):
     second=run(rig,'One hour.')
     done(second,'How many people will attend?')
     pending=ContinuityStore().pending('s')
-    assert pending and pending['payload']['question']=='How many people will attend?'
+    assert pending is None
+    assert ContinuityStore().recent_turns('s')[-1]['reply']=='How many people will attend?'
     router.return_value=decision(target=task['id'],detail=True)
     repeated=done(run(rig,'Twenty people.'),'How many people will attend?')
-    assert repeated['failed'] and 'I have your answer' in repeated['final_response']
+    assert not repeated.get('failed') and repeated['final_response']=='How many people will attend?'
     assert ContinuityStore().pending('s') is None and sender.call_count==0
 
 
@@ -434,7 +453,7 @@ def test_summarizer_cannot_replace_native_research_with_extractive_notes(rig,mon
     body=rig[2].call_args.args[1]
     assert 'Store B is in Boston.' in body and 'https://a.example/' in body
     assert 'queued' in reply['final_response']
-    assert validator.call_count==1
+    assert validator.call_count==0  # Short useful prose is no longer rewritten.
 
 
 def test_grounding_label_from_summarizer_cannot_veto_native_result(rig,monkeypatch):

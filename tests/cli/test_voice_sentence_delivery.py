@@ -179,6 +179,16 @@ def test_direct_answer_and_empty_tail():
     assert len(delivery.committed)==2
 
 
+def test_cli_keeps_three_sentence_body_and_host_delivery_status():
+    from cli import HermesCLI
+    delivery=sink()
+    text='I drafted your report. It covers the key findings. The recommendations are included. The details are queued for email delivery.'
+    spoken=HermesCLI._enqueue_voice_final_tts(
+        NS(), delivery.queue, text, voice_input=True, interrupted=False, delivery=delivery)
+    assert spoken==text
+    assert list(delivery.queue.queue)[-1]=='The details are queued for email delivery.'
+
+
 def test_keyboard_im_and_disabled_flag_do_not_create_sink(monkeypatch):
     from hermes_cli import config
     monkeypatch.setattr(config,'load_config',lambda:{'voice':{'sentence_pipeline':{'enabled':True}}})
