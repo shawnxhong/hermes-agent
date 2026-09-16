@@ -1,0 +1,27 @@
+# Installed laptop dependency snapshot; Python 3.11.16 / Linux.
+# Model assets are provisioned separately. Rebuild validation required before release.
+addict==2.4.0
+attrs==26.1.0
+cffi==2.1.1
+cloudpickle==3.1.2
+cn2an==0.5.24
+dlinfo==2.0.0
+espeakng-loader==0.2.4
+flatbuffers==25.12.19
+jieba==0.42.1
+joblib==1.6.0
+kokoro-onnx @ git+https://github.com/thewh1teagle/kokoro-onnx.git@d9e7b5cc29007a128c0f4aaa9d45b130fe7a40c1
+misaki-fork==0.9.6
+numpy==2.4.6
+onnxruntime==1.29.0
+ordered-set==4.1.0
+packaging==26.3
+phonemizer==3.4.0
+proces==0.1.7
+protobuf==7.36.1
+pycparser==3.0
+pypinyin==0.55.0
+pypinyin-dict==0.9.0
+regex==2026.9.3
+soundfile==0.14.0
+typing_extensions==4.16.0
