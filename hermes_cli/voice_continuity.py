@@ -301,7 +301,10 @@ def run_continuity(*,agent,user_message,session_id,input_modality,platform):
         # URLs or unrelated historical tool messages. A revision may combine
         # its parent's evidence with newly retrieved evidence for the same task.
         sources=sorted(retrieved_sources | set((selected or {}).get('sources',[])))
-        kind='explanation' if op=='explain' else 'revision' if selected else 'main'
+        # Only explicit revisions/expansions replace an existing deliverable.
+        # A follow-up answer is supplementary even if the router uses "answer"
+        # instead of "explain"; never replace a full report with that short reply.
+        kind='explanation' if op=='explain' or (selected and op=='answer') else 'revision' if selected else 'main'
         task,version=store.save_result(session,task,body=body,summary=summary,kind=kind,
                                        parent_version=selected['version'] if selected else None,sources=sources,
                                        detailed=detailed)

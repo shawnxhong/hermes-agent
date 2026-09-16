@@ -60,6 +60,10 @@ facts absent from the result. Follow-up live outputs retained first-day scope
 and explicitly preserved the unavailability of later-day details. An initial
 test incorrectly rejected the phrase "subsequent days remain unavailable";
 that is preserved uncertainty, not invented later-day activities.
+The final replay also returned `answer` for an explanatory follow-up. A generic
+versioning invariant now stores follow-up answers as supplementary content:
+only explicit revisions/expansions replace the saved deliverable. The live
+acceptance checks that the full emailed report remains selected after explanation.
 
 Release identity, final test counts, local receipt path, unchanged service facts
 and rollback are recorded in the private ops repository. Human acoustic and
