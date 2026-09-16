@@ -109,3 +109,23 @@ def test_toggle_targets_only_voice_service(box, tmp_path, monkeypatch, state, ac
     monkeypatch.setattr(box.subprocess, 'run', invoke)
     box.control('toggle')
     invoke.assert_called_once_with(['systemctl', '--user', action, box.UNIT], check=True, timeout=125)
+
+
+def test_background_voice_starts_without_a_scene_skill(box, tmp_path, monkeypatch):
+    import yaml
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    cue = tmp_path / 'standby.wav'
+    cue.touch()
+    goodbye = tmp_path / 'cache/box-voice/goodbye.wav'
+    goodbye.parent.mkdir(parents=True)
+    goodbye.touch()
+    (tmp_path / 'config.yaml').write_text(yaml.safe_dump({
+        'wake_word': {'enabled': True}, 'stt': {'enabled': True},
+        'voice': {'auto_tts': True, 'startup_cue_file': str(cue)},
+    }))
+    controller = Mock(run=Mock(return_value=0))
+    factory = Mock(return_value=controller)
+    monkeypatch.setattr(box, 'VoiceProcess', factory)
+    monkeypatch.setattr(box.signal, 'signal', Mock())
+    assert box.run_service() == 0
+    assert factory.call_args.args[0][1:] == ['--cli']

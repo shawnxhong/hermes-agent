@@ -12,7 +12,7 @@ def test_interactive_releases_background_and_inherits_terminal(monkeypatch):
     monkeypatch.setattr(module, 'control', lambda action: calls.append(action))
     def run(command, **kwargs):
         assert calls == ['stop']
-        assert command[1] == '--cli'
+        assert command[1:] == ['--cli']
         assert kwargs['env']['HERMES_CLI_VOICE_AUTO_START'] == '1'
         assert 'stdin' not in kwargs and 'stdout' not in kwargs
         return SimpleNamespace(returncode=0)
