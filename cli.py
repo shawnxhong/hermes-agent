@@ -59,6 +59,7 @@ from hermes_cli.voice_response_policy import (
     prepare_voice_tts_text,
 )
 from agent.interrupt_compat import request_hard_interrupt
+from hermes_cli.voice_scenes import switching as _scene_switching, generation as _scene_generation
 from agent.pet import render as pet_render
 
 # prompt_toolkit for fixed input area TUI
@@ -8324,6 +8325,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         """
         if not text:
             return
+        if _scene_switching(self):
+            return
         self._reasoning_shown_this_turn = True
         if getattr(self, "_stream_box_opened", False):
             return
@@ -8380,6 +8383,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         about to execute).  Flushes any open boxes and resets state so
         tool feed lines render cleanly between turns.
         """
+        if _scene_switching(self):
+            return
         if text is None:
             self._flush_stream()
             self._reset_stream_state()
@@ -9013,6 +9018,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             else:
                 raise ValueError(f"Unknown skill(s): {missing_display}")
         if skills_prompt:
+            self._preloaded_skills_prompt = skills_prompt
             self.system_prompt = "\n\n".join(
                 part for part in (self.system_prompt, skills_prompt) if part
             ).strip()
@@ -15058,6 +15064,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
     def _maybe_enqueue_voice_tool_ack(self, *, wait_until_spoken: bool = False) -> None:
         """Queue the one-shot acknowledgement, optionally waiting for playback."""
+        if _scene_switching(self):
+            return
         with self._voice_tool_ack_lock:
             if (
                 not self._voice_tool_ack_armed
@@ -15433,6 +15441,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         stacked line to scrollback on tool.completed so users can see the
         full history of tool calls (not just the current one in the spinner).
         """
+        if _scene_switching(self):
+            return
         # MoA reference-model outputs: render each reference's answer as a
         # labelled thinking-style block BEFORE the aggregator acts, so the user
         # sees the mixture-of-agents process instead of a silent pause. These
@@ -15697,6 +15707,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
     def _voice_start_recording(self):
         """Start capturing audio from the microphone."""
+        scene_generation = _scene_generation(self)
+        if _scene_switching(self):
+            return
         if getattr(self, '_should_exit', False):
             return
         from tools.voice_mode import create_audio_recorder, check_voice_requirements
@@ -15816,6 +15829,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 pass
 
         try:
+            if _scene_switching(self) or scene_generation != _scene_generation(self):
+                self._voice_recording = False
+                return
             self._voice_recorder.start(on_silence_stop=_on_silence)
         except Exception:
             with self._voice_lock:
@@ -15890,6 +15906,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
     def _voice_stop_and_transcribe(self):
         """Stop recording, transcribe via STT, and queue the transcript as input."""
+        scene_generation = _scene_generation(self)
         # Atomic guard: only one thread can enter stop-and-transcribe.
         # Set _voice_processing immediately so concurrent Ctrl+B presses
         # don't race into the START path while recorder.stop() holds its lock.
@@ -15935,6 +15952,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
             from tools.voice_mode import transcribe_recording
             result = transcribe_recording(wav_path, model=stt_model)
+
+            if _scene_switching(self) or scene_generation != _scene_generation(self):
+                return
 
             if result.get("success") and result.get("transcript", "").strip():
                 transcript = result["transcript"].strip()
@@ -16020,12 +16040,14 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
     def _voice_speak_response_async(self, text: str) -> None:
         """Schedule TTS and mark it pending before continuous recording can restart."""
+        if _scene_switching(self):
+            return
         if not self._voice_tts or not text:
             return
         self._voice_tts_done.clear()
         threading.Thread(
             target=self._voice_speak_response,
-            args=(text,),
+            args=(text, _scene_generation(self)),
             daemon=True,
         ).start()
         # Spoken barge-in must work on the whole-file fallback path too. The
@@ -16039,8 +16061,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 daemon=True,
             ).start()
 
-    def _voice_speak_response(self, text: str):
+    def _voice_speak_response(self, text: str, scene_generation=None):
         """Speak the agent's response aloud using TTS (runs in background thread)."""
+        if scene_generation is None:
+            scene_generation = _scene_generation(self)
+        if _scene_switching(self) or scene_generation != _scene_generation(self):
+            return
         if not self._voice_tts:
             return
         self._voice_tts_done.clear()
@@ -16092,6 +16118,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 tts_result.get("file_path") or mp3_path
             ]
             for play_path in play_paths if tts_result.get("success") else []:
+                if _scene_switching(self) or scene_generation != _scene_generation(self):
+                    break
                 if os.path.isfile(play_path) and os.path.getsize(play_path) > 0:
                     play_audio_file(play_path)
             # Clean up all generated files (play_paths + mp3_path + ogg variants)
@@ -16164,6 +16192,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             tts_done = getattr(self, "_voice_tts_done", None)
 
             def _should_stop() -> bool:
+                if _scene_switching(self):
+                    return True
                 if clarify_only:
                     return not (
                         getattr(self, "_voice_clarify_listening", False)
@@ -16242,10 +16272,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self, wav_path: str, *, clarify_only: bool = False
     ) -> None:
         """Transcribe a barge-captured interruption and queue it as the next turn."""
+        scene_generation = _scene_generation(self)
         submitted = False
         try:
             from tools.voice_mode import transcribe_recording
             result = transcribe_recording(wav_path, model=self._voice_stt_model())
+            if _scene_switching(self) or scene_generation != _scene_generation(self):
+                return
             transcript = (result.get("transcript") or "").strip() if result.get("success") else ""
             from tools.voice_endpoint import strip_end_phrase
             transcript = strip_end_phrase(transcript)
@@ -16554,6 +16587,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
     def _on_wake_word(self):
         """Fired after the detector hears the wake phrase."""
+        if _scene_switching(self):
+            return
         if getattr(self, "_should_exit", False):
             return
         # Ignore wake while a turn is in flight or the mic is already in use.
@@ -16638,7 +16673,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         idle_polls = 0
                         continue
                     busy = (
-                        self._agent_running
+                        _scene_switching(self)
+                        or self._agent_running
                         or self._voice_recording
                         or getattr(self, "_voice_processing", False)
                         or getattr(self, "_voice_continuous", False)
@@ -17879,6 +17915,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             if use_streaming_tts:
                 text_queue = queue.Queue()
                 stop_event = threading.Event()
+                self._voice_tts_stop = stop_event
 
                 # The first tool.started event may enqueue a short spoken
                 # acknowledgement into this same queue.  The TTS worker then
@@ -18121,6 +18158,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             # so we skip interrupt processing to avoid stealing that input.
             interrupt_msg = None
             while agent_thread.is_alive():
+                if _scene_switching(self):
+                    self._last_turn_interrupted = True
+                    if stop_event is not None:
+                        stop_event.set()
+                    request_hard_interrupt(agent)
+                    agent_thread.join(.1)
+                    continue
                 if hasattr(self, '_interrupt_queue'):
                     try:
                         interrupt_msg = self._interrupt_queue.get(timeout=0.1)
@@ -18198,6 +18242,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 # Normal completion: agent thread should be done already,
                 # but guard against edge cases.
                 agent_thread.join(timeout=30)
+
+            if _scene_switching(self):
+                self._last_turn_interrupted = True
+                return None
 
             # Freeze per-prompt elapsed timer once the agent thread has
             # exited (or been abandoned as a daemon after interrupt).
@@ -21788,6 +21836,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         def process_loop():
             while not self._should_exit:
                 try:
+                    controller = getattr(self, "_scene_controller", None)
+                    if controller is not None and controller.apply_pending():
+                        _clear_output_history()
+                        continue
                     # Check for pending input with timeout
                     try:
                         user_input = self._pending_input.get(timeout=0.1)
@@ -21953,6 +22005,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         _cprint(f"  {_DIM}📎 {n} image{'s' if n > 1 else ''} attached{_RST}")
 
                     # Regular chat - run agent
+                    if _scene_switching(self):
+                        continue
                     self._agent_running = True
                     self._interactive_turn = True
                     self._pet_turn_error = False
@@ -22082,6 +22136,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         def _wake_startup():
             try:
                 self._maybe_start_wake_word()
+                from hermes_cli.voice_scenes import start_for_cli
+                start_for_cli(self)
             except Exception as e:
                 logger.debug("wake-word startup skipped: %s", e)
         threading.Thread(target=_wake_startup, daemon=True, name="wake-startup").start()

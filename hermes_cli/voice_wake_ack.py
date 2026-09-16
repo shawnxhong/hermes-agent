@@ -59,6 +59,8 @@ def cached_audio(config):
 
 def start_wake_capture(cli):
     """Called only after the wake detector is paused and the session selected."""
+    from hermes_cli.voice_scenes import generation, switching
+    scene_generation = generation(cli)
     from tools import voice_mode
     session = cli.session_id
     with cli._voice_lock:
@@ -68,7 +70,8 @@ def start_wake_capture(cli):
         cli._voice_processing = True
 
     def cancelled():
-        return (getattr(cli, "_should_exit", False) or not cli._voice_mode
+        return (switching(cli) or generation(cli) != scene_generation
+                or getattr(cli, "_should_exit", False) or not cli._voice_mode
                 or not cli._wake_word_active or cli.session_id != session
                 or cli._agent_running or not cli._pending_input.empty())
 
