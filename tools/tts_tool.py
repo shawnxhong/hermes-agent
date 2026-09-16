@@ -1205,6 +1205,9 @@ def _command_provider_env_passthrough(config: Dict[str, Any]) -> list:
     return [str(item).strip() for item in raw if str(item).strip()]
 
 
+_command_tts_cancel = threading.local()
+
+
 def _run_command_tts(
     command: str,
     timeout: float,
@@ -1218,6 +1221,9 @@ def _run_command_tts(
     from agent.delegation_context import delegated_child_subprocess_env
     from tools.environments.local import hermes_subprocess_env
 
+    cancel = getattr(_command_tts_cancel, 'event', None)
+    if cancel is not None and cancel.is_set():
+        raise RuntimeError('TTS request cancelled')
     scrubbed = hermes_subprocess_env(inherit_credentials=False)
     for key in env_passthrough or []:
         value = os.environ.get(key)
@@ -1278,6 +1284,9 @@ def _run_command_tts(
     deadline = time.monotonic() + timeout
     timed_out = False
     while open_streams:
+        if cancel is not None and cancel.is_set():
+            timed_out = True
+            break
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             timed_out = True
@@ -1292,11 +1301,19 @@ def _run_command_tts(
         chunks[name].append(chunk)
         deadline = time.monotonic() + timeout
 
-    if not timed_out:
-        try:
-            proc.wait(timeout=max(0.0, deadline - time.monotonic()))
-        except subprocess.TimeoutExpired:
+    while not timed_out:
+        if cancel is not None and cancel.is_set():
             timed_out = True
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            timed_out = True
+            break
+        try:
+            proc.wait(timeout=min(0.05, remaining))
+            break
+        except subprocess.TimeoutExpired:
+            continue
 
     if timed_out:
         _terminate_command_tts_process_tree(proc)
@@ -1311,6 +1328,8 @@ def _run_command_tts(
                 chunks[name].append(chunk)
         stdout = "".join(chunks["stdout"])
         stderr = "".join(chunks["stderr"])
+        if cancel is not None and cancel.is_set():
+            raise RuntimeError('TTS request cancelled')
         try:
             raise subprocess.TimeoutExpired(command, timeout)
         except subprocess.TimeoutExpired as exc:
@@ -4293,6 +4312,8 @@ class _SyncSentencePipeline:
     def _synthesize_to_tmp(self, cleaned: str) -> Optional[str]:
         if self._stop.is_set():
             return None
+        previous_cancel = getattr(_command_tts_cancel, 'event', None)
+        _command_tts_cancel.event = self._stop
         tmp_path = None
         try:
             cached = None
@@ -4347,6 +4368,8 @@ class _SyncSentencePipeline:
                 except OSError:
                     pass
             return None
+        finally:
+            _command_tts_cancel.event = previous_cancel
 
     def _drain(self) -> None:
         while True:
