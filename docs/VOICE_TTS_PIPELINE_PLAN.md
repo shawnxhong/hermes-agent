@@ -41,3 +41,39 @@ Eight interleaved coexistence pairs: ASR P95 0.298 -> 0.311 s; OVMS TTFT
 P95 0.313 -> 0.266 s and throughput median 42.19 -> 41.51 tokens/s.
 Default ORT spin significantly hurt coexistence; explicitly disable both
 intra/inter-op spinning. These synthetic probes do not certify acoustics.
+
+Stage 1 actual command-client measurement including interpreter startup:
+20 warm calls, median/P95 1.126/1.184 s (36% median improvement).
+
+## Stage 2 implementation and rollout
+
+`voice.sentence_pipeline.enabled: true` selects the per-turn CLI sink. Absent
+or false preserves buffered final speech, independently of resident Kokoro.
+Only a real local voice turn with a TTS queue creates a sink. Context-local
+ownership prevents keyboard/IM/subagent use; queue/session/scene checks and
+the existing stop event invalidate stale audio. Existing microphone barriers
+still wait for all speech. No change to prompts, budget, summary eligibility,
+native model callbacks, result body, mail policy or iGPU ASR.
+
+The existing final continuity-summary call uses the same JSON schema and
+prompt with stream=true. The first complete decoded sentence is validated
+against the existing spoken-summary policy and formatting before enqueue.
+Only this first sentence commits early. The rest waits for complete JSON,
+normal finish reason and full validation, then final enqueue omits the prefix.
+Direct native answers are sentence-split only after task completion.
+Escapes, decimals, common abbreviations and chunk-tail ambiguity are buffered.
+No timer forces partial speech. Post-commit failure appends one brief notice
+instead of replay; cancellation is silent. Segment id/sequence/state/timing
+is logged without content. Synthesizing/ready are distinct from played/failed.
+
+Existing single-synthesis-worker/bounded-lookahead/single-player pipeline is
+reused. No second TTS player, new model request, or cloud backend is added.
+An in-flight CPU synthesis may finish after cancellation but stale audio is
+discarded before playback. Resident-client cancellation never starts fallback.
+
+Real OVMS -> summary parser -> configured resident TTS -> validated WAV
+probe in a temporary Hermes profile, 20 warm interleaved pairs: buffered
+summary-to-first-WAV median/P95 3.216/3.294 s; sentence delivery 1.976/2.011 s
+(39% median improvement). Playback was replaced by a WAV-validation/timestamp
+sink: no speaker sound or mail/IM sent. This measures first-audio readiness,
+not total ASR-to-answer latency or acoustic quality. Human acceptance remains.
