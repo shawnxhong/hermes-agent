@@ -15,10 +15,13 @@ from hermes_constants import get_hermes_home
 
 log = logging.getLogger(__name__)
 DEFAULT_SCENES = {
+    "healthcare": {"skill": "healthcare", "announcement": "Healthcare assistant ready."},
+    "shopping": {"skill": "shopping", "announcement": "Shopping assistant ready."},
     "travel": {"skill": "travel-concierge", "announcement": "Travel assistant ready."},
     "home": {"skill": "demo-home-assistant", "announcement": "Home assistant ready."},
 }
 ACK = "One moment please"
+EXIT_ACK = "Scene closed."
 
 
 def switching(cli):
@@ -42,7 +45,7 @@ def settings():
 
 def prepare_audio(scenes, tts):
     from hermes_cli.voice_wake_ack import cached_audio
-    texts = [ACK, "Scene switch failed. Please try again."]
+    texts = [ACK, EXIT_ACK, "Scene switch failed. Please try again."]
     texts.extend(item["announcement"] for item in scenes.values())
     return {text: cached_audio({"text": text, "tts": tts}) for text in texts}
 
@@ -71,6 +74,7 @@ class SceneController:
         self.base_prompt = None
         self.server = None
         self.lock_file = None
+        self.requests = {}
 
     def status(self):
         with self.lock:
@@ -78,21 +82,40 @@ class SceneController:
                     "switching": switching(self.cli), "generation": generation(self.cli),
                     "pending": self.pending[1] if self.pending else None, "error": self.error}
 
-    def request(self, name):
+    def request(self, name=None, *, action="switch", request_id=None):
         from agent.skill_commands import build_preloaded_skills_prompt
-        if name not in self.scenes:
+        if action not in {"switch", "toggle", "clear"}:
+            raise ValueError("Unknown scene action: " + str(action))
+        if action != "clear" and name not in self.scenes:
             raise ValueError("Unknown scene: " + str(name))
-        prompt, loaded, missing = build_preloaded_skills_prompt([self.scenes[name]["skill"]])
-        if missing or not prompt or not loaded:
-            raise ValueError("Scene skill is unavailable: " + self.scenes[name]["skill"])
+        if request_id is not None and (not isinstance(request_id, str) or not 1 <= len(request_id) <= 128):
+            raise ValueError("Invalid request ID")
         with self.lock:
+            if request_id in self.requests:
+                prior_action, prior_name, version = self.requests[request_id]
+                if (action, name) != (prior_action, prior_name):
+                    raise ValueError("Request ID already used for another action")
+                return {**self.status(), "request_generation": version}
+            original_name = name
+            selected = self.pending[1] if self.pending is not None else self.active
+            if action == "clear" or (action == "toggle" and selected == name):
+                name = None
+            prompt, loaded = "", []
+            if name is not None:
+                prompt, loaded, missing = build_preloaded_skills_prompt([self.scenes[name]["skill"]])
+                if missing or not prompt or not loaded:
+                    raise ValueError("Scene skill is unavailable: " + self.scenes[name]["skill"])
             now = time.monotonic()
-            if self.last_press[0] == name and now - self.last_press[1] < .3:
+            if action == "switch" and self.last_press[0] == name and now - self.last_press[1] < .3:
                 return self.status()
             self.last_press = (name, now)
             self.cli._scene_generation = generation(self.cli) + 1
             self.cli._scene_switching = True
             self.pending = (generation(self.cli), name, prompt, loaded)
+            if request_id is not None:
+                self.requests[request_id] = (action, original_name, generation(self.cli))
+                if len(self.requests) > 256:
+                    del self.requests[next(iter(self.requests))]
             self.error = None
             self._interrupt()
             if self.ack_thread is None or not self.ack_thread.is_alive():
@@ -102,7 +125,7 @@ class SceneController:
             from hermes_cli.voice_outbox import cancel_session
             cancel_session(self.cli.session_id)
             log.info("voice_scene accepted scene=%s generation=%s", name, generation(self.cli))
-            return self.status()
+            return {**self.status(), "request_generation": generation(self.cli)}
 
     def _interrupt(self):
         from agent.interrupt_compat import request_hard_interrupt
@@ -199,7 +222,7 @@ class SceneController:
                 if version != generation(cli):
                     return True
                 self.active = name
-            self._speak(self.scenes[name]["announcement"])
+            self._speak(self.scenes[name]["announcement"] if name is not None else EXIT_ACK)
             time.sleep(.25)
             log.info("voice_scene ready scene=%s generation=%s", name, version)
         except Exception as exc:
@@ -255,7 +278,9 @@ class SceneController:
                             break
                         data.extend(chunk)
                     req = json.loads(data)
-                    result = self.status() if req.get("action") == "status" else self.request(req["scene"])
+                    action = req.get("action")
+                    result = self.status() if action == "status" else self.request(
+                        req.get("scene"), action=action, request_id=req.get("request_id"))
                     reply = {"ok": True, **result}
                 except Exception as exc:
                     reply = {"ok": False, "error": str(exc)}
@@ -287,16 +312,17 @@ def start_for_cli(cli):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["switch", "status", "prepare"])
+    parser.add_argument("action", choices=["switch", "toggle", "clear", "status", "prepare"])
     parser.add_argument("scene", nargs="?")
+    parser.add_argument("--request-id", help="Deduplicate a control request within this CLI process")
     args = parser.parse_args()
     if args.action == "prepare":
         raw, tts = settings()
         prepare_audio(raw.get("items") or DEFAULT_SCENES, tts)
         print("Scene announcements cached.")
         return
-    if args.action == "switch" and not args.scene:
-        parser.error("switch requires a scene ID: travel or home")
+    if args.action in {"switch", "toggle"} and not args.scene:
+        parser.error(args.action + " requires a scene ID")
     try:
         with socket.socket(socket.AF_UNIX) as conn:
             conn.settimeout(5)

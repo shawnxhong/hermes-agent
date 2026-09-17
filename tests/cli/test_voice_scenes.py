@@ -33,7 +33,7 @@ def rig(monkeypatch, tmp_path):
         events.append('reset')
         cli.session_id += '-new'
     cli.new_session = new_session
-    audio = {scenes.ACK: scenes.ACK,
+    audio = {scenes.ACK: scenes.ACK, scenes.EXIT_ACK: scenes.EXIT_ACK,
              **{v['announcement']: v['announcement'] for v in scenes.DEFAULT_SCENES.values()}}
     def play(text):
         assert scenes.switching(cli)
@@ -153,6 +153,55 @@ def test_repeat_scene_after_debounce_resets_again(rig):
     controller.apply_pending()
     assert session != cli.session_id
     assert cli.system_prompt.count('skill:travel-concierge') == 1
+
+
+@pytest.mark.parametrize('scene', ['healthcare', 'shopping', 'travel', 'home'])
+def test_toggle_enters_then_clears_scene(rig, scene):
+    cli, controller, events = rig
+    controller.request(scene, action='toggle')
+    controller.apply_pending()
+    assert controller.active == scene
+    session = cli.session_id
+    controller.request(scene, action='toggle')
+    controller.apply_pending()
+    assert controller.active is None and cli.session_id != session
+    assert cli.preloaded_skills == [] and cli._preloaded_skills_prompt == ''
+    assert cli.system_prompt == 'base'
+    assert events[-1] == scenes.EXIT_ACK
+
+
+def test_toggle_pending_and_cross_scene(rig):
+    cli, controller, _ = rig
+    controller.request('healthcare', action='toggle')
+    controller.request('healthcare', action='toggle')
+    assert controller.pending[1] is None
+    controller.request('shopping', action='toggle')
+    controller.apply_pending()
+    assert controller.active == 'shopping'
+    assert cli.preloaded_skills == ['shopping']
+    controller.request(action='clear')
+    controller.apply_pending()
+    assert controller.active is None and cli.preloaded_skills == []
+
+
+def test_duplicate_toggle_does_not_exit(rig):
+    cli, controller, _ = rig
+    first = controller.request('home', action='toggle', request_id='press-1')
+    controller.apply_pending()
+    session = cli.session_id
+    second = controller.request('home', action='toggle', request_id='press-1')
+    assert first['request_generation'] == second['request_generation']
+    assert controller.pending is None and controller.active == 'home'
+    assert cli.session_id == session
+    with pytest.raises(ValueError):
+        controller.request('travel', action='toggle', request_id='press-1')
+
+
+def test_unknown_action_cannot_mutate_scene(rig):
+    cli, controller, _ = rig
+    with pytest.raises(ValueError):
+        controller.request('home', action='bad')
+    assert controller.pending is None and cli.session_id == 'old'
 
 
 def test_hard_interrupt_is_control_not_user_message(rig):
