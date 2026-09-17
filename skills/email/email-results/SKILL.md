@@ -1,39 +1,28 @@
 ---
 name: email-results
-description: Send this conversation's requested answer or details by email only when the user explicitly asks.
+description: Queue requested details for the configured default email recipients.
 ---
 
-# Email requested results
+# Email requested details
 
-Only send when the user explicitly asks. A long or complex answer is not
-permission to send email. Reuse the relevant conversation content; when the
-user asks for more detail, prepare those details without narrating them aloud.
+This skill is already loaded; do not list skills or read it again.
+When the user asks for email, reuse the relevant conversation and prepare the
+requested details. Do not narrate the preparation or read the body aloud.
 
-The tool name is `send_message`; the default delivery target is `email`.
-They are different fields. Never put `send_message` in `target`.
-
-Call `send_message` directly with this parameter shape:
+Call `email_send` once, with only these two fields:
 ```json
-{"action":"send","target":"email","message":"The requested details go here."}
+{"subject":"London travel guide","body":"The requested details and sources."}
 ```
-If the tool is unavailable, explain briefly instead of using another tool.
-If a call is rejected for invalid parameters before
-delivery, correct the parameters once using the example; if it still fails,
-stop and explain briefly. An uncertain delivery outcome is not permission to retry.
+Use a short, single-line subject and a nonempty body. Replace both example
+values with the user's requested content. Recipients are configured by the
+service; never ask for an address or use another messaging tool.
 
-`target=email` uses the configured default recipient list; no address question
-or target-list call is needed. For a different user-supplied address, set
-`target` to `email:address` for this send only. Do not add the default recipients
-or change settings or long-term memory.
+After `queued`, say briefly: "I've queued the details for email."
+After `duplicate`, no new email was added; do not submit again.
+After `rejected` or `unconfirmed`, report the result briefly; do not retry.
+Do not wait for delivery, poll status, claim the email arrived, or promise when it will arrive.
 
-If no default recipient is configured, ask for the address in one ordinary
-reply. If an address is ambiguous, ask once and use the user's confirmation
-from the conversation; never repeatedly ask the same question.
-
-Include useful detail and actual source links where available. Never invent
-missing information or describe an unfinished task as completed. Do not expose
-credentials, unrelated conversation content or tool logs.
-
-Send once. Do not automatically repeat an uncertain or failed send. Say "sent"
-only on a successful tool result, "queued" only if that is the actual result,
-and report failures briefly. Never read the email body or addresses aloud.
+Only send when requested, including a details request authorized by the active
+travel or flight skill. Do not include unrelated content, secrets or tool logs.
+This tool only supports default recipients; explain that limitation if the
+user explicitly requests a different address, and do not send to defaults instead.
