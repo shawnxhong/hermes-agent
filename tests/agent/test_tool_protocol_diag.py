@@ -20,7 +20,7 @@ def wire(frames, done=True):
     return b''.join(b'data: '+json.dumps(f).encode()+b'\n\n' for f in frames)+(b'data: [DONE]\n\n' if done else b'')
 
 
-def replay(tmp_path, frames, *, enabled=True, done=True, fail_first=False):
+def replay(tmp_path, frames, *, enabled=True, done=True, fail_first=False, metrics=None, capture_setup=None, dispatch=False):
     from run_agent import AIAgent
     agent=AIAgent(api_key='local',base_url='http://127.0.0.1:8000/v3',provider='custom',
                   model='local',quiet_mode=True,skip_context_files=True,skip_memory=True)
@@ -41,9 +41,22 @@ def replay(tmp_path, frames, *, enabled=True, done=True, fail_first=False):
             'tools':[{'type':'function','function':{'name':name,'parameters':{'type':'object'}}} for name in set(names)]}
     capture=ProtocolCapture(tmp_path/'trace.jsonl',wire=True) if enabled else None
     if capture:agent._tool_protocol_capture=capture
+    if capture and capture_setup:capture_setup(capture)
     try:
         with patch.object(agent,'_create_request_openai_client',return_value=client),patch.object(agent,'_close_request_openai_client'):
             response=agent._interruptible_streaming_api_call(kwargs)
+        if dispatch:
+            from agent.tool_executor import execute_tool_calls_sequential
+            invoked=[]
+            messages=[]
+            agent.valid_tool_names=set(names)
+            with patch('run_agent.handle_function_call', side_effect=lambda *a, **k: invoked.append(a) or '{"ok":true}'):
+                execute_tool_calls_sequential(agent,response.choices[0].message,messages,'test')
+            if metrics is not None:
+                metrics.update(executions=len(invoked), messages=[
+                    {key: m.get(key) for key in ('role','content','tool_call_id','name','effect_disposition')}
+                    for m in messages])
+        if metrics is not None:metrics['requests']=len(requests)
         if capture:
             for tc in response.choices[0].message.tool_calls or []:
                 execution_event(agent,'argument_validation',tc.id,status='success')
@@ -128,7 +141,7 @@ def test_large_legal_arguments_are_not_truncated_by_wire_capture(tmp_path):
     args=json.dumps({'content':'x'*70000})
     response,events=replay(tmp_path,[frame(args=args,finish='tool_calls')])
     assert response.choices[0].message.tool_calls[0].function.arguments==args
-    assert any(e['event']=='wire_line_omitted' for e in events)
+    assert any(e['event']=='wire_event_omitted' for e in events)
     assert next(e for e in events if e['event']=='assembled_arguments')['valid_object']
 
 

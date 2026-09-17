@@ -18,7 +18,7 @@ The exclusive-created JSONL file is mode 0600, at most 4,000 events / 2 MiB;
 extra events are dropped, counted by `capture.dropped`, not rotated indefinitely.
 The standalone tool creates a mode-0700 temporary profile. Trace failures are
 best-effort and cannot change normal inference/dispatch. Wire bytes and chunk
-boundaries are forwarded unchanged. Oversized SSE lines (>64 KiB) are counted
+boundaries are forwarded unchanged. Oversized SSE events (>64 KiB) are counted
 and omitted from wire analysis without suppressing their delivery to the SDK.
 
 ```bash
@@ -50,7 +50,15 @@ for protocol evidence, NOT full production-path acceptance or latency claims.
   existing repair; `assembly_end` records missing finish explicitly.
 - `argument_validation`, `execution_start`, `execution_terminal`: parsed arguments
   vs actual authorized dispatch. Blocked/invalid calls can terminate without a
-  start. Execution IDs correlate within a turn; tool results are not captured.
+  start. Execution IDs link one operation's start/terminal, even after a newer
+  request starts. Slot identity freezes turn/request/attempt and travels with
+  the returned call and executor thread context. Reused IDs without a frozen
+  binding are `correlation=unknown`, never assigned to the latest request.
+  Results are not captured. Terminal statuses reuse the existing observer's
+  `ok`/`error` classifier; blocked/timeout/cancelled remain explicit.
+- `wire_event_omitted`: event exceeded the observation cap. SSE data fields are
+  joined by the installed SDK decoder before JSON inspection, including LF,
+  CRLF and CR across network chunks. Omission is not invalid JSON evidence.
 - `stale_chunk_discarded`: existing stale-writer fence acted. Observation does not
   introduce new cancellation or authorization guarantees.
 
@@ -92,3 +100,6 @@ We cannot retrospectively attribute each historical line to OVMS vs client vs
 retry without its raw stream. Future captures can now distinguish those layers.
 The unchanged native missing-finish recovery can still fail/loop; stage 1 does
 not claim the reported user problem is fixed. Review before stage 2.
+
+Stage-one reliability review fixes and before/after evidence are recorded in
+[TOOL_PROTOCOL_REVIEW_FIXES.md](TOOL_PROTOCOL_REVIEW_FIXES.md).

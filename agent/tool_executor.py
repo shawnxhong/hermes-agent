@@ -52,6 +52,7 @@ from tools.tool_result_storage import (
     extract_persisted_path,
 )
 from tools.budget_config import BudgetConfig, DEFAULT_BUDGET, budget_for_context_window
+from agent.tool_protocol_diag import trace_tool_batch
 
 logger = logging.getLogger(__name__)
 
@@ -323,8 +324,8 @@ def _emit_terminal_post_tool_call(
     error_message: str | None = None,
     middleware_trace: Optional[list[dict[str, Any]]] = None,
 ) -> None:
-    from agent.tool_protocol_diag import execution_event
-    execution_event(agent, 'execution_terminal', tool_call_id, status=status)
+    from agent.tool_protocol_diag import terminal_event
+    terminal_event(agent, tool_call_id, function_name, result, status)
     try:
         from model_tools import _emit_post_tool_call_hook
         _emit_post_tool_call_hook(
@@ -1133,6 +1134,7 @@ def _begin_tool_execution(
             pass
 
 
+@trace_tool_batch
 def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effective_task_id: str, api_call_count: int = 0, *, finalize: bool = True) -> None:
     """Execute multiple tool calls concurrently using a thread pool.
 
@@ -1807,6 +1809,12 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
             tool_duration = 0.0
         else:
             function_name, function_args, function_result, tool_duration, is_error, blocked, middleware_trace = r
+            # Dispatched concurrent tools emit their lifecycle hook inside
+            # _invoke_tool, not through _emit_terminal_post_tool_call. Observe
+            # the accepted batch result here; never a late worker's result.
+            from agent.tool_protocol_diag import terminal_event
+            terminal_event(agent, tool_call_id, function_name, function_result,
+                           "blocked" if blocked else None)
             name = function_name
             args = function_args
             progress_function_name = function_name
@@ -1995,6 +2003,7 @@ def _append_cancelled_tool_results(messages: list, tool_calls, *, reason: str) -
         ))
 
 
+@trace_tool_batch
 def execute_tool_calls_sequential(agent, assistant_message, messages: list, effective_task_id: str, api_call_count: int = 0, *, finalize: bool = True) -> None:
     """Execute tool calls sequentially (original behavior). Used for single calls or interactive tools.
 

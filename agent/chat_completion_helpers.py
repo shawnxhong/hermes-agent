@@ -3662,7 +3662,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
     if agent._interrupt_requested:
         raise InterruptedError("Agent interrupted before streaming API call")
 
-    from agent.tool_protocol_diag import begin_request
+    from agent.tool_protocol_diag import begin_request, observe
     _protocol_trace = begin_request(agent, api_kwargs)
 
     def _stream_final_text(response) -> str:
@@ -4166,7 +4166,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
                 stream_attempt_state["cancelled"].add(current)
         if current:
             if _protocol_trace is not None:
-                _protocol_trace.event('attempt_cancelled', attempt_id=current)
+                observe(_protocol_trace, 'event', 'attempt_cancelled', attempt_id=current)
             logger.debug(
                 "Marked stream attempt %s cancelled: %s",
                 current,
@@ -4186,7 +4186,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
 
     def _discard_stale_stream_chunk(stream_attempt_id: int, chunk) -> None:
         if _protocol_trace is not None:
-            _protocol_trace.event('stale_chunk_discarded', attempt_id=stream_attempt_id)
+            observe(_protocol_trace, 'event', 'stale_chunk_discarded', attempt_id=stream_attempt_id)
         try:
             chunk_bytes = len(repr(chunk))
         except Exception:
@@ -4321,7 +4321,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
             response = getattr(raw_stream, "response", None)
             if _protocol_trace is not None:
                 try:
-                    _protocol_trace.wrap_response(response, stream_attempt_id)
+                    observe(_protocol_trace, 'wrap_response', response, stream_attempt_id)
                 except Exception:
                     pass
             attempt_stream_response["value"] = response
@@ -4478,7 +4478,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
         ):
             last_chunk_time["t"] = time.time()
             if _protocol_trace is not None:
-                _protocol_trace.chunk(chunk, stream_attempt_id)
+                observe(_protocol_trace, 'chunk', chunk, stream_attempt_id)
             agent._touch_activity("receiving stream response")
 
             # Update per-attempt diagnostic counters.  Best-effort —
@@ -4664,7 +4664,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
                         _last_id_at_idx[raw_idx] = delta_id
                     idx = _active_slot_by_idx[raw_idx]
                     if _protocol_trace is not None:
-                        _protocol_trace.slot(stream_attempt_id, raw_idx, idx, delta_id)
+                        observe(_protocol_trace, 'slot', stream_attempt_id, raw_idx, idx, delta_id)
 
                     if idx not in tool_calls_acc:
                         # Poolside may send integer id instead of string
@@ -4779,7 +4779,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
         if tool_calls_acc:
             _materialize_tool_arguments()
             if _protocol_trace is not None:
-                _protocol_trace.assembled(stream_attempt_id, tool_calls_acc, finish_reason)
+                observe(_protocol_trace, 'assembled', stream_attempt_id, tool_calls_acc, finish_reason)
             mock_tool_calls = []
             for idx in sorted(tool_calls_acc):
                 tc = tool_calls_acc[idx]
@@ -4825,6 +4825,8 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
                         arguments=arguments,
                     ),
                 ))
+                if _protocol_trace is not None:
+                    observe(_protocol_trace, 'bind_call', mock_tool_calls[-1], stream_attempt_id, idx)
 
         # Zero-chunk guard: stream yielded nothing usable — a provider/upstream
         # error or malformed SSE, not a legitimate empty completion. Raise so the
@@ -5169,7 +5171,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
             for _stream_attempt in range(_max_stream_retries + 1):
                 stream_attempt_id = _start_stream_attempt()
                 if _protocol_trace is not None:
-                    _protocol_trace.event('attempt_start', attempt_id=stream_attempt_id)
+                    observe(_protocol_trace, 'event', 'attempt_start', attempt_id=stream_attempt_id)
                 # Check for interrupt before each retry attempt.  Without
                 # this, /stop closes the HTTP connection (outer poll loop),
                 # but the retry loop opens a FRESH connection — negating the
@@ -5195,7 +5197,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
                     else:
                         result["response"] = _call_chat_completions(stream_attempt_id)
                     if _protocol_trace is not None:
-                        _protocol_trace.event('attempt_returned', attempt_id=stream_attempt_id)
+                        observe(_protocol_trace, 'event', 'attempt_returned', attempt_id=stream_attempt_id)
                     _emit_stream_end(
                         final_text=_stream_final_text(result["response"]),
                         finished=True,
@@ -5204,7 +5206,7 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
                     return  # success
                 except Exception as e:
                     if _protocol_trace is not None:
-                        _protocol_trace.event('attempt_error', attempt_id=stream_attempt_id,
+                        observe(_protocol_trace, 'event', 'attempt_error', attempt_id=stream_attempt_id,
                                               error_type=type(e).__name__)
                     _emit_stream_end(final_text="", finished=False, error=str(e))
                     _close_managed_stream()
