@@ -158,7 +158,8 @@ def make_delivery(cli, queue, stop):
                 and getattr(cli, '_voice_turn_tts_queue', None) is queue)
     def echo(text):
         cli._voice_last_tts_text = (cli._voice_last_tts_text or '') + text
-    return SentenceDelivery(queue, stop, valid, echo)
+    from hermes_cli.native_voice import NativeSpeechDelivery
+    return NativeSpeechDelivery(queue, stop, valid, echo)
 
 
 def stream_summary(create, kwargs, delivery, validate, cancelled):

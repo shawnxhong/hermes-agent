@@ -7502,6 +7502,15 @@ class AIAgent:
         }
 
     def _emit_stream_start(self) -> None:
+        # Optional lifecycle for the existing per-turn text consumer (TTS).
+        # No effect on native execution or consumers using a plain function.
+        callback = getattr(getattr(self, '_stream_callback', None), 'on_stream_start', None)
+        if callback is not None and not self._stream_writer_superseded():
+            try:
+                callback((getattr(self, '_current_turn_id', ''),
+                          getattr(self, '_current_api_request_id', '') or getattr(self, '_api_call_count', 0)))
+            except Exception:
+                logger.debug('Text consumer stream-start failed', exc_info=True)
         try:
             from agent.plugin_stream_hooks import enqueue_plugin_stream_hook
 
@@ -7510,6 +7519,13 @@ class AIAgent:
             logger.debug("on_stream_start plugin hook enqueue failed", exc_info=True)
 
     def _emit_stream_end(self, *, final_text: str, finished: bool, error: str | None) -> None:
+        callback = getattr(getattr(self, '_stream_callback', None), 'on_stream_end', None)
+        if callback is not None and not self._stream_writer_superseded():
+            try:
+                clean_text = strip_control_marker_echoes(sanitize_context(self._strip_think_blocks(final_text)))
+                callback(final_text=clean_text, finished=finished, error=error)
+            except Exception:
+                logger.debug('Text consumer stream-end failed', exc_info=True)
         try:
             from agent.plugin_stream_hooks import enqueue_plugin_stream_hook
 

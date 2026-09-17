@@ -15152,7 +15152,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         """Queue bounded final speech, omitting any already committed prefix."""
         if text_queue is None or not voice_input or interrupted:
             return ""
-        spoken = prepare_voice_tts_text(response)
+        from hermes_cli.native_voice import spoken_text
+        spoken = spoken_text(response)
         if not spoken:
             return ""
         if delivery is not None:
@@ -17978,15 +17979,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 # turn start (see above) — it spans generation AND playback.
                 self._voice_tts_stop = stop_event
 
-                # Model deltas still use the normal terminal streaming path,
-                # but are deliberately withheld from TTS.  Voice output is
-                # bounded to final answers after tools complete. Only the
-                # separate final-summary completion may deliver its first
-                # sentence early; native tool-loop fragments are never spoken.
-                stream_callback = None
-
                 from hermes_cli.voice_sentence_delivery import make_delivery
                 sentence_delivery = make_delivery(self, text_queue, stop_event)
+                # The native text callback is already scrubbed of thinking and
+                # never receives tool arguments. Stream ordinary speech directly.
+                stream_callback = sentence_delivery
 
                 # Queue ack before any answer, but let inference run while it
                 # plays. Only microphone monitoring waits for its audio marker.
@@ -18538,7 +18535,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 and not use_streaming_tts
                 and not (_interrupted_this_turn or interrupt_msg)
             ):
-                spoken_response = prepare_voice_tts_text(response)
+                from hermes_cli.native_voice import spoken_text
+                spoken_response = spoken_text(response)
                 if spoken_response:
                     self._voice_speak_response_async(spoken_response)
 
