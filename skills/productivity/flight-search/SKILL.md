@@ -20,8 +20,7 @@ Only when the user actively requests detailed information, prepare those
 details and email the configured default recipients. For this scene, asking
 for details authorizes that email; an ordinary flight lookup does not.
 Use `send_message` with `action="send"`, `target="email"`, and the details in
-`message`; if deferred, use `tool_call` with `name="send_message"` and those
-fields inside `arguments`. Include sources and verification limits. Give only
+`message`. Call it directly. Include sources and verification limits. Give only
 a brief summary and truthful delivery status in the reply. Do not retry an
 uncertain delivery. Respect an explicit request not to email.
 

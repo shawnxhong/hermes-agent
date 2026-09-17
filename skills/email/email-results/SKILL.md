@@ -12,18 +12,12 @@ user asks for more detail, prepare those details without narrating them aloud.
 The tool name is `send_message`; the default delivery target is `email`.
 They are different fields. Never put `send_message` in `target`.
 
-If `send_message` is directly available, call it with this parameter shape:
+Call `send_message` directly with this parameter shape:
 ```json
 {"action":"send","target":"email","message":"The requested details go here."}
 ```
-Otherwise call `tool_describe` once with `{"names":["send_message"]}`, then
-invoke `tool_call` with this shape (replace the example message with the real
-requested content, not JSON instructions or a code fence):
-```json
-{"name":"send_message","arguments":{"action":"send","target":"email","message":"The requested details go here."}}
-```
-Call `tool_describe` directly, never through `tool_call`. Do not repeatedly
-describe the same tool. If a call is rejected for invalid parameters before
+If the tool is unavailable, explain briefly instead of using another tool.
+If a call is rejected for invalid parameters before
 delivery, correct the parameters once using the example; if it still fails,
 stop and explain briefly. An uncertain delivery outcome is not permission to retry.
 

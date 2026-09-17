@@ -18,8 +18,7 @@ Only when the user actively requests details or a detailed itinerary, prepare
 the requested detail and send it to the configured default email recipients.
 For this scene, that request authorizes emailing the details; a general request
 for suggestions does not. Use `send_message` with `action="send"`,
-`target="email"`, and the detailed content in `message`; if deferred, use
-`tool_call` with `name="send_message"` and those fields inside `arguments`.
+`target="email"`, and the detailed content in `message`. Call it directly.
 Include sources and uncertainties. Reply with a brief summary and truthful
 delivery status, not the email body. Never claim success after a failed send
 or retry an uncertain delivery. Respect an explicit request not to email.
