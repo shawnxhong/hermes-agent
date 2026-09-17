@@ -23,3 +23,10 @@ or loop on status. Startup confirms the process, not physical audibility.
 
 Do not email automatically. Questions such as "What is MP4?" are ordinary
 knowledge questions, not playback requests.
+
+## Proven workflow (v2025-09-17)
+1. `tool_describe(names=["local_media"])` to confirm available actions.
+2. `tool_call(name="local_media", action="list")` to get filenames.
+3. `tool_call(name="local_media", action="mp4"|"mp3", target="<fragment>")` to play.
+4. After confirmed playback, reply with one short confirmation and stop — do not wait for media to end.
+5. For teardown, `tool_call(name="local_media", action="stop")` then confirm briefly.
