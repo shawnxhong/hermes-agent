@@ -5368,11 +5368,15 @@ class AIAgent:
 
 
 
+    from agent.scene_scope import for_agent as _with_scene_scope
+
+    @_with_scene_scope
     def _build_system_prompt_parts(self, system_message: str = None) -> Dict[str, str]:
         """Forwarder — see ``agent.system_prompt.build_system_prompt_parts``."""
         from agent.system_prompt import build_system_prompt_parts
         return build_system_prompt_parts(self, system_message=system_message)
 
+    @_with_scene_scope
     def _build_system_prompt(self, system_message: str = None) -> str:
         """Forwarder — see ``agent.system_prompt.build_system_prompt``."""
         from agent.system_prompt import build_system_prompt
@@ -9271,6 +9275,7 @@ class AIAgent:
                 logger.debug("Conversation root lineage walk failed", exc_info=True)
         return start
 
+    @_with_scene_scope
     def run_conversation(
         self,
         user_message: Any,

@@ -672,7 +672,8 @@ def _run_agent_tool_execution_middleware(
                 return
             begin_execution(callback)
 
-        block_message = scope_block
+        from agent.scene_scope import check_call
+        block_message = scope_block or check_call(function_name, final_args)
         block_error_type = "tool_scope_block"
         if block_message is None:
             block_error_type = "plugin_block"

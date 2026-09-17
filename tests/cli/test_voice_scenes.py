@@ -62,6 +62,29 @@ def test_ack_reset_ready_and_replace_skill(rig):
     assert 'travel-concierge' not in cli.system_prompt
 
 
+def test_switch_revokes_old_generation_and_does_not_scope_im(rig):
+    from agent.scene_scope import bind, check_call
+    cli, controller, _ = rig
+    controller.active = 'home'
+    previous = controller.scope()
+    cli.agent = Mock(_scene_scope=previous)
+    with bind(previous):
+        assert check_call('demo_home_set') is None
+    controller.request('travel')
+    assert previous.revoked.is_set()
+    with bind(previous):
+        assert check_call('demo_home_set') is not None
+    controller.apply_pending()
+    current = controller.scope()
+    assert current.generation > previous.generation
+    assert current.session_id != previous.session_id
+    assert current.active_skills == frozenset({'travel-concierge'})
+    with bind(current):
+        assert check_call('demo_home_status') is not None
+        assert check_call('web_search') is None
+    assert check_call('demo_home_status') is None
+
+
 def test_latest_request_wins_and_ack_coalesces(rig):
     cli, controller, events = rig
     entered, release = threading.Event(), threading.Event()

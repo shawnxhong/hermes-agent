@@ -19,6 +19,8 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile',type=Path,required=True)
     parser.add_argument('--wire',action='store_true',help='Include redacted SSE envelopes, never raw content.')
+    parser.add_argument('--scene', choices=['home','travel','general'])
+    parser.add_argument('--bridge', action='store_true', help='Probe comparison only: defer active scene schemas.')
     parser.add_argument('--prompt',default='Could you check if there is any electric device still live open in my bedroom?')
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[2]
@@ -44,9 +46,30 @@ def main():
     from hermes_cli.tools_config import _get_platform_tools
     from hermes_cli.voice_response_policy import build_voice_turn_prefix
     from agent.tool_protocol_diag import ProtocolCapture
+    from agent.scene_scope import current_scope
+    if args.scene:
+        from hermes_cli.voice_scenes import SceneController, DEFAULT_SCENES
+        from types import SimpleNamespace
+        controller = SceneController(SimpleNamespace(session_id='isolated-probe'), DEFAULT_SCENES, {}, play=lambda _: True)
+        controller.active = args.scene if args.scene != 'general' else None
+        current_scope.set(controller.scope())  # This standalone process owns the scope.
+    preload = ''
+    if args.scene == 'home':
+        from tools.skills_tool import skill_view
+        preload = json.loads(skill_view('demo-home-assistant', preprocess=False))['content']
     agent=AIAgent(model='qwen3.6-35b-a3b',provider='custom',base_url='http://127.0.0.1:8000/v3',
                   api_key='local-ovms',api_mode='chat_completions',quiet_mode=True,skip_memory=True,
-                  skip_context_files=True,platform='cli',enabled_toolsets=sorted(_get_platform_tools(live,'cli')))
+                  skip_context_files=True,platform='cli',ephemeral_system_prompt=preload,
+                  enabled_toolsets=sorted(_get_platform_tools(live,'cli')))
+    if args.bridge:
+        from model_tools import get_tool_definitions
+        from tools.tool_search import assemble_tool_defs, load_config
+        from dataclasses import replace
+        raw = get_tool_definitions(enabled_toolsets=agent.enabled_toolsets, quiet_mode=True,
+                                   skip_tool_search_assembly=True)
+        agent.tools = assemble_tool_defs(raw, context_length=32768,
+                                        config=replace(load_config(), enabled='on')).tool_defs
+        agent.valid_tool_names = {t['function']['name'] for t in agent.tools}
     agent._current_turn_id=uuid.uuid4().hex
     agent._current_api_request_id=uuid.uuid4().hex
     messages=[{'role':'system','content':agent._build_system_prompt()},
@@ -58,6 +81,9 @@ def main():
         agent._tool_protocol_capture=capture
         response=agent._interruptible_streaming_api_call(kwargs)
         result={'finish_reason':response.choices[0].finish_reason,
+                'scene':args.scene, 'schema_variant':'bridge' if args.bridge else 'direct',
+                'returned_tool_names':[tc.function.name for tc in response.choices[0].message.tool_calls or []],
+                'direct_home_schemas':sorted(agent.valid_tool_names & {'demo_home_status','demo_home_set'}),
                 'tool_calls':len(response.choices[0].message.tool_calls or []),
                 'events':capture.count,'dropped_events':capture.dropped,
                 'executed_tools':0,'trace':str(path)}

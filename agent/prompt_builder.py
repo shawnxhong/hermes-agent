@@ -1932,6 +1932,8 @@ def _build_skills_system_prompt_inner(
     # produce distinct cache entries (gateway serves multiple platforms).
     _platform_hint = _current_session_platform_hint()
     disabled = get_disabled_skill_names(_platform_hint or None)
+    from agent.scene_scope import blocked_skills
+    disabled = set(disabled) | blocked_skills()
     project_dirs = project_dirs or []
     cache_key = (
         str(skills_dir),

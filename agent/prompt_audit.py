@@ -175,6 +175,15 @@ def _system_sources(agent: Any) -> dict[str, Any]:
         "ephemeral_system_prompt": getattr(agent, "ephemeral_system_prompt", None) or "",
         "cached_system_prompt": getattr(agent, "_cached_system_prompt", None) or "",
     }
+    scene = getattr(agent, '_scene_scope', None)
+    data['instruction_scope'] = {
+        'global': 'identity, generic interaction rules and capability discovery',
+        'scene': sorted(scene.active_skills) if scene else [],
+        'activation_source': 'CLI scene controller' if scene else 'unscoped native session',
+        'current_task': {'session_id': scene.session_id, 'generation': scene.generation,
+                         'scene': scene.scene, 'revoked': scene.revoked.is_set()} if scene else None,
+        'history': 'conversation messages; scene buttons replace the CLI session, not IM history',
+    }
     try:
         from agent.system_prompt import build_system_prompt_parts
         parts = build_system_prompt_parts(agent)

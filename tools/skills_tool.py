@@ -666,6 +666,10 @@ def _is_skill_disabled(name: str, platform: str = None) -> bool:
     2. ``HERMES_PLATFORM`` environment variable
     3. ``HERMES_SESSION_PLATFORM`` from gateway session context
     """
+    from agent.scene_scope import current_scope
+    scope = current_scope.get()
+    if scope is not None and not scope.allows_skill(name):
+        return True
     try:
         from hermes_cli.config import load_config
         config = load_config()
@@ -861,6 +865,7 @@ def skills_list(category: str = None, task_id: str = None) -> str:
                 ensure_ascii=False,
             )
 
+        all_skills = [s for s in all_skills if not _is_skill_disabled(s['name'])]
         # Filter by category if specified
         if category:
             all_skills = [s for s in all_skills if s.get("category") == category]
@@ -1105,6 +1110,10 @@ def skill_view(
         JSON string with skill content or error message
     """
     try:
+        from agent.scene_scope import check_call
+        denial = check_call('skill_view', {'name': name})
+        if denial:
+            return json.dumps({'success': False, 'error': denial})
         # Validate before the ':' qualified-name dispatch so a Windows drive
         # path (e.g. C:\skills\foo) can't be reinterpreted as a plugin
         # namespace, and so a traversal/absolute name never reaches the
