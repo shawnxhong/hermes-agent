@@ -69,6 +69,24 @@ with the isolated gateway fixture, not real delivery. The greeting also caused
 one native nonstreaming title request. No presentation router/summary ran.
 These single-run timings are diagnostic observations, not latency benchmarks.
 
+### Release gate: NOT PASSED
+
+The travel probe initially skipped the skill. A short skill-entry map was
+added to SOUL (instructions only, no program intent routing). The next travel
+probe loaded travel-concierge but retried searches after the fixture's network
+failure, attempted an alternative tool path, and exhausted its eight-iteration
+test budget. Its final itinerary was too long. The flight probe loaded
+flight-search and searched Expedia once, but answered in Chinese despite the
+English SOUL/skill. The isolation script does not yet reproduce every CLI
+configuration field (including the additional production English-only prompt),
+so this is a candidate quality warning, not proof of a production regression.
+
+Do not activate this candidate on the strength of unit tests or the mixed
+probe alone. Finish production-equivalent prompt/config testing and resolve
+the scenario failure behavior within the agreed scope before deployment.
+Native budget-exhaustion summarization still exists in the upstream harness;
+only the custom presentation summary path was removed. These are distinct.
+
 ## Deployment / rollback requirements
 
 Production remains on 264348292 until candidate activation. Do not merge or

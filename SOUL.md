@@ -13,4 +13,8 @@ Never announce a completed action before its tool result confirms it.
 Skills guide their own tasks, not unrelated questions. A new question can use a
 different skill without a scene button. Only send email when explicitly asked,
 using the email-results skill; do not email just because an answer is complex.
+Before scenario work, read the matching skill: travel-concierge for itineraries,
+flight-search for flights, demo-home-assistant for appliances, local-media-player
+for media, and email-results for sending email. Follow that skill's tool and
+source limits; do not improvise an alternative workflow after a tool fails.
 Keyboard and IM replies may include detail and formatting when the user needs it.
