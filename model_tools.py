@@ -353,6 +353,8 @@ def get_tool_definitions(
     # mode, discord action allowlist, etc.) without needing an explicit
     # invalidate hook on every config-writer.
     cache_key = None
+    from agent.scene_scope import current_scope
+    scene_scope = current_scope.get()
     if quiet_mode:
         try:
             from hermes_cli.config import get_config_path
@@ -374,6 +376,7 @@ def get_tool_definitions(
                 _is_delegated_child_context(),
                 _is_dispatcher_owned_worker(),
                 profile_scope,
+                scene_scope.cache_key if scene_scope else None,
             )
         with _tool_defs_cache_lock:
             cached = _tool_defs_cache.get(cache_key) if cache_key is not None else None
@@ -640,6 +643,12 @@ def _compute_tool_definitions(
                 }
                 break
 
+    from agent.scene_scope import current_scope
+    scene_scope = current_scope.get()
+    if scene_scope is not None:
+        filtered_tools = [td for td in filtered_tools
+                          if scene_scope.allows_tool(td['function']['name'])]
+
     if not quiet_mode:
         if filtered_tools:
             tool_names = [t["function"]["name"] for t in filtered_tools]
@@ -663,6 +672,8 @@ def _compute_tool_definitions(
         logger.warning("Schema sanitization skipped: %s", e)
 
     # ── Tool Search (progressive disclosure) ────────────────────────────
+    direct_scene_tools = [td for td in filtered_tools
+                          if scene_scope and td['function']['name'] in scene_scope.active_tools]
     # Conditionally replace MCP + plugin (non-core) tools with three bridge
     # tools (tool_search / tool_describe / tool_call) when the deferrable
     # surface exceeds the configured threshold (default 10% of context
@@ -678,7 +689,7 @@ def _compute_tool_definitions(
         if not skip_tool_search_assembly and ts_cfg.enabled != "off":
             context_length = _resolve_active_context_length()
             assembly = assemble_tool_defs(
-                filtered_tools,
+                [td for td in filtered_tools if td not in direct_scene_tools],
                 context_length=context_length,
                 config=ts_cfg,
             )
@@ -693,7 +704,7 @@ def _compute_tool_definitions(
                     f"MCP/plugin tools deferred (~{assembly.deferred_tokens} tokens) behind "
                     f"tool_search/describe/call — {_forms.get(assembly.listing_form, assembly.listing_form)}."
                 )
-            filtered_tools = assembly.tool_defs
+            filtered_tools = assembly.tool_defs + direct_scene_tools
     except Exception as e:  # pragma: no cover — never break tool loading
         logger.warning("Tool search assembly skipped: %s", e)
 
@@ -1289,6 +1300,10 @@ def handle_function_call(
     Returns:
         Function result as a JSON string.
     """
+    from agent.scene_scope import check_call
+    denial = check_call(function_name, function_args)
+    if denial:
+        return json.dumps({'error': denial})
     # Coerce string arguments to their schema-declared types (e.g. "42"→42)
     function_args = coerce_tool_args(function_name, function_args)
     if not isinstance(function_args, dict):

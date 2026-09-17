@@ -35,9 +35,3 @@ def register(ctx):
         ctx.register_tool(name=name, toolset='demo_home',
                           schema={'name': name, 'description': description, 'parameters': parameters},
                           handler=handler, emoji='🏠')
-    ctx.register_system_prompt_section(
-        'demo-home.skill',
-        'For household appliance status/control only, load the demo-home-assistant skill. '
-        'Use the local demo_home tools as the source of truth; never invent device states. '
-        'This simulated-home capability does not change how you handle other topics.',
-        max_chars=400)

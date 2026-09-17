@@ -16,7 +16,8 @@ from hermes_constants import get_hermes_home
 log = logging.getLogger(__name__)
 DEFAULT_SCENES = {
     "travel": {"skill": "travel-concierge", "announcement": "Travel assistant ready."},
-    "home": {"skill": "demo-home-assistant", "announcement": "Home assistant ready."},
+    "home": {"skill": "demo-home-assistant", "announcement": "Home assistant ready.",
+             "tools": ["demo_home_status", "demo_home_set"]},
 }
 ACK = "One moment please"
 
@@ -78,6 +79,18 @@ class SceneController:
                     "switching": switching(self.cli), "generation": generation(self.cli),
                     "pending": self.pending[1] if self.pending else None, "error": self.error}
 
+    def scope(self):
+        from agent.scene_scope import SceneScope
+        # Fill known demo defaults at the CLI edge, never in core dispatch.
+        items = {name: {**DEFAULT_SCENES.get(name, {}), **item}
+                 for name, item in self.scenes.items()}
+        chosen = items.get(self.active, {})
+        return SceneScope(str(self.cli.session_id), generation(self.cli), self.active,
+                          frozenset(i['skill'] for i in items.values()),
+                          frozenset(t for i in items.values() for t in i.get('tools', [])),
+                          frozenset([chosen['skill']]) if chosen else frozenset(),
+                          frozenset(chosen.get('tools', [])))
+
     def request(self, name):
         from agent.skill_commands import build_preloaded_skills_prompt
         if name not in self.scenes:
@@ -91,6 +104,9 @@ class SceneController:
                 return self.status()
             self.last_press = (name, now)
             self.cli._scene_generation = generation(self.cli) + 1
+            scope = getattr(getattr(self.cli, 'agent', None), '_scene_scope', None)
+            if scope is not None:
+                scope.revoked.set()
             self.cli._scene_switching = True
             self.pending = (generation(self.cli), name, prompt, loaded)
             self.error = None

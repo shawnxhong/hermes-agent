@@ -1178,6 +1178,10 @@ class ToolRegistry:
         * All exceptions are caught and returned as ``{"error": "..."}``
           for consistent error format.
         """
+        from agent.scene_scope import check_call
+        denial = check_call(name, args)
+        if denial:
+            return tool_error(denial)
         entry = self.get_entry(name, scope=scope)
         if not entry:
             return tool_error(f"Unknown tool: {name}")

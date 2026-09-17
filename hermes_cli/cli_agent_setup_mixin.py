@@ -19,6 +19,7 @@ import sys
 from rich.markup import escape as _escape
 
 from utils import base_url_host_matches
+from agent.scene_scope import for_cli_init
 
 
 def _single_query_clarify_callback(question: str, choices=None, multi_select=False) -> str:
@@ -370,6 +371,7 @@ class CLIAgentSetupMixin:
         route["request_overrides"] = overrides
         return route
 
+    @for_cli_init
     def _init_agent(self, *, model_override: str = None, runtime_override: dict = None, request_overrides: dict | None = None) -> bool:
         """
         Initialize the agent on first use.
