@@ -5,6 +5,14 @@ description: One brief one-way flight option; email requested details, never boo
 
 # One-way flight lookup
 
+This is the complete skill body, already loaded. Do not call `skill_view`
+again for this skill or its `SKILL.md`. Reuse it on follow-up turns.
+While tools are needed, call them without narrating plans or giving a draft
+answer. Finish the necessary lookup and any requested email delivery first,
+then give one final reply in 1–3 short sentences, with no headings or lists.
+Do not answer and call another tool in the same response. If essential facts
+are missing, ask one short question instead, then wait for the user's reply.
+
 Reply in English, in 1–3 short sentences. Default to one one-way flight option,
 not a comparison or return itinerary. Reuse known origin, destination and date;
 resolve relative dates using today. Ask one ordinary short question only for
