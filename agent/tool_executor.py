@@ -323,6 +323,8 @@ def _emit_terminal_post_tool_call(
     error_message: str | None = None,
     middleware_trace: Optional[list[dict[str, Any]]] = None,
 ) -> None:
+    from agent.tool_protocol_diag import execution_event
+    execution_event(agent, 'execution_terminal', tool_call_id, status=status)
     try:
         from model_tools import _emit_post_tool_call_hook
         _emit_post_tool_call_hook(
@@ -762,6 +764,8 @@ def _run_agent_tool_execution_middleware(
         )
         _hb_thread.start()
         try:
+            from agent.tool_protocol_diag import execution_event
+            execution_event(agent, 'execution_start', tool_call_id)
             return execute(final_args)
         finally:
             _hb_stop.set()
@@ -1192,6 +1196,10 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
         function_args, malformed_args_result = _parse_tool_arguments(
             tool_call.function.arguments
         )
+
+        from agent.tool_protocol_diag import execution_event
+        execution_event(agent, 'argument_validation', _pairing_tool_call_id(tool_call),
+                        status='error' if malformed_args_result else 'success')
 
         if malformed_args_result is not None:
             parsed_calls.append(
@@ -2052,6 +2060,9 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
         function_args, malformed_args_result = _parse_tool_arguments(
             tool_call.function.arguments
         )
+        from agent.tool_protocol_diag import execution_event
+        execution_event(agent, 'argument_validation', tool_call_id,
+                        status='error' if malformed_args_result else 'success')
         if malformed_args_result is not None:
             _emit_terminal_post_tool_call(
                 agent,

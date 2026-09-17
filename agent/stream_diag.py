@@ -141,6 +141,8 @@ def log_stream_retry(
     These are the breadcrumbs needed to answer "is one CF edge / one
     downstream provider responsible, or is it random across runs?"
     """
+    from agent.tool_protocol_diag import retry_event
+    retry_event(agent, attempt=attempt, mid_tool_call=mid_tool_call)
     try:
         try:
             _summary = agent._summarize_api_error(error)
