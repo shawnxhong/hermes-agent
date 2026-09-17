@@ -1,28 +1,31 @@
 ---
 name: travel-concierge
-description: Give a short destination overview or practical trip itinerary using English Wikivoyage.
+description: Brief destination highlights; email a detailed plan only when requested.
 ---
 
-# Travel planning
+# Travel highlights
 
-Use this skill for destination advice or an itinerary, not unrelated questions.
-Answer in English and keep the spoken answer to 1–3 natural sentences.
+Reply in English, in 1–3 short sentences. Default to 2–3 destination highlights,
+not a daily itinerary. Reuse conversation facts; do not ask for dates, duration,
+budget or departure city just to describe highlights. If the destination is
+missing, ask one ordinary short question.
 
-Use the destination and trip length already provided. If either is missing,
-give a brief overview and ask only for the missing information in an ordinary
-reply. Ask for the departure city only when transport advice requires it.
-Do not routinely ask about budget, hotels or interests.
+Use one `web_search` restricted to `site:en.wikivoyage.org`; extract at most one
+matching page if needed. On failure, stop searching and label general advice
+as unverified. Never invent current prices, opening times or availability.
 
-Make one focused `web_search` restricted to `site:en.wikivoyage.org` for the
-destination. If necessary, read one matching page using `web_extract`. Use only
-this site. If access fails, do not retry, switch sites or open a browser; explain
-briefly what was not verified and offer clearly labelled general suggestions.
+Only when the user actively requests details or a detailed itinerary, prepare
+the requested detail and send it to the configured default email recipients.
+For this scene, that request authorizes emailing the details; a general request
+for suggestions does not. Use `send_message` with `action="send"`,
+`target="email"`, and the detailed content in `message`; if deferred, use
+`tool_call` with `name="send_message"` and those fields inside `arguments`.
+Include sources and uncertainties. Reply with a brief summary and truthful
+delivery status, not the email body. Never claim success after a failed send
+or retry an uncertain delivery. Respect an explicit request not to email.
 
-Suggest a compact route with a few highlights and practical local transport.
-For a longer trip, group days instead of reading a long day-by-day table.
-Never invent live prices, schedules, direct flight routes or reservations.
+For flight information, use `flight-search`. Do not apply this travel procedure
+to unrelated questions.
 
-Do not email automatically. If the user explicitly asks for email, load
-`email-results` and send the requested plan there; keep the spoken reply short.
-Use conversation history for follow-ups, not long-term memory. Answer a new,
-unrelated task normally without applying this travel procedure.
+Do not call `clarify` or `approve`. Ask essential questions in an ordinary reply.
+Do not bypass any permission check required by the tool or platform.
