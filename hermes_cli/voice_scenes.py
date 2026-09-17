@@ -100,6 +100,8 @@ class SceneController:
                 return {**self.status(), "request_generation": version}
             original_name = name
             selected = self.pending[1] if self.pending is not None else self.active
+            if selected == CLEAR_CONTEXT:
+                selected = self.active  # context clear does not change the scene
             if action == "clear" or (action == "toggle" and selected == name):
                 name = None
             prompt, loaded = "", []

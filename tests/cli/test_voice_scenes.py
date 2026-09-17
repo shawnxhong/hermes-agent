@@ -94,6 +94,17 @@ def test_clear_releases_wake_even_if_confirmation_fails(rig, monkeypatch):
     assert controller.error == 'TTS unavailable'
 
 
+def test_panel_toggle_during_pending_voice_clear_keeps_toggle_semantics(rig):
+    cli, controller, events = rig
+    controller.active = 'home'
+    controller.request_clear()
+    controller.request('home', action='toggle')
+    assert controller.apply_pending()
+    assert controller.active is None
+    assert scenes.EXIT_ACK in events
+    assert scenes.CLEAR_ACK not in events
+
+
 def test_ack_reset_ready_and_replace_skill(rig):
     cli, controller, events = rig
     cli._pending_input.put('old transcript')
