@@ -33,6 +33,3 @@ or retry an uncertain delivery. Respect an explicit request not to email.
 
 For flight information, use `flight-search`. Do not apply this travel procedure
 to unrelated questions.
-
-Do not call `clarify` or `approve`. Ask essential questions in an ordinary reply.
-Do not bypass any permission check required by the tool or platform.

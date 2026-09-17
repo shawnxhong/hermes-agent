@@ -33,6 +33,3 @@ a brief summary and truthful delivery status in the reply. Do not retry an
 uncertain delivery. Respect an explicit request not to email.
 
 Do not book, reserve, log in or pay. Do not apply this workflow to other tasks.
-
-Do not call `clarify` or `approve`. Ask essential questions in an ordinary reply.
-Do not bypass any permission check required by the tool or platform.
