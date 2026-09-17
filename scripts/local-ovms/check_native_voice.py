@@ -17,13 +17,13 @@ import yaml
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', type=Path, required=True)
-    parser.add_argument('--case', choices=['greeting', 'mixed', 'travel', 'flights', 'media', 'web'], default='greeting')
+    parser.add_argument('--case', choices=['greeting', 'mixed', 'travel', 'flights', 'media', 'web', 'email'], default='greeting')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     sys.path.insert(0, str(root))
     live = yaml.safe_load((args.profile/'config.yaml').read_text())
     home = Path(tempfile.mkdtemp(prefix='hermes-native-voice-'))
-    cfg = {k: live[k] for k in ('tools','toolsets','web','tool_search') if k in live}
+    cfg = {k: live[k] for k in ('tools','toolsets','web','tool_search','skills','auxiliary') if k in live}
     cfg.update(plugins={'enabled':(live.get('plugins') or {}).get('enabled', [])},
                memory={'enabled':False}, model={'context_length':65536},
                voice_delivery={'enabled':False}, travel_voice={'enabled':False})
@@ -103,6 +103,7 @@ def main():
         return original_create(client, *a, **kw)
     cases = {
         'greeting':['How are you?'],
+        'email':['Please email the following message to my default email addresses: Native email skill validation.'],
         'mixed':['How are you?', 'Are the bedroom air conditioners off?',
                  'What does RSVP mean?', 'Please email that explanation to test@example.com.'],
         'travel':['Plan three days in San Francisco. Keep it brief.', 'What is two plus two?'],
@@ -132,6 +133,13 @@ def main():
             (home/'receipt.json').write_text(json.dumps(records, indent=2))
             print(json.dumps(record), flush=True)
     print('Receipt:', home/'receipt.json', flush=True)
+    if args.case == 'email':
+        assert len(mails) == 1, 'Expected exactly one captured email send'
+        sent = json.loads(mails[0]) if isinstance(mails[0], str) else mails[0]
+        assert sent.get('target') == 'email', sent
+        assert sent.get('action', 'send') == 'send', sent
+        assert 'Native email skill validation' in sent.get('message', ''), sent
+        print('PASS: one captured send, target=email, requested body retained.', flush=True)
     print('No audio or real email/control/media operations were performed.', flush=True)
 
 
