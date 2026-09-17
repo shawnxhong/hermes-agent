@@ -16392,10 +16392,6 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     _cprint(f"\n  {_BOLD}Install: {sys.executable} -m pip install {' '.join(reqs['missing_packages'])}{_RST}")
             return
 
-        from hermes_cli.voice_continuity import enabled as _continuity_enabled
-        if _continuity_enabled() and getattr(self, '_voice_continuity_ended', False):
-            self.new_session(silent=True)
-            self._voice_continuity_ended = False
         with self._voice_lock:
             self._voice_mode = True
 
@@ -16649,8 +16645,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 pass
 
         from hermes_cli.voice_followup import resume_question_session
-        from hermes_cli.voice_continuity import enabled as _continuity_enabled
-        if (getattr(self, "_wake_start_new_session", True) or _continuity_enabled()) and not resume_question_session(self):
+        if getattr(self, "_wake_start_new_session", True) and not resume_question_session(self):
             try:
                 self.new_session(silent=True)
             except Exception as e:

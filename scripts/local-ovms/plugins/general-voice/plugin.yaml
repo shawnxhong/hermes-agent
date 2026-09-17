@@ -1,8 +1,5 @@
 name: general-voice
 version: 0.1.0
-description: Task-scoped buffered native voice execution and host-owned delivery.
+description: Retired voice workflow; retained for existing profile compatibility.
 author: shawnxhong
-hooks:
-  - run_turn_workflow
-  - pre_tool_call
-  - post_tool_call
+hooks: []

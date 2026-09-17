@@ -2,7 +2,4 @@ name: demo-media
 version: 0.2.0
 description: List and play Desktop media without desktop verification loops.
 author: shawnxhong
-hooks:
-  - run_turn_workflow
-  - pre_tool_call
-  - post_tool_call
+hooks: []

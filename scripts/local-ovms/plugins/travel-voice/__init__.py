@@ -434,4 +434,5 @@ def run_workflow(*, agent, user_message, session_id, input_modality=None, platfo
 
 
 def register(ctx):
-    ctx.register_hook("run_turn_workflow", run_workflow)
+    # Travel procedures now live exclusively in travel-concierge/SKILL.md.
+    pass

@@ -45,13 +45,8 @@ _SENTENCE_RE = re.compile(r".+?(?:[!?]+|[.!?](?=\s|$)|$)", re.DOTALL)
 
 def build_voice_turn_prefix(*, followup_enabled: bool = False) -> str:
     """Return the API-call-local instruction for a genuine ASR turn."""
-    if followup_enabled:
-        return VOICE_TURN_PREFIX.replace(
-            "use the clarify tool to ask only one short question for the address so the wake-word-free answer window opens.",
-            "ask one short question for the address in your ordinary final reply, ending in a question mark. "
-            "The host opens one timed ASR answer window after a final spoken question; do not call clarify for routine information.",
-        )
-    return VOICE_TURN_PREFIX
+    # Style belongs to SOUL.md; task procedures belong to skills.
+    return "[Voice input] "
 
 
 def _plain_spoken_text(text: str) -> str:

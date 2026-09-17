@@ -181,6 +181,3 @@ def before_tool(*, session_id='', turn_id='', tool_name='', **kwargs):
 def register(ctx):
     ctx.register_tool(name='local_media', toolset='local_media', schema=SCHEMA,
                       handler=lambda args, **kw: json.dumps(execute(args.get('action'), args.get('target', '')), ensure_ascii=False), emoji='▶')
-    ctx.register_hook('run_turn_workflow', workflow)
-    ctx.register_hook('pre_tool_call', before_tool)
-    ctx.register_hook('post_tool_call', after_tool)
