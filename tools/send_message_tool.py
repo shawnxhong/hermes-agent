@@ -2469,6 +2469,21 @@ def _check_send_message():
     platform = get_session_env("HERMES_SESSION_PLATFORM", "")
     if platform and platform != "local":
         return True
+    # Email has a one-shot SMTP sender; receiving IM must not be required
+    # just to expose an already configured outbound email capability.
+    try:
+        from gateway.config import _getenv, load_gateway_config, Platform
+        config = load_gateway_config()
+        email = config.platforms.get(Platform.EMAIL)
+        extra = (getattr(email, "extra", None) or {})
+        if all(str(value or "").strip() for value in (
+            extra.get("address") or _getenv("EMAIL_ADDRESS", ""),
+            _getenv("EMAIL_PASSWORD", ""),
+            extra.get("smtp_host") or _getenv("EMAIL_SMTP_HOST", ""),
+        )):
+            return True
+    except Exception:
+        pass
     try:
         from gateway.status import is_gateway_running
         return is_gateway_running()

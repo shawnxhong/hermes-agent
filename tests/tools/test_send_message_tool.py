@@ -1771,6 +1771,21 @@ class TestCheckSendMessage:
              patch("gateway.status.is_gateway_running", return_value=False):
             assert _check_send_message() is True
 
+    @pytest.mark.parametrize('missing', [None, 'EMAIL_ADDRESS', 'EMAIL_PASSWORD', 'EMAIL_SMTP_HOST'])
+    def test_standalone_email_without_gateway(self, monkeypatch, missing):
+        from tools.send_message_tool import _check_send_message
+        from types import SimpleNamespace
+        monkeypatch.delenv('HERMES_KANBAN_TASK', raising=False)
+        values = dict(EMAIL_ADDRESS='sender@example.com', EMAIL_PASSWORD='test-only',
+                      EMAIL_SMTP_HOST='smtp.example.com')
+        if missing:
+            values[missing] = ' '
+        with patch('gateway.session_context.get_session_env', return_value=''), \
+             patch('gateway.status.is_gateway_running', return_value=False), \
+             patch('gateway.config.load_gateway_config', return_value=SimpleNamespace(platforms={})), \
+             patch('gateway.config._getenv', side_effect=lambda k, d='': values.get(k, d)):
+            assert _check_send_message() is (missing is None)
+
 
     def test_gateway_status_import_error_is_swallowed(self, monkeypatch):
         """If gateway.status can't be imported (unusual deployment / partial
