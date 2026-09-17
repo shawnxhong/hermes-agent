@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resident CPU Kokoro synthesis; playback remains exclusively in Hermes."""
+"""Resident Kokoro synthesis; playback remains exclusively in Hermes."""
 import argparse
 import fcntl
 import io
@@ -34,17 +34,28 @@ def validate(value):
 
 
 class Engine:
-    def __init__(self, folder, threads):
+    def __init__(self, folder, threads, device='cpu', cache_dir=None):
         import onnxruntime as ort
         from kokoro_onnx import Kokoro
-        options = ort.SessionOptions()
-        options.intra_op_num_threads = threads
-        options.inter_op_num_threads = 1
-        options.add_session_config_entry('session.intra_op.allow_spinning', '0')
-        options.add_session_config_entry('session.inter_op.allow_spinning', '0')
+        if device == 'igpu':
+            from kokoro_openvino import OpenVINOSession
+            session = OpenVINOSession(
+                folder/'kokoro-v1.1-zh-openvino.onnx', cache_dir,
+            )
+            self.device = session.device_name
+        else:
+            options = ort.SessionOptions()
+            options.intra_op_num_threads = threads
+            options.inter_op_num_threads = 1
+            options.add_session_config_entry('session.intra_op.allow_spinning', '0')
+            options.add_session_config_entry('session.inter_op.allow_spinning', '0')
+            session = ort.InferenceSession(
+                str(folder/'kokoro-v1.1-zh.onnx'), sess_options=options,
+                providers=['CPUExecutionProvider'],
+            )
+            self.device = f'CPU threads={threads}'
         self.model = Kokoro.from_session(
-            ort.InferenceSession(str(folder/'kokoro-v1.1-zh.onnx'), sess_options=options,
-                                 providers=['CPUExecutionProvider']),
+            session,
             str(folder/'voices-v1.1-zh.bin'), vocab_config=str(folder/'config.json'))
         self({'text':'Ready.'})
 
@@ -53,6 +64,9 @@ class Engine:
         text, speed, voice = validate(value)
         started = time.monotonic()
         samples, rate = self.model.create(text, voice=voice, speed=speed, lang='en-us')
+        import numpy as np
+        if not np.isfinite(samples).all():
+            raise RuntimeError('Kokoro produced non-finite audio')
         out = io.BytesIO()
         sf.write(out, samples, rate, format='WAV', subtype='PCM_16')
         log.info('tts_synthesis seconds=%.3f chars=%d',time.monotonic()-started,len(text))
@@ -82,9 +96,13 @@ def main():
     p.add_argument('--model-dir',type=Path,required=True)
     p.add_argument('--socket',type=Path,required=True)
     p.add_argument('--threads',type=int,default=4)
+    p.add_argument('--device',choices=('cpu','igpu'),default='cpu')
+    p.add_argument('--cache-dir',type=Path)
     args = p.parse_args()
     if not args.model_dir.is_dir() or not 1 <= args.threads <= 16:
         p.error('Existing model directory and 1..16 CPU threads required')
+    if args.device == 'igpu' and args.cache_dir is None:
+        p.error('--cache-dir is required for iGPU execution')
     logging.basicConfig(level=logging.INFO,format='%(asctime)s %(message)s')
     args.socket.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
     info = args.socket.parent.stat()
@@ -97,11 +115,16 @@ def main():
             if not stat.S_ISSOCK(old.st_mode) or old.st_uid != os.getuid():
                 p.error('Refusing to replace non-owned/non-socket path')
             args.socket.unlink()
-        engine = Engine(args.model_dir,args.threads)
+        if args.cache_dir is not None:
+            args.cache_dir.mkdir(mode=0o700,parents=True,exist_ok=True)
+            cache_info = args.cache_dir.stat()
+            if cache_info.st_uid != os.getuid() or stat.S_IMODE(cache_info.st_mode) & 0o077:
+                p.error('Cache directory must be owned by user with mode 0700')
+        engine = Engine(args.model_dir,args.threads,args.device,args.cache_dir)
         with socketserver.UnixStreamServer(str(args.socket),Handler) as server:
             os.chmod(args.socket,0o600)
             server.engine = engine
-            log.info('ready device=CPU threads=%d',args.threads)
+            log.info('ready device=%s',engine.device)
             try:
                 server.serve_forever()
             finally:
