@@ -153,11 +153,9 @@ def test_playback_must_finish_before_microphone(rig,monkeypatch):
     assert start(cli);listen.assert_not_called();assert not cli._voice_processing
 
 
-def test_policy_uses_normal_question_only_when_enabled():
+def test_followup_setting_does_not_inject_another_prompt():
     from hermes_cli.voice_response_policy import build_voice_turn_prefix
-    assert 'use the clarify tool' in build_voice_turn_prefix()
-    enabled=build_voice_turn_prefix(followup_enabled=True)
-    assert 'use the clarify tool' not in enabled and 'ordinary final reply' in enabled
+    assert build_voice_turn_prefix() == build_voice_turn_prefix(followup_enabled=True) == '[Voice input] '
 
 
 @pytest.mark.parametrize('raw,expected', [(None,30), ('bad',30), (float('nan'),30),

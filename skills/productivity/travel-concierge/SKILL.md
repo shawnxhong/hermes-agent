@@ -1,74 +1,28 @@
 ---
 name: travel-concierge
-description: Turn a destination idea into a brief intake question and a tabular itinerary.
-version: 0.3.0
-author: shawnxhong, with Hermes Agent
-license: MIT
-platforms: [linux, macos, windows]
-metadata:
-  hermes:
-    category: productivity
-    tags: [travel, itinerary, voice, email]
+description: Give a short destination overview or practical trip itinerary using English Wikivoyage.
 ---
 
-# Travel Concierge
+# Travel planning
 
-Use English. Apply this skill only to trip, itinerary or destination-planning
-requests. A place mentioned in an unrelated question does not activate it. A new
-destination starts a new trip and never inherits old trip facts. Do not book or
-claim any external transaction.
+Use this skill for destination advice or an itinerary, not unrelated questions.
+Answer in English and keep the spoken answer to 1–3 natural sentences.
 
-## Required flow
+Use the destination and trip length already provided. If either is missing,
+give a brief overview and ask only for the missing information in an ordinary
+reply. Ask for the departure city only when transport advice requires it.
+Do not routinely ask about budget, hotels or interests.
 
-The only routinely required facts are destination, duration and departure city.
-Use any of them already supplied. Dates, budget, lodging, interests and traveler
-profile are optional unless the requested result depends on them.
+Make one focused `web_search` restricted to `site:en.wikivoyage.org` for the
+destination. If necessary, read one matching page using `web_extract`. Use only
+this site. If access fails, do not retry, switch sites or open a browser; explain
+briefly what was not verified and offer clearly labelled general suggestions.
 
-1. If duration or departure city is missing, name two or three defining sights or
-   experiences, then ask only for the missing facts. Use no more than two sentences
-   and 45 words, end with `?`, and stop. Ask in the ordinary reply, not `clarify`.
-2. Once all three required facts are known, immediately produce the complete plan.
-   Do not repeat the intake question or ask about budget, month or hotel style.
-3. If the first request contains all three facts, skip directly to the plan.
+Suggest a compact route with a few highlights and practical local transport.
+For a longer trip, group days instead of reading a long day-by-day table.
+Never invent live prices, schedules, direct flight routes or reservations.
 
-Example first reply: "Melbourne is known for its laneways, coffee culture, and
-the Yarra waterfront. How many days will you have, and which city will you travel
-from?"
-
-## Complete plan
-
-Use stable knowledge for an ordinary, season-neutral itinerary. Search only when
-the user asks for current prices, schedules, opening status, availability or other
-date-specific facts. Make one focused search, preferably using an official source;
-a second is allowed only for one unresolved critical fact. After a failed search,
-do not retry or switch browsing methods. Continue conservatively and label what
-was not verified.
-
-Include:
-
-- A title and one-line facts or assumptions summary.
-- Practical outbound/return transport, arrival transfer and local transport.
-- One Markdown table with exactly these columns:
-
-  `Day | Area or theme | Morning | Afternoon | Evening and logistics`
-
-- Important reservations and date-specific uncertainties.
-
-For 1–14 days, write one row per day; for longer trips, group sensible ranges.
-Keep each day geographically coherent with realistic transit, meals and rest. Do
-not duplicate attractions to fill rows. The header, separator and every row must
-be on separate physical lines and must not be inside a code fence. Do not invent
-direct routes, exact fares, timetables, availability, links or reservations.
-
-## Delivery
-
-For buffered local voice, return the complete plan. The voice host emails that
-full result to the configured or user-confirmed recipient and separately speaks a
-short summary. Do not call `send_message`, speech or TTS, and do not claim email
-success yourself.
-
-For IM or typed chat, show the complete plan directly. Email only when explicitly
-requested, using the native message tool and its normal delivery result.
-
-Do not store trip facts or recipients in long-term memory. Leave unrelated tasks
-to normal Hermes behavior.
+Do not email automatically. If the user explicitly asks for email, load
+`email-results` and send the requested plan there; keep the spoken reply short.
+Use conversation history for follow-ups, not long-term memory. Answer a new,
+unrelated task normally without applying this travel procedure.

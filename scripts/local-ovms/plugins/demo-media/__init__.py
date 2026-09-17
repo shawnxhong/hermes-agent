@@ -44,8 +44,8 @@ def execute(action, target=''):
         return {'success': False, 'error': 'Media action and target must be text.'}
     if action not in ('list', 'play', 'mp3', 'mp4', 'stop', 'status'):
         return {'success': False, 'error': 'No supported media action selected.'}
-    from hermes_constants import get_hermes_home
-    helper = get_hermes_home() / 'skills/media/local-media-player/scripts/play_media.py'
+    from pathlib import Path
+    helper = Path(__file__).with_name('play_media.py')
     try:
         done = subprocess.run([sys.executable, str(helper), action, '--target', target],
                               capture_output=True, text=True, timeout=15)

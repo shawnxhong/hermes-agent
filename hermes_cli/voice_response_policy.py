@@ -10,27 +10,7 @@ from __future__ import annotations
 import re
 
 
-VOICE_TURN_PREFIX = (
-    "[Local voice input policy — Give the final spoken reply in 2-3 short, "
-    "conversational English sentences (at most 100 words). Do not use Markdown, "
-    "code blocks, tables, raw URLs, "
-    "or long lists. Avoid unnecessary tools and low-value clarification; choose "
-    "a reasonable default for safe, reversible ambiguity. The system handles "
-    "the immediate verbal acknowledgement, so do not repeat it. For substantial "
-    "research, reports, or long lists, put the complete useful detail in exactly "
-    "one send_message call with action='send', target='email:<address>', and the "
-    "detail in message. You are authorized to send directly to any syntactically "
-    "valid email address supplied by the user or already available in this "
-    "conversation; no extra authorization or confirmation is required. An "
-    "explicit email address does not require a preceding target-list call. If "
-    "detail should be emailed but no address is known, use the clarify tool to ask "
-    "only one short question for the address so the wake-word-free answer window "
-    "opens. Say that email was sent only when the tool result reports "
-    "success; on failure, say briefly that it was not sent. Do not read the email "
-    "body aloud. Clarify only when missing information makes the task unsafe, "
-    "irreversible, or impossible, and ask one brief question at a time with no "
-    "more than three options.] "
-)
+VOICE_TURN_PREFIX = "[Voice input] "
 
 _CODE_BLOCK_RE = re.compile(r"```[\s\S]*?```")
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
@@ -46,7 +26,7 @@ _SENTENCE_RE = re.compile(r".+?(?:[!?]+|[.!?](?=\s|$)|$)", re.DOTALL)
 def build_voice_turn_prefix(*, followup_enabled: bool = False) -> str:
     """Return the API-call-local instruction for a genuine ASR turn."""
     # Style belongs to SOUL.md; task procedures belong to skills.
-    return "[Voice input] "
+    return VOICE_TURN_PREFIX
 
 
 def _plain_spoken_text(text: str) -> str:

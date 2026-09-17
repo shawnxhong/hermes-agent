@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import pytest
 
-PATH = Path(__file__).resolve().parents[2] / 'scripts/local-ovms/skills/local-media-player/scripts/play_media.py'
+PATH = Path(__file__).resolve().parents[2] / 'scripts/local-ovms/plugins/demo-media/play_media.py'
 spec = importlib.util.spec_from_file_location('media_player', PATH)
 media = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(media)

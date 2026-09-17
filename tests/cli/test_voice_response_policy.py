@@ -8,15 +8,10 @@ from hermes_cli.voice_response_policy import (
 )
 
 
-def test_voice_prompt_authorizes_direct_email_but_requires_truthful_status():
+def test_voice_prefix_only_marks_modality():
     prompt = build_voice_turn_prefix()
 
-    assert "2-3 short" in prompt
-    assert "exactly one send_message call" in prompt
-    assert "no extra authorization or confirmation" in prompt
-    assert "only when the tool result reports success" in prompt
-    assert "does not require a preceding target-list call" in prompt
-    assert "use the clarify tool" in prompt
+    assert prompt == '[Voice input] '
 
 
 def test_local_cli_includes_delivery_tool_without_changing_feishu_bundle():
