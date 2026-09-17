@@ -22,6 +22,8 @@ DEFAULT_SCENES = {
 }
 ACK = "One moment please"
 EXIT_ACK = "Scene closed."
+CLEAR_CONTEXT = '__clear_context__'
+CLEAR_ACK = 'Conversation cleared.'
 
 
 def switching(cli):
@@ -127,6 +129,73 @@ class SceneController:
             log.info("voice_scene accepted scene=%s generation=%s", name, generation(self.cli))
             return {**self.status(), "request_generation": generation(self.cli)}
 
+    def request_clear(self):
+        """ASR control: rotate only on the serialized CLI loop, never here."""
+        with self.lock:
+            if getattr(self.cli, '_should_exit', False):
+                return self.status()
+            if self.pending and self.pending[1] == CLEAR_CONTEXT:
+                return self.status()
+            self.cli._scene_generation = generation(self.cli) + 1
+            self.cli._scene_switching = True
+            self.pending = (generation(self.cli), CLEAR_CONTEXT, None, None)
+            self.error = None
+            self._interrupt()
+            return self.status()
+
+    def _apply_clear(self, version):
+        cli = self.cli
+        # A still-running worker owns the old session. Do not rotate under it.
+        if getattr(cli, '_agent_running', False):
+            return False
+        try:
+            self.mic_thread.join(timeout=3)
+            if self.mic_thread.is_alive():
+                raise RuntimeError('Microphone is still releasing')
+            if self.ack_thread:
+                self.ack_thread.join(timeout=10)
+                if self.ack_thread.is_alive():
+                    raise RuntimeError('Previous announcement is still active')
+            with self.lock:
+                if version != generation(cli):
+                    return True
+                from tools.voice_mode import stop_playback
+                stop_playback()
+                for pending_queue in (cli._pending_input, cli._interrupt_queue):
+                    while True:
+                        try:
+                            pending_queue.get_nowait()
+                        except queue.Empty:
+                            break
+                # Same state reset as /clear; no file/database deletion.
+                cli._clear_conversation_context()
+                cli._voice_followup_resume = None
+                cli._voice_continuity_ended = False
+                cli._attached_images.clear()
+                cli._reset_stream_state()
+                if getattr(cli, '_app', None):
+                    cli._app.output.erase_screen()
+                    cli._app.output.cursor_goto(0, 0)
+                    cli._app.output.flush()
+                print(CLEAR_ACK, flush=True)
+                from hermes_cli.voice_wake_ack import cached_audio
+                _, tts = settings()
+                self.audio[CLEAR_ACK] = cached_audio({'text': CLEAR_ACK, 'tts': tts})
+                self._speak(CLEAR_ACK)
+                log.info('voice_context cleared generation=%s', version)
+        except Exception as exc:
+            self.error = str(exc)
+            log.exception('Voice context clear failed')
+        finally:
+            with self.lock:
+                if version == generation(cli):
+                    self.pending = None
+                    cli._scene_switching = False
+                    cli._voice_processing = False
+                    cli._voice_tts_done.set()
+                    cli._wake_suspended = True
+        return True
+
     def _interrupt(self):
         from agent.interrupt_compat import request_hard_interrupt
         from hermes_cli.voice_followup import cancel_followup
@@ -179,6 +248,8 @@ class SceneController:
             return False
         version, name, prompt, loaded = item
         cli = self.cli
+        if name == CLEAR_CONTEXT:
+            return self._apply_clear(version)
         try:
             self.mic_thread.join(timeout=3)
             if self.mic_thread.is_alive():

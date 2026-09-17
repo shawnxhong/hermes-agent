@@ -33,6 +33,8 @@ def rig(monkeypatch, tmp_path):
         events.append('reset')
         cli.session_id += '-new'
     cli.new_session = new_session
+    from cli import HermesCLI
+    cli._clear_conversation_context = lambda: HermesCLI._clear_conversation_context(cli)
     audio = {scenes.ACK: scenes.ACK, scenes.EXIT_ACK: scenes.EXIT_ACK,
              **{v['announcement']: v['announcement'] for v in scenes.DEFAULT_SCENES.values()}}
     def play(text):
@@ -42,6 +44,54 @@ def rig(monkeypatch, tmp_path):
     controller = scenes.SceneController(cli, scenes.DEFAULT_SCENES, audio, play=play)
     yield cli, controller, events
     controller.close()
+
+
+def test_clear_waits_for_worker_and_preserves_scene(rig, monkeypatch, tmp_path):
+    cli, controller, events = rig
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: cfg['text'])
+    cli._agent_running = True
+    cli._voice_tts_stop = threading.Event()
+    controller.active = 'home'
+    cli._pending_input.put('old voice input')
+    cli._interrupt_queue.put('old interruption')
+    keep = tmp_path/'MEMORY.md'
+    keep.write_text('long term memory stays')
+    controller.request_clear()
+    controller.request_clear()  # duplicate ASR callbacks coalesce
+    assert cli.session_id == 'old'
+    assert cli._voice_tts_stop.is_set()
+    assert not controller.apply_pending()
+    assert not events
+    cli._agent_running = False
+    assert controller.apply_pending()
+    assert events == ['reset', scenes.CLEAR_ACK]
+    assert cli.session_id == 'old-new'
+    assert controller.active == 'home'
+    assert cli.system_prompt == 'base\n\nold-skill'
+    assert cli._pending_input.empty() and cli._interrupt_queue.empty()
+    assert cli._wake_suspended and not scenes.switching(cli)
+    assert keep.read_text() == 'long term memory stays'
+    assert not controller.apply_pending()
+
+
+def test_new_scene_supersedes_pending_clear(rig):
+    cli, controller, events = rig
+    controller.request_clear()
+    controller.request('travel')
+    assert controller.apply_pending()
+    assert events.count('reset') == 1
+    assert scenes.CLEAR_ACK not in events
+    assert controller.active == 'travel'
+
+
+def test_clear_releases_wake_even_if_confirmation_fails(rig, monkeypatch):
+    cli, controller, events = rig
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', Mock(side_effect=RuntimeError('TTS unavailable')))
+    controller.request_clear()
+    assert controller.apply_pending()
+    assert cli.session_id == 'old-new'
+    assert not scenes.switching(cli) and cli._wake_suspended
+    assert controller.error == 'TTS unavailable'
 
 
 def test_ack_reset_ready_and_replace_skill(rig):

@@ -10469,6 +10469,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             return None
         return history_snapshot
 
+    def _clear_conversation_context(self):
+        """Shared /clear and explicit voice-control session boundary."""
+        self.new_session(silent=True)
+        _clear_output_history()
+
     def new_session(self, silent=False, title=None):
         """Start a fresh session with a new session ID and cleared agent state."""
         old_session_id = self.session_id
@@ -12699,8 +12704,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 cmd_original=cmd_original,
             ) is None:
                 return True  # confirmation cancelled — command handled, keep REPL alive
-            self.new_session(silent=True)
-            _clear_output_history()
+            self._clear_conversation_context()
             # Clear terminal screen.  Inside the TUI, Rich's console.clear()
             # goes through patch_stdout's StdoutProxy which swallows the
             # screen-clear escape sequences.  Use prompt_toolkit's output
@@ -15982,6 +15986,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 transcript = strip_end_phrase(transcript)
                 if not transcript:
                     return
+                from hermes_cli.voice_commands import route_control
+                if route_control(self, transcript):
+                    submitted = True
+                    return
                 from tools.voice_mode import is_voice_stop_phrase
                 if is_voice_stop_phrase(transcript):
                     # Bare "stop" (or configured phrase) ends the voice chat
@@ -16322,6 +16330,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         )
                         _cprint(f"\n{_DIM}Ignored likely TTS echo (not queued).{_RST}")
                         return
+                from hermes_cli.voice_commands import route_control
+                if route_control(self, transcript):
+                    submitted = True
+                    return
                 if not self._voice_route_modal_transcript(transcript):
                     self._pending_input.put(_VoiceInputMessage(transcript))
                 submitted = True
