@@ -6,6 +6,13 @@ enabled. Recognition is local after ASR; no model tool or model request is used.
 The parser also accepts 清空上下文 / 清除上下文 / 清空对话, but recognition of
 Chinese audio depends on the configured ASR language (the demo is English).
 
+Polite requests also work: `please clear up your memory`, `clear memory please`,
+`could you please clear your memory?`, and `clear the current context`.
+These are handled locally, not by asking the LLM to invoke a tool. Supported
+English forms use clear (optionally up), memory/context/conversation, optional
+your/our/the/this/current, please, can/could/would/will you and for me.
+Chinese 请清空上下文 / 请清除上下文 / 请清空对话 are also parsed.
+
 Only a whole command matches, ignoring case, whitespace and terminal punctuation.
 Questions such as `What does clear memory mean?`, negations and longer requests
 do not match. Typed messages are unchanged. Playback echo rejection still runs
