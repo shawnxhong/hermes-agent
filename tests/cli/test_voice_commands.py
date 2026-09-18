@@ -11,6 +11,8 @@ from hermes_cli.voice_commands import is_clear_command
     'Would you clear this conversation for me, please?',
     'please clear our current conversation', 'clear up memory',
     'clear the current context', '请清空上下文。',
+    'Please clean up your memory.', 'clean your memory please',
+    'Could you please clean up the current context?', 'reset this conversation',
 ])
 def test_exact_command(text):
     assert is_clear_command(text)
@@ -29,6 +31,7 @@ def test_exact_command(text):
     'please clear your memory of my address', 'clear browser memory',
     'I said please clear up your memory', '"please clear up your memory"',
     '请不要清空上下文', 'please clear context after you send the email',
+    'please do not clean up your memory', 'What does clean up your memory mean?',
 ])
 def test_not_a_command(text):
     assert not is_clear_command(text)
@@ -52,3 +55,31 @@ def test_polite_request_routes_to_local_clear_once():
     controller.request_clear.assert_called_once_with()
     assert not route_control(cli, 'please do not clear up your memory')
     controller.request_clear.assert_called_once_with()
+
+
+@pytest.mark.parametrize('text', [
+    'please clear your memory of my address', 'clear memory and send an email',
+    'clean up all your memories', 'please delete your long term memory',
+    'forget everything', '请清理你的记忆',
+])
+def test_uncertain_requests_are_consumed_without_clearing(text):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from hermes_cli.voice_commands import route_control
+    controller = SimpleNamespace(request_clear=Mock())
+    assert route_control(SimpleNamespace(_scene_controller=controller), text)
+    controller.request_clear.assert_called_once_with(clarify=True)
+
+
+@pytest.mark.parametrize('text', [
+    'Please do not clean up your memory.', 'What does clean up your memory mean?',
+    'Explain how to clear memory', 'clean the kitchen', 'travel to Russia',
+    '"clean up your memory"', 'I said clean up your memory', '不要清理记忆',
+])
+def test_non_requests_do_not_trigger_either_control(text):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from hermes_cli.voice_commands import route_control
+    controller = SimpleNamespace(request_clear=Mock())
+    assert not route_control(SimpleNamespace(_scene_controller=controller), text)
+    controller.request_clear.assert_not_called()

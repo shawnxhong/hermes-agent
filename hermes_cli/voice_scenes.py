@@ -23,7 +23,9 @@ DEFAULT_SCENES = {
 ACK = "One moment please"
 EXIT_ACK = "Scene closed."
 CLEAR_CONTEXT = '__clear_context__'
+CLEAR_CLARIFY = '__clarify_clear_context__'
 CLEAR_ACK = 'Conversation cleared.'
+CLARIFY_ACK = "I haven't cleared anything. To clear only this conversation, say clear memory."
 
 
 def switching(cli):
@@ -100,7 +102,7 @@ class SceneController:
                 return {**self.status(), "request_generation": version}
             original_name = name
             selected = self.pending[1] if self.pending is not None else self.active
-            if selected == CLEAR_CONTEXT:
+            if selected in (CLEAR_CONTEXT, CLEAR_CLARIFY):
                 selected = self.active  # context clear does not change the scene
             if action == "clear" or (action == "toggle" and selected == name):
                 name = None
@@ -131,21 +133,22 @@ class SceneController:
             log.info("voice_scene accepted scene=%s generation=%s", name, generation(self.cli))
             return {**self.status(), "request_generation": generation(self.cli)}
 
-    def request_clear(self):
+    def request_clear(self, *, clarify=False):
         """ASR control: rotate only on the serialized CLI loop, never here."""
         with self.lock:
             if getattr(self.cli, '_should_exit', False):
                 return self.status()
-            if self.pending and self.pending[1] == CLEAR_CONTEXT:
+            control = CLEAR_CLARIFY if clarify else CLEAR_CONTEXT
+            if self.pending and self.pending[1] == control:
                 return self.status()
             self.cli._scene_generation = generation(self.cli) + 1
             self.cli._scene_switching = True
-            self.pending = (generation(self.cli), CLEAR_CONTEXT, None, None)
+            self.pending = (generation(self.cli), control, None, None)
             self.error = None
             self._interrupt()
             return self.status()
 
-    def _apply_clear(self, version):
+    def _apply_clear(self, version, *, clarify=False):
         cli = self.cli
         # A still-running worker owns the old session. Do not rotate under it.
         if getattr(cli, '_agent_running', False):
@@ -170,21 +173,24 @@ class SceneController:
                         except queue.Empty:
                             break
                 # Same state reset as /clear; no file/database deletion.
-                cli._clear_conversation_context()
+                if not clarify:
+                    cli._clear_conversation_context()
                 cli._voice_followup_resume = None
                 cli._voice_continuity_ended = False
-                cli._attached_images.clear()
+                if not clarify:
+                    cli._attached_images.clear()
                 cli._reset_stream_state()
-                if getattr(cli, '_app', None):
+                if not clarify and getattr(cli, '_app', None):
                     cli._app.output.erase_screen()
                     cli._app.output.cursor_goto(0, 0)
                     cli._app.output.flush()
-                print(CLEAR_ACK, flush=True)
+                acknowledgement = CLARIFY_ACK if clarify else CLEAR_ACK
+                print(acknowledgement, flush=True)
                 from hermes_cli.voice_wake_ack import cached_audio
                 _, tts = settings()
-                self.audio[CLEAR_ACK] = cached_audio({'text': CLEAR_ACK, 'tts': tts})
-                self._speak(CLEAR_ACK)
-                log.info('voice_context cleared generation=%s', version)
+                self.audio[acknowledgement] = cached_audio({'text': acknowledgement, 'tts': tts})
+                self._speak(acknowledgement)
+                log.info('voice_context action=%s generation=%s', 'clarify' if clarify else 'clear', version)
         except Exception as exc:
             self.error = str(exc)
             log.exception('Voice context clear failed')
@@ -250,8 +256,8 @@ class SceneController:
             return False
         version, name, prompt, loaded = item
         cli = self.cli
-        if name == CLEAR_CONTEXT:
-            return self._apply_clear(version)
+        if name in (CLEAR_CONTEXT, CLEAR_CLARIFY):
+            return self._apply_clear(version, clarify=name == CLEAR_CLARIFY)
         try:
             self.mic_thread.join(timeout=3)
             if self.mic_thread.is_alive():

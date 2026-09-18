@@ -74,6 +74,39 @@ def test_clear_waits_for_worker_and_preserves_scene(rig, monkeypatch, tmp_path):
     assert not controller.apply_pending()
 
 
+def test_clarification_preserves_context_and_waits_for_worker(rig, monkeypatch):
+    cli, controller, events = rig
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: cfg['text'])
+    cli.conversation_history = [{'role': 'user', 'content': 'Russia trip'}]
+    cli._attached_images.append('keep-image')
+    cli._agent_running = True
+    controller.active = 'travel'
+    cli._pending_input.put('stale continuation')
+    controller.request_clear(clarify=True)
+    assert not controller.apply_pending()
+    cli._agent_running = False
+    assert controller.apply_pending()
+    assert events == [scenes.CLARIFY_ACK]
+    assert cli.session_id == 'old'
+    assert cli.conversation_history == [{'role': 'user', 'content': 'Russia trip'}]
+    assert cli._attached_images == ['keep-image']
+    assert controller.active == 'travel'
+    assert cli._pending_input.empty() and cli._wake_suspended
+    assert not scenes.switching(cli)
+    controller.request_clear()
+    assert controller.apply_pending()
+    assert events[-2:] == ['reset', scenes.CLEAR_ACK]
+
+
+def test_clarification_tts_failure_does_not_clear_context(rig, monkeypatch):
+    cli, controller, events = rig
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', Mock(side_effect=RuntimeError('no TTS')))
+    controller.request_clear(clarify=True)
+    assert controller.apply_pending()
+    assert cli.session_id == 'old' and not events
+    assert cli._wake_suspended and not scenes.switching(cli)
+
+
 def test_new_scene_supersedes_pending_clear(rig):
     cli, controller, events = rig
     controller.request_clear()

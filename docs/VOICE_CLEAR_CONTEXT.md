@@ -8,6 +8,8 @@ Chinese audio depends on the configured ASR language (the demo is English).
 
 Polite requests also work: `please clear up your memory`, `clear memory please`,
 `could you please clear your memory?`, and `clear the current context`.
+`clean`, `clean up`, and `reset` are accepted in the same bounded grammar,
+including `please clean up your memory` and `reset this conversation`.
 These are handled locally, not by asking the LLM to invoke a tool. Supported
 English forms use clear (optionally up), memory/context/conversation, optional
 your/our/the/this/current, please, can/could/would/will you and for me.
@@ -17,6 +19,17 @@ Only a whole command matches, ignoring case, whitespace and terminal punctuation
 Questions such as `What does clear memory mean?`, negations and longer requests
 do not match. Typed messages are unchanged. Playback echo rejection still runs
 before the barge-in command recognizer.
+
+An imperative resembling a memory/context clearing request but outside the
+accepted grammar is consumed locally and clarified, not forwarded to the model.
+For example `clean up all your memories`, `forget everything`, and
+`clear memory and send an email` do NOT clear anything or execute another task.
+The old turn is interrupted at the same safe boundary; context/scene are kept,
+stale queued continuation input is dropped, and the voice says:
+"I haven't cleared anything. To clear only this conversation, say clear memory."
+There is no pending yes/no confirmation: repeat an explicit clear command to act.
+Negations, quotations and questions ABOUT clearing remain ordinary conversation.
+This remains a bounded recognizer, not arbitrary semantic intent understanding.
 
 The request cancels current inference/playback and waits for the serialized CLI
 processing boundary. It then uses the same context-reset helper as `/clear`,
