@@ -935,6 +935,9 @@ class _PorcupineEngine(_Engine):
 
 def _build_engine(cfg: Dict[str, Any]) -> _Engine:
     provider = _provider(cfg)
+    if provider == "asr":
+        from tools.wake_asr import ASRWakeEngine
+        return ASRWakeEngine(cfg)
     if provider == "porcupine":
         return _PorcupineEngine(cfg)
     if provider in ("sherpa", "sherpa-onnx", "kws", "open"):
@@ -1021,7 +1024,16 @@ def check_wake_word_requirements(cfg: Optional[Dict[str, Any]] = None) -> Dict[s
     else:
         feature = "wake.openwakeword"
     deps_ok = lazy_deps.is_available(feature)
+    if provider == "asr":
+        try:
+            from tools.wake_asr import local_transcriber
+            local_transcriber()
+            deps_ok = True
+        except Exception:
+            deps_ok = False
     lazy_ok = lazy_deps._allow_lazy_installs()
+    if provider == "asr":
+        lazy_ok = False  # A missing resident service cannot be installed lazily.
     # The audio probe imports sounddevice + numpy — two of the very packages
     # the lazy installer would fetch — so it can only be trusted once the
     # feature's deps are installed. On a fresh install (deps missing, lazy
@@ -1041,7 +1053,7 @@ def check_wake_word_requirements(cfg: Optional[Dict[str, Any]] = None) -> Dict[s
     # The tflite backend needs a runtime openWakeWord doesn't declare off Linux.
     # Report it as a real remediation instead of arming a detector that can't fire.
     tflite_ok = True
-    if provider not in ("porcupine", "sherpa", "sherpa-onnx", "kws", "open"):
+    if provider not in ("asr", "porcupine", "sherpa", "sherpa-onnx", "kws", "open"):
         framework = resolve_inference_framework(cfg)
         if framework == "tflite":
             tflite_ok = ensure_tflite_runtime() or lazy_deps.is_available("wake.openwakeword.tflite") or lazy_ok
@@ -1049,6 +1061,8 @@ def check_wake_word_requirements(cfg: Optional[Dict[str, Any]] = None) -> Dict[s
     if provider == "porcupine" and not (os.getenv("PORCUPINE_ACCESS_KEY") or "").strip():
         key_ok = False
         hint = "Set PORCUPINE_ACCESS_KEY (free key at https://console.picovoice.ai)."
+    elif provider == "asr" and not deps_ok:
+        hint = "Start the local openvino_igpu ASR service before enabling ASR wake."
     elif not deps_ok and not lazy_ok:
         hint = lazy_deps.feature_install_command(feature) or ""
     elif not tflite_ok:
