@@ -40,6 +40,8 @@ class ASRWakeEngine:
     frame_length = 1280
 
     def __init__(self, cfg, *, transcribe=None):
+        from tools.wake_word import _active_profile_name
+        self._profile = _active_profile_name()
         self._transcribe = transcribe or local_transcriber()
         settings = cfg.get('asr') or {}
         self.phrase = cfg.get('phrase', 'Hello Intel')
@@ -105,7 +107,8 @@ class ASRWakeEngine:
             generation, hit = self._results.get_nowait()
             if generation == self._generation and hit:
                 self._clear_audio()
-                self.last_match = (self.phrase, 'asr')
+                # Second field is the destination profile, NOT the ASR backend.
+                self.last_match = (self.phrase, self._profile)
                 return True
         except queue.Empty:
             pass

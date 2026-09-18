@@ -26,6 +26,30 @@ def rig(monkeypatch,tmp_path):
     return cli,cfg,cache,play
 
 
+@pytest.mark.parametrize('profile', ['default', 'demo'])
+def test_asr_match_reaches_cli_ack_and_recording(rig, monkeypatch, capsys, profile):
+    import numpy as np
+    from cli import HermesCLI
+    from tools import wake_word, voice_endpoint
+    from tools.wake_asr import ASRWakeEngine
+    cli, _, _, play = rig
+    cli._wake_start_new_session = False
+    monkeypatch.setattr(wake_word, '_active_profile_name', lambda: profile)
+    engine = ASRWakeEngine({'phrase': 'Hello Intel'}, transcribe=Mock())
+    engine._results.put((engine._generation, True))
+    assert engine.process(np.zeros(1280, dtype=np.int16))
+    assert engine.last_match == ('Hello Intel', profile)
+    monkeypatch.setattr(wake_word, 'get_last_match', lambda: engine.last_match)
+    monkeypatch.setattr(wake_word, 'pause_listening', lambda **kw: True)
+    monkeypatch.setattr(voice_endpoint, 'pending_hint_text', lambda: '')
+    events = []
+    play.side_effect = lambda path: events.append('ack') or True
+    cli._voice_start_recording.side_effect = lambda: events.append('record')
+    HermesCLI._on_wake_word(cli)
+    assert events == ['ack', 'record']
+    assert "run: hermes -p" not in capsys.readouterr().out
+
+
 def test_ack_finishes_before_capture_and_watchdog_stays_busy(rig):
     cli,_,cache,play=rig
     events=[]
