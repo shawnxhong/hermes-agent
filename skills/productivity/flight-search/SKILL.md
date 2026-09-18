@@ -1,6 +1,6 @@
 ---
 name: flight-search
-description: One brief one-way flight option; email requested details, never book.
+description: Find one flight option; email details on request.
 ---
 
 # One-way flight lookup

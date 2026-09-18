@@ -205,14 +205,14 @@ def test_ack_reset_ready_and_replace_skill(rig):
     assert events == [scenes.ACK]
     assert controller.apply_pending()
     assert events == [scenes.ACK, 'reset', 'Travel assistant ready.']
-    assert cli.system_prompt == 'base\n\nskill:travel-concierge'
-    assert cli.preloaded_skills == ['travel-concierge']
+    assert cli.system_prompt == 'base\n\nskill:travel-advisor'
+    assert cli.preloaded_skills == ['travel-advisor']
     assert cli._pending_input.empty() and not scenes.switching(cli)
     assert cli._wake_suspended and not cli._voice_continuous
     controller.request('home')
     controller.apply_pending()
-    assert cli.system_prompt == 'base\n\nskill:demo-home-assistant'
-    assert 'travel-concierge' not in cli.system_prompt
+    assert cli.system_prompt == 'base\n\nskill:home-assistant'
+    assert 'travel-advisor' not in cli.system_prompt
 
 
 def test_latest_request_wins_and_ack_coalesces(rig):
@@ -305,7 +305,7 @@ def test_repeat_scene_after_debounce_resets_again(rig):
     controller.request('travel')
     controller.apply_pending()
     assert session != cli.session_id
-    assert cli.system_prompt.count('skill:travel-concierge') == 1
+    assert cli.system_prompt.count('skill:travel-advisor') == 1
 
 
 @pytest.mark.parametrize('scene', ['healthcare', 'shopping', 'travel', 'home'])

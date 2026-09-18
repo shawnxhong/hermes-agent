@@ -17,8 +17,8 @@ log = logging.getLogger(__name__)
 DEFAULT_SCENES = {
     "healthcare": {"skill": "healthcare", "announcement": "Healthcare assistant ready."},
     "shopping": {"skill": "shopping", "announcement": "Shopping assistant ready."},
-    "travel": {"skill": "travel-concierge", "announcement": "Travel assistant ready."},
-    "home": {"skill": "demo-home-assistant", "announcement": "Home assistant ready."},
+    "travel": {"skill": "travel-advisor", "announcement": "Travel assistant ready."},
+    "home": {"skill": "home-assistant", "announcement": "Home assistant ready."},
 }
 ACK = "One moment please"
 EXIT_ACK = "Scene closed."
