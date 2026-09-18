@@ -1,6 +1,6 @@
 ---
 name: travel-advisor
-description: Destination highlights; detailed plans on request.
+description: Travel plan; Destination highlights; detailed plans on request.
 ---
 
 Give 2–3 destination highlights, not a daily itinerary. Reuse known facts;
