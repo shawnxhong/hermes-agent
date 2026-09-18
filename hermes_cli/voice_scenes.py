@@ -197,6 +197,17 @@ class SceneController:
         finally:
             with self.lock:
                 if version == generation(cli):
+                    # request_clear hard-stops even an idle cached agent.
+                    # Unlike scene switching, clear/clarify reuse that agent;
+                    # its next durable turn checks interruption BEFORE taking
+                    # the session lease. Retire this control's stop only at
+                    # the idle, current-generation boundary, including when
+                    # acknowledgement synthesis failed. Never un-signal a live
+                    # worker or a newer control request.
+                    clear_interrupt = getattr(getattr(cli, 'agent', None),
+                                              'clear_interrupt', None)
+                    if callable(clear_interrupt):
+                        clear_interrupt()
                     self.pending = None
                     cli._scene_switching = False
                     cli._voice_processing = False

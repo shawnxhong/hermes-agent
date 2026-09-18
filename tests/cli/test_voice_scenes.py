@@ -74,6 +74,65 @@ def test_clear_waits_for_worker_and_preserves_scene(rig, monkeypatch, tmp_path):
     assert not controller.apply_pending()
 
 
+@pytest.mark.parametrize('clarify', [False, True])
+@pytest.mark.parametrize('tts_fails', [False, True])
+def test_clear_releases_real_agent_interrupt_before_next_durable_turn(
+        rig, monkeypatch, tmp_path, clarify, tts_fails):
+    """A stopped worker must not poison the next SQLite lease admission."""
+    from run_agent import AIAgent
+    from hermes_state import SessionDB
+    cli, controller, events = rig
+    agent = AIAgent(model='test', provider='custom', api_key='unused',
+                    base_url='http://127.0.0.1:1/v1', quiet_mode=True,
+                    enabled_toolsets=[], disabled_toolsets=['memory', 'session_search'])
+    cli.agent = agent
+    cli._agent_running = True
+    if tts_fails:
+        monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio',
+                            Mock(side_effect=RuntimeError('no TTS')))
+    else:
+        monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: cfg['text'])
+    controller.request_clear(clarify=clarify)
+    assert agent._interrupt_requested and agent._hard_interrupt_requested.is_set()
+    assert not controller.apply_pending()
+    assert agent._interrupt_requested  # Never un-signal a live worker.
+    cli._agent_running = False
+    assert controller.apply_pending()
+    assert not agent._interrupt_requested
+    assert not agent._hard_interrupt_requested.is_set()
+    assert not agent._interrupt_thread_signal_pending
+    assert agent._interrupt_message is None
+    with SessionDB(tmp_path/'admission.db') as db:
+        db.create_session(session_id=cli.session_id, source='cli', model='test')
+        assert db.acquire_session_turn_lease(
+            cli.session_id, 'next-turn', wait_seconds=0,
+            should_abort=lambda: agent._interrupt_requested)
+        db.release_session_turn_lease(cli.session_id, 'next-turn')
+
+
+def test_superseded_clear_keeps_new_control_interrupt(rig, monkeypatch):
+    cli, controller, events = rig
+    class Agent:
+        stopped = False
+        def hard_interrupt(self):
+            self.stopped = True
+        def clear_interrupt(self):
+            self.stopped = False
+    cli.agent = Agent()
+    def newer_control(cfg):
+        controller.request_clear(clarify=True)
+        return cfg['text']
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', newer_control)
+    controller.request_clear()
+    assert controller.apply_pending()
+    assert cli.agent.stopped
+    assert scenes.switching(cli)
+    assert controller.pending[1] == scenes.CLEAR_CLARIFY
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: cfg['text'])
+    assert controller.apply_pending()
+    assert not cli.agent.stopped
+
+
 def test_clarification_preserves_context_and_waits_for_worker(rig, monkeypatch):
     cli, controller, events = rig
     monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: cfg['text'])
