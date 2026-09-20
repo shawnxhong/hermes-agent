@@ -26,3 +26,12 @@ uses pinned Ubuntu 26.04. SDK archives/models/logs must not enter Git.
 
 Production acceptance requires human multi-speaker recall and false-wake tests.
 Keep the parent image/config snapshots and stop the sidecar on rollback.
+
+English-only compatibility: supplied Whisper code ignores its m_language field,
+and the bundled GenAI JSON constructor ignores language/task (verified by a
+compiled config probe returning UNSET). Therefore the service creates a temporary
+symlink view of the read-only model and limits generation_config.lang_to_id to
+the existing English token. GenAI's language detector chooses exclusively from
+that map; the C++ bridge asserts the loaded map has exactly that one token.
+Original model/config is untouched. This constrains decoding, not output filtering.
+Reference: https://github.com/openvinotoolkit/openvino.genai/blob/master/src/cpp/src/whisper/models/decoder.cpp

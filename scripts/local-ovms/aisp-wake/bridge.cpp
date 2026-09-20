@@ -1,5 +1,6 @@
 // Thin C ABI around the supplied AISP live-asr pipeline; no agent/TTS nodes.
 #include "aisp.h"
+#include <openvino/genai/whisper_generation_config.hpp>
 #include <cstdio>
 #include <memory>
 #include <vector>
@@ -13,6 +14,10 @@ extern "C" {
 void* wake_create(const char* model, const char* device, Callback cb) {
     try {
         auto b = std::make_unique<Bridge>();
+        ov::genai::WhisperGenerationConfig generation(std::filesystem::path(model) / "generation_config.json");
+        if (generation.lang_to_id.size() != 1 || !generation.lang_to_id.count("<|en|>"))
+            throw std::runtime_error("English-only language candidates not applied");
+        std::fprintf(stderr,"Verified English-only language token: %ld\n",generation.lang_to_id.at("<|en|>"));
         ov::AnyMap props;
         props["asr.model"] = std::string(model);
         props["asr.device"] = std::string(device);

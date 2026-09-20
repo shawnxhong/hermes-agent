@@ -97,3 +97,13 @@ def test_every_callback_logged_and_late_results_do_not_dispatch():
     assert records[2]["final"] is True
     assert records[2]["text"] == "Hello Intel."
     server.conn.sendall.assert_called_once()
+
+
+def test_english_language_candidates_not_merely_ignored_json_language():
+    original = {"lang_to_id": {"<|en|>":50259,"<|pt|>":50267},"decoder_start_token_id":50258}
+    english = service.english_config(original)
+    assert english["lang_to_id"] == {"<|en|>":50259}
+    assert len(original["lang_to_id"]) == 2
+    assert english["decoder_start_token_id"] == original["decoder_start_token_id"]
+    with pytest.raises(KeyError):
+        service.english_config({"lang_to_id":{}})

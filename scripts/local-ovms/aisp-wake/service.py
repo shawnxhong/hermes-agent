@@ -21,6 +21,16 @@ def normalize(text):
     return " ".join("".join(c for c in text if not unicodedata.category(c).startswith("P")).split())
 
 
+def english_config(generation):
+    result = dict(generation)
+    # Bundled GenAI ignores JSON language/task, and AISP does not forward the
+    # language property to Whisper.generate. Restrict actual language-token
+    # candidates, which GenAI DOES load and use, rather than filtering text.
+    en = generation["lang_to_id"]["<|en|>"]
+    result.update(language="<|en|>", task="transcribe", lang_to_id={"<|en|>": en})
+    return result
+
+
 class WakeGate:
     def __init__(self, aliases):
         self.aliases = [(a, normalize(a)) for a in aliases if isinstance(a, str) and normalize(a)]
@@ -166,7 +176,7 @@ def main():
             if entry.name != "generation_config.json":
                 (Path(view) / entry.name).symlink_to(entry)
         generation = json.loads((source / "generation_config.json").read_text())
-        generation.update(language="<|en|>", task="transcribe")
+        generation = english_config(generation)
         (Path(view) / "generation_config.json").write_text(json.dumps(generation))
         native = Native(args.library, view, args.device, s.result)
         s.serve(native, args.socket)
