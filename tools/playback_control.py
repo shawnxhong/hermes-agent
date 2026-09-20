@@ -6,6 +6,7 @@ before synthesis, so late synthesis/queued output cannot revive cancelled speech
 import contextlib
 import contextvars
 import functools
+import fcntl
 import inspect
 import json
 import os
@@ -52,6 +53,8 @@ def output_guard(stop_event=None):
     directory = root() / 'leases'
     directory.mkdir(mode=0o700, exist_ok=True)
     lease = directory / (uuid.uuid4().hex + '.json')
+    ownership = open(lease.with_suffix('.lock'), 'w')
+    fcntl.flock(ownership, fcntl.LOCK_EX)
     done = threading.Event()
 
     def publish(cancelled=False):
@@ -94,6 +97,8 @@ def output_guard(stop_event=None):
         if worker.ident:
             worker.join(timeout=2)
         lease.unlink(missing_ok=True)
+        ownership.close()
+        lease.with_suffix('.lock').unlink(missing_ok=True)
         _scope.reset(token)
 
 
