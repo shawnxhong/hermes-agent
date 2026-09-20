@@ -865,7 +865,11 @@ class AudioRecorder:
             return False
         if self._end_phrase_detector is None:
             try:
-                self._end_phrase_detector = EndPhraseDetector(cfg)
+                if cfg.get('provider') == 'external-asr':
+                    from tools.external_wake import ExternalEndPhraseDetector
+                    self._end_phrase_detector = ExternalEndPhraseDetector(cfg)
+                else:
+                    self._end_phrase_detector = EndPhraseDetector(cfg)
             except Exception:
                 self._end_phrase_unavailable = True
                 logger.warning('Recording-end keyword unavailable; using silence fallback', exc_info=True)
@@ -1110,11 +1114,7 @@ class AudioRecorder:
         # Ensure the persistent stream is alive (no-op after first call).
         self._sample_rate = _default_input_samplerate(sd)
         self.stop_reason = None
-        if on_silence_stop is not None and self.prepare_endpoint():
-            try:
-                self._end_phrase_detector.start(self._endpoint_stop, self._sample_rate, self._silence_threshold)
-            except Exception:
-                logger.warning('Recording-end worker unavailable; using silence fallback', exc_info=True)
+        endpoint_ready = on_silence_stop is not None and self.prepare_endpoint()
         try:
             self._ensure_stream()
         except Exception:
@@ -1124,6 +1124,12 @@ class AudioRecorder:
 
         with self._lock:
             self._recording = True
+        # Arm only once the actual recorder is collecting audio (after the cue).
+        if endpoint_ready:
+            try:
+                self._end_phrase_detector.start(self._endpoint_stop, self._sample_rate, self._silence_threshold)
+            except Exception:
+                logger.warning('Recording-end worker unavailable; using silence fallback', exc_info=True)
         logger.info("Voice recording started (rate=%d, channels=%d)", self._sample_rate, CHANNELS)
 
     def _close_stream_with_timeout(self, timeout: float = 3.0) -> None:

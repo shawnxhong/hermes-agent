@@ -1,6 +1,5 @@
 // Thin C ABI around the supplied AISP live-asr pipeline; no agent/TTS nodes.
 #include "aisp.h"
-#include <openvino/genai/whisper_generation_config.hpp>
 #include <cstdio>
 #include <memory>
 #include <vector>
@@ -15,20 +14,20 @@ struct Bridge {
     std::atomic<bool> capture_alive{false};
 };
 extern "C" {
-void* wake_create(const char* model, const char* device, Callback cb) {
+void* wake_create(const char* model, const char* device, const char* context, Callback cb) {
     try {
         auto b = std::make_unique<Bridge>();
-        ov::genai::WhisperGenerationConfig generation(std::filesystem::path(model) / "generation_config.json");
-        if (generation.lang_to_id.size() != 1 || !generation.lang_to_id.count("<|en|>"))
-            throw std::runtime_error("English-only language candidates not applied");
-        std::fprintf(stderr,"Verified English-only language token: %ld\n",generation.lang_to_id.at("<|en|>"));
         ov::AnyMap props;
         props["asr.model"] = std::string(model);
         props["asr.device"] = std::string(device);
+        props["asr.context"] = std::string(context);
         props["vad.device"] = std::string("CPU");
         props["source_language"] = aisp::language::Type::En;
         props["diar.enabled"] = false;
         b->pipeline = b->runtime.create_pipeline("live-asr", props);
+        if (b->pipeline->get_property(std::string("asr.context")).as<std::string>() != context)
+            throw std::runtime_error("SDK did not retain asr.context");
+        std::fprintf(stderr,"Qwen3 live-ASR: device=%s language=English context=%s\n",device,context);
         b->callback = [cb](ov::AnyMap&& out) {
             if (aisp::keys::output_text.exists_in(out)) {
                 auto text = aisp::keys::output_text.get_from<std::string>(out);

@@ -11,7 +11,6 @@ from pathlib import Path
 import re
 import socket
 import threading
-import tempfile
 import time
 import unicodedata
 import uuid
@@ -20,16 +19,6 @@ import uuid
 def normalize(text):
     text = unicodedata.normalize("NFKC", text).casefold()
     return " ".join("".join(c for c in text if not unicodedata.category(c).startswith("P")).split())
-
-
-def english_config(generation):
-    result = dict(generation)
-    # Bundled GenAI ignores JSON language/task, and AISP does not forward the
-    # language property to Whisper.generate. Restrict actual language-token
-    # candidates, which GenAI DOES load and use, rather than filtering text.
-    en = generation["lang_to_id"]["<|en|>"]
-    result.update(language="<|en|>", task="transcribe", lang_to_id={"<|en|>": en})
-    return result
 
 
 class WakeGate:
@@ -60,14 +49,14 @@ class WakeGate:
 
 
 class Native:
-    def __init__(self, library, model, device, callback):
+    def __init__(self, library, model, device, callback, context="Hello Intel, thank you"):
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
-        self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, type(self.cb)]
+        self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, type(self.cb)]
         self.lib.wake_create.restype = C.c_void_p
         self.lib.wake_feed.argtypes = [C.c_void_p, C.POINTER(C.c_float), C.c_size_t, C.c_int64]
         self.lib.wake_flush.argtypes = [C.c_void_p]
-        self.handle = self.lib.wake_create(model.encode(), device.encode(), self.cb)
+        self.handle = self.lib.wake_create(model.encode(), device.encode(), context.encode(), self.cb)
         if not self.handle:
             raise RuntimeError("AISP live-asr initialization failed")
 
@@ -97,6 +86,9 @@ class Server:
         self.lock = threading.Lock()
         self.instance = str(uuid.uuid4())
         self.gate = WakeGate(aliases, continuous=True)
+        self.end_gate = WakeGate(["thank you"], continuous=True)
+        self.mode = "wake"
+        self.recording_id = None
         self.conn = None
         self.epoch = None
         self.armed_after = float('inf')
@@ -110,12 +102,16 @@ class Server:
             text = text.decode("utf-8", errors="replace")
             with self.lock:
                 action, alias = self.gate.result(timestamp, text) if self.gate else ("inactive", None)
+                end_action, _ = self.end_gate.result(timestamp, text)
+                if self.mode == "recording":
+                    action, alias = end_action, "thank you"
                 self.log.info("%s", text)
                 if (action == "trigger" and self.conn is not None and not self.delivered
                         and timestamp >= self.armed_after):
                     self.delivered = True
                     try:
-                        self.conn.sendall((json.dumps({"event": "wake", "alias": alias, "timestamp": timestamp})+"\n").encode())
+                        self.conn.sendall((json.dumps({"event": "end_recording" if self.mode == "recording" else "wake",
+                            "alias": alias, "timestamp": timestamp, "recording_id": self.recording_id})+"\n").encode())
                     except OSError:
                         self.event(event="delivery_failed")
         except Exception:
@@ -147,14 +143,22 @@ class Server:
                     if not part:
                         raise ConnectionError("incomplete handshake")
                     line += part
-                aliases = WakeGate(json.loads(line)["aliases"]).aliases
+                request = json.loads(line)
+                mode = request.get("mode", "wake")
+                if mode not in ("wake", "recording"):
+                    raise ValueError("Unknown subscription mode")
+                recording_id = request.get("recording_id")
+                if mode == "recording" and (not isinstance(recording_id, str) or not 1 <= len(recording_id) <= 128):
+                    raise ValueError("Recording subscription requires identity")
+                aliases = WakeGate(request["aliases"]).aliases if mode == "wake" else self.gate.aliases
                 with self.lock:
                     self.gate.aliases = aliases
+                    self.mode, self.recording_id = mode, recording_id
                     self.conn, self.epoch = conn, str(uuid.uuid4())
                     self.armed_after = time.monotonic()*1000
                     self.delivered = False
                     self.event(event="notifications_armed")
-                conn.sendall(b'{"event":"ready"}\n')
+                conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id})+"\n").encode())
                 while native.capture_alive():
                     try:
                         data = conn.recv(1)  # Subscription only; SDK owns capture.
@@ -175,7 +179,8 @@ class Server:
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--library", default="/opt/aisp-wake/libwake.so")
-    p.add_argument("--model", default="/models/whisper")
+    p.add_argument("--model", default="/models/qwen3-asr")
+    p.add_argument("--context", default="Hello Intel, thank you")
     p.add_argument("--device", default="GPU")
     p.add_argument("--socket", default="/ipc/wake/service.sock")
     p.add_argument("--log", default="/ipc/wake/partials.log")
@@ -189,19 +194,9 @@ def main():
     log.setLevel(logging.INFO)
     log.addHandler(RotatingFileHandler(args.log, maxBytes=5*1024*1024, backupCount=4, encoding="utf-8"))
     s = Server(log, json.loads(Path(args.aliases).read_text()))
-    # Supplied Whisper implementation does not forward m_language into its
-    # generation config. Pin that config too, without changing shared models.
-    with tempfile.TemporaryDirectory(prefix="whisper-en-") as view:
-        source = Path(args.model).resolve()
-        for entry in source.iterdir():
-            if entry.name != "generation_config.json":
-                (Path(view) / entry.name).symlink_to(entry)
-        generation = json.loads((source / "generation_config.json").read_text())
-        generation = english_config(generation)
-        (Path(view) / "generation_config.json").write_text(json.dumps(generation))
-        native = Native(args.library, view, args.device, s.result)
-        native.start_capture(args.source)
-        s.serve(native, args.socket)
+    native = Native(args.library, args.model, args.device, s.result, args.context)
+    native.start_capture(args.source)
+    s.serve(native, args.socket)
 
 
 if __name__ == "__main__":

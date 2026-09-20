@@ -128,11 +128,86 @@ def test_service_capture_detector_does_not_open_cli_microphone(monkeypatch):
     assert engine.reset.call_count == 2
 
 
-def test_english_language_candidates_not_merely_ignored_json_language():
-    original = {"lang_to_id": {"<|en|>":50259,"<|pt|>":50267},"decoder_start_token_id":50258}
-    english = service.english_config(original)
-    assert english["lang_to_id"] == {"<|en|>":50259}
-    assert len(original["lang_to_id"]) == 2
-    assert english["decoder_start_token_id"] == original["decoder_start_token_id"]
-    with pytest.raises(KeyError):
-        service.english_config({"lang_to_id":{}})
+def test_recording_mode_only_delivers_end_for_current_epoch():
+    from unittest.mock import Mock
+    server = service.Server(Mock(), ["Hello Intel"])
+    server.mode, server.recording_id = "recording", "current"
+    server.conn = Mock()
+    server.armed_after = 100
+    server.result(90, 0, b"thank you")  # old sentence
+    server.result(101, 0, b"Hello Intel")  # wake disabled during recording
+    server.conn.sendall.assert_not_called()
+    server.result(102, 0, b"Thank you.")
+    server.result(102, 2, b"Thank you!")
+    server.result(103, 0, b"thank you")
+    server.conn.sendall.assert_called_once()
+    event = json.loads(server.conn.sendall.call_args.args[0])
+    assert event['event'] == 'end_recording'
+    assert event['recording_id'] == 'current'
+
+
+def test_idle_thank_you_does_not_wake_and_word_boundaries():
+    from unittest.mock import Mock
+    server = service.Server(Mock(), ["Hello Intel"])
+    server.conn = Mock()
+    server.armed_after = 0
+    server.result(1, 0, b"thank you")
+    server.conn.sendall.assert_not_called()
+    assert service.WakeGate(['thank you']).result(2,b'thank yourself'.decode())[0] == 'miss'
+
+
+def test_real_socket_recording_subscription_cancel_and_stale_id(tmp_path):
+    import time
+    from unittest.mock import Mock
+    from tools.external_wake import ExternalEndPhraseDetector
+    path = tmp_path/'s'
+    server = service.Server(Mock(), ['Hello Intel'])
+    running = threading.Event(); running.set()
+    def serve():
+        try:
+            server.serve(Mock(capture_alive=running.is_set), path)
+        except RuntimeError:
+            pass
+    t = threading.Thread(target=serve, daemon=True); t.start()
+    until = time.monotonic()+5
+    while not path.exists() and time.monotonic()<until:
+        time.sleep(.01)
+    detector = ExternalEndPhraseDetector({'socket':str(path)})
+    callback = Mock()
+    done = threading.Event()
+    try:
+        detector.start(callback,16000,400)
+        old_id = detector.recording_id
+        detector.stop()
+        detector.start(lambda:(callback(),done.set()),16000,400)
+        assert detector.recording_id != old_id
+        with server.lock:
+            server.conn.sendall((json.dumps({'event':'end_recording','recording_id':old_id})+'\n').encode())
+        server.result(time.monotonic()*1000+1,0,b'Thank you.')
+        assert done.wait(5)
+        detector.stop()
+        callback.assert_called_once()
+        assert detector.last_reason == 'end_phrase'
+    finally:
+        detector.stop(); running.clear(); t.join(3)
+
+
+def test_external_recorder_arms_after_stream_and_disarms_on_cancel(monkeypatch):
+    from unittest.mock import Mock
+    from tools import voice_mode as vm, voice_endpoint as ep, external_wake as ew
+    sd = Mock()
+    monkeypatch.setattr(vm,'_import_audio',lambda:(sd,np))
+    monkeypatch.setattr(vm,'_default_input_samplerate',lambda _:16000)
+    monkeypatch.setattr(ep,'settings',lambda:{'enabled':True,'provider':'external-asr'})
+    monkeypatch.setattr(ep,'EndPhraseDetector',Mock(side_effect=AssertionError('Sherpa must not start')))
+    d = Mock()
+    monkeypatch.setattr(ew,'ExternalEndPhraseDetector',lambda cfg:d)
+    recorder = vm.AudioRecorder()
+    def armed(*args):
+        assert recorder._recording
+        sd.InputStream.return_value.start.assert_called_once()
+    d.start.side_effect = armed
+    recorder.start(Mock())
+    recorder.cancel()
+    d.stop.assert_called()
+    recorder.shutdown()
