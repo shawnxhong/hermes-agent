@@ -57,7 +57,7 @@ class WakeGate:
 
 
 class Native:
-    def __init__(self, library, model, device, callback, context="Hello Intel, thank you"):
+    def __init__(self, library, model, device, callback, context=""):
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
         self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, type(self.cb)]
@@ -212,7 +212,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--library", default="/opt/aisp-wake/libwake.so")
     p.add_argument("--model", default="/models/qwen3-asr")
-    p.add_argument("--context", default="Hello Intel, thank you")
+    p.add_argument("--context", default="", help="Optional ASR bias text; empty avoids prompting control phrases")
     p.add_argument("--device", default="GPU")
     p.add_argument("--socket", default="/ipc/wake/service.sock")
     p.add_argument("--log", default="/ipc/wake/partials.log")

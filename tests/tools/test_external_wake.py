@@ -14,6 +14,16 @@ service = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(service)
 
 
+def test_native_does_not_prime_asr_with_control_phrases_by_default(monkeypatch):
+    from unittest.mock import Mock
+    lib = Mock()
+    monkeypatch.setattr(service.C, 'CDLL', lambda _:lib)
+    service.Native('test', 'model', 'GPU', lambda *args:None)
+    assert lib.wake_create.call_args.args[2] == b''
+    service.Native('test', 'model', 'GPU', lambda *args:None, 'a domain term')
+    assert lib.wake_create.call_args.args[2] == b'a domain term'
+
+
 @pytest.mark.parametrize("text", ["Hello Intel", "HELLO, INTEL!", "hello   intel.", "Hi Inter", "hey indel"])
 def test_partial_triggers_without_eos(text):
     gate = service.WakeGate(["Hello Intel", "Hi Inter", "Hey Indel"])
