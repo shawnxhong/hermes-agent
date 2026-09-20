@@ -4405,7 +4405,9 @@ class _SyncSentencePipeline:
                         and os.path.getsize(tmp_path) > 0):
                     from tools.voice_mode import play_audio_file
                     _tts_segment_state(on_state, 'playing')
-                    played = play_audio_file(tmp_path)
+                    from tools.playback_control import output_guard
+                    with output_guard(self._stop):
+                        played = True if self._stop.is_set() else play_audio_file(tmp_path)
                     _tts_segment_state(on_state, 'cancelled' if self._stop.is_set() else 'played' if played else 'failed')
                 elif self._stop.is_set() or not is_current():
                     _tts_segment_state(on_state, 'cancelled')
@@ -4420,6 +4422,10 @@ class _SyncSentencePipeline:
                         pass
 
 
+from tools.playback_control import cancellable_output
+
+
+@cancellable_output
 def stream_tts_to_speaker(
     text_queue: queue.Queue,
     stop_event: threading.Event,

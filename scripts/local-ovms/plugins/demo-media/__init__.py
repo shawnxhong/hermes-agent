@@ -9,9 +9,9 @@ import unicodedata
 
 SCHEMA = {
     'name': 'local_media',
-    'description': 'List Desktop media, play by filename or name fragment, stop or check this player. Startup is verified; no desktop inspection needed.',
+    'description': 'List/play Desktop media. Stop/close music, video or playback: action=stop stops all demo media and current/queued speech on this device; no filename needed. Do not inspect the desktop.',
     'parameters': {'type': 'object', 'properties': {
-        'action': {'type': 'string', 'enum': ['list', 'play', 'mp3', 'mp4', 'stop', 'status', 'none']},
+        'action': {'type': 'string', 'enum': ['list', 'play', 'mp3', 'mp4', 'stop', 'status']},
         'target': {'type': 'string', 'description': 'For playback: filename/title fragment copied from the user, or empty for an unspecified file. Never invent a name.'}},
         'required': ['action'], 'additionalProperties': False},
 }
@@ -44,15 +44,12 @@ def execute(action, target=''):
         return {'success': False, 'error': 'Media action and target must be text.'}
     if action not in ('list', 'play', 'mp3', 'mp4', 'stop', 'status'):
         return {'success': False, 'error': 'No supported media action selected.'}
-    from pathlib import Path
-    helper = Path(__file__).with_name('play_media.py')
     try:
-        done = subprocess.run([sys.executable, str(helper), action, '--target', target],
-                              capture_output=True, text=True, timeout=15)
-        result = json.loads(done.stdout)
+        from tools.playback_control import request
+        result = request(action, target)
         if not isinstance(result, dict):
             raise ValueError('Invalid player result')
-        if done.returncode or result.get('success') is not True:
+        if result.get('success') is not True:
             return {'success': False, 'error': result.get('error', 'Player did not confirm success.'),
                     'files': result.get('files', [])}
         result.update(workflow_complete=True, verification_scope='player process, not physical audibility',

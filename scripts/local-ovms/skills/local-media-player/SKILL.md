@@ -14,7 +14,12 @@ filename. Play with `action=play` and the requested title or filename as
 `action=mp4`. If several files match, ask one short ordinary question; if none
 match, say nothing was started. Do not guess or retry repeatedly.
 
-Use `action=stop` to stop the managed player. Use `action=status` only if the
+For "stop music", "close the video", "stop playback", or a contextual "stop",
+call `local_media(action="stop")` once, without a filename or a prior list/status
+call. It stops all current demo media and current/queued TTS on this device.
+Already stopped is success. On failure report it briefly; do not retry or use
+terminal/computer tools. A new short confirmation is allowed after stopping.
+Use `action=status` only if the
 user asks whether it is running. Never kill unrelated applications.
 
 After a successful start or stop, give one short English confirmation and

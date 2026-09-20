@@ -20,6 +20,7 @@ def rig(monkeypatch, tmp_path):
                         lambda names: ('skill:' + names[0], names, []))
     monkeypatch.setattr('tools.voice_mode.stop_playback', Mock())
     monkeypatch.setattr('tools.voice_mode.stop_thinking_sound', Mock())
+    monkeypatch.setattr('tools.playback_control.request', Mock(return_value={'success': True}))
     cli = SimpleNamespace(
         session_id='old', system_prompt='base\n\nold-skill',
         _preloaded_skills_prompt='old-skill', agent=None,

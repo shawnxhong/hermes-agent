@@ -41,12 +41,21 @@ def resolve_media(action, folder, target=''):
 
 def status():
     result = subprocess.run(['systemctl', '--user', 'show', UNIT,
-                             '-p', 'ActiveState,SubState,MainPID,Result'],
+                             '-p', 'ActiveState,SubState,MainPID,Result,ControlGroup,LoadState'],
                             capture_output=True, text=True, timeout=5)
     values = dict(line.split('=', 1) for line in result.stdout.splitlines() if '=' in line)
     if not values:
         raise RuntimeError('User desktop service manager is unavailable.')
+    group = values.get('ControlGroup', '')
+    members = []
+    if group:
+        for path in (Path('/sys/fs/cgroup') / group.lstrip('/')).rglob('cgroup.procs'):
+            try:
+                members.extend(path.read_text().split())
+            except FileNotFoundError:
+                pass
     return {'success': True, 'state': values.get('ActiveState', 'inactive'),
+            'members': members,
             'pid': int(values.get('MainPID', '0')), 'result': values.get('Result', '')}
 
 
@@ -69,6 +78,32 @@ def player_command(kind, folder, target=''):
     return command + [str(media)]
 
 
+def stopped(current):
+    return current['state'] in ('inactive', 'failed') and current['pid'] == 0 and not current['members']
+
+
+def stop_player():
+    if stopped(status()):
+        return {'success': True, 'action': 'stopped', 'state': 'inactive'}
+    subprocess.run(['systemctl', '--user', 'stop', '--no-block', UNIT],
+                   capture_output=True, timeout=2, check=True)
+    deadline = time.monotonic() + .8
+    while time.monotonic() < deadline:
+        current = status()
+        if stopped(current):
+            return {**current, 'action': 'stopped'}
+        time.sleep(.04)
+    subprocess.run(['systemctl', '--user', 'kill', '--signal=SIGKILL', '--kill-whom=all', UNIT],
+                   capture_output=True, timeout=2)
+    deadline = time.monotonic() + 1
+    while time.monotonic() < deadline:
+        current = status()
+        if stopped(current):
+            return {**current, 'action': 'stopped'}
+        time.sleep(.04)
+    return {'success': False, 'error': 'Media player processes did not stop.', **{'state': current['state']}}
+
+
 def control(action, target=''):
     folder = Path.home() / 'Desktop'
     if action == 'list':
@@ -76,10 +111,7 @@ def control(action, target=''):
     if action == 'status':
         return status()
     if action == 'stop':
-        before = status()
-        if before['state'] in ('active', 'activating'):
-            subprocess.run(['systemctl', '--user', 'stop', UNIT], check=True, timeout=8)
-        return {**status(), 'action': 'stopped'}
+        return stop_player()
     if action not in ('mp3', 'mp4', 'play'):
         raise ValueError('Unsupported media action.')
     files, error = resolve_media(action, folder, target)
@@ -87,9 +119,11 @@ def control(action, target=''):
         return {'success': False, 'error': error, 'files': files}
     command = player_command(action, folder, files[0]['name'])
     # Own only this unit: never stop VLC, browsers, TTS or unrelated players.
-    subprocess.run(['systemctl', '--user', 'stop', UNIT], capture_output=True, timeout=8)
+    if not stop_player()['success']:
+        raise RuntimeError('Previous media player did not stop.')
     launch = ['systemd-run', '--user', '--collect', '--unit=' + UNIT,
-              '--property=Type=exec']
+              '--property=Type=exec', '--property=KillMode=control-group',
+              '--property=TimeoutStopSec=1s', '--property=SendSIGKILL=yes']
     for key in ('DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY'):
         if os.environ.get(key):
             launch.append('--setenv=' + key + '=' + os.environ[key])

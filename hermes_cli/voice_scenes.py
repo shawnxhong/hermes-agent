@@ -247,9 +247,28 @@ class SceneController:
                 log.exception("Scene microphone cleanup failed")
         self.mic_thread = threading.Thread(target=release_mic, daemon=True)
         self.mic_thread.start()
+        # No model call: stop host media plus all registered device TTS output.
+        # Run outside the UI lock; new announcements wait for this barrier.
+        self.media_error = None
+        def stop_outputs():
+            try:
+                from tools.playback_control import request
+                result = request('stop')
+                if not result.get('success'):
+                    raise RuntimeError(result.get('error', 'Output stop failed'))
+            except Exception as exc:
+                self.media_error = str(exc)
+                log.exception('Device playback stop failed')
+        self.media_thread = threading.Thread(target=stop_outputs, daemon=True)
+        self.media_thread.start()
 
     def _speak(self, text):
         with self.audio_lock:
+            worker = getattr(self, 'media_thread', None)
+            if worker:
+                worker.join(timeout=10)
+                if worker.is_alive() or getattr(self, 'media_error', None):
+                    raise RuntimeError(getattr(self, 'media_error', None) or 'Output stop timed out')
             self.cli._voice_last_tts_text = text
             if not self.play(str(self.audio[text])):
                 raise RuntimeError("Scene announcement playback failed")

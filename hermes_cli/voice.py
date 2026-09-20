@@ -927,6 +927,10 @@ def _speak_text_streaming(text: str, stop_event: Optional[threading.Event] = Non
     return done_event.is_set()
 
 
+from tools.playback_control import cancellable_output
+
+
+@cancellable_output
 def speak_text(text: str, stop_event: Optional[threading.Event] = None) -> None:
     """Synthesize ``text`` with the configured TTS provider and play it.
 

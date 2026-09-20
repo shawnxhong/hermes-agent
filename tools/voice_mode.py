@@ -1622,6 +1622,12 @@ def stop_playback() -> None:
         if proc and proc.poll() is None:
             try:
                 proc.terminate()
+                try:
+                    if proc.poll() is None:
+                        proc.wait(timeout=.4)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=.4)
                 logger.info("Audio playback interrupted pid=%s", proc.pid)
             except Exception:
                 logger.exception("Audio playback termination failed")
@@ -1672,6 +1678,10 @@ def _wsl_powershell_tts_available() -> bool:
     )
 
 
+from tools.playback_control import cancellable_output
+
+
+@cancellable_output
 def play_audio_file(file_path: str) -> bool:
     """Play an audio file through the default output device.
 
