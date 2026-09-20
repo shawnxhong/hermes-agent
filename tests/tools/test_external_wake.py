@@ -211,3 +211,100 @@ def test_external_recorder_arms_after_stream_and_disarms_on_cancel(monkeypatch):
     recorder.cancel()
     d.stop.assert_called()
     recorder.shutdown()
+
+
+def test_repeated_phrase_first_partial_and_failed_delivery_retry():
+    from unittest.mock import Mock
+    s = service.Server(Mock(), ['Hello Intel'])
+    conn = Mock()
+    s.arm(conn, 'wake', None, 100)
+    conn.sendall.side_effect = OSError('closed')
+    text = b'Hello, Intel. Hello, Intel. Hello, Intel'
+    s.result(101, 0, text)
+    assert not s.delivered and 101 not in s.gate.triggered
+    conn.sendall.side_effect = None
+    s.result(101, 0, text)
+    assert s.delivered and 101 in s.gate.triggered
+    s.result(101, 0, text)
+    assert conn.sendall.call_count == 2  # failed + successful; no duplicate
+
+
+def test_old_wake_prefix_not_replayed_but_new_occurrence_can_wake():
+    from unittest.mock import Mock
+    s = service.Server(Mock(), ['Hello Intel'])
+    s.result(90, 0, b'Hello Intel.')  # no subscriber, not consumed
+    assert not s.gate.triggered
+    conn = Mock()
+    s.arm(conn, 'wake', None, 100)
+    s.result(90, 0, b'Hello, Intel.')
+    conn.sendall.assert_not_called()
+    s.result(90, 0, b'Hello, Intel. Hello, Intel.')
+    conn.sendall.assert_called_once()
+
+
+def test_recording_rejects_entire_cross_boundary_segment_and_accepts_fresh_end():
+    from unittest.mock import Mock
+    s = service.Server(Mock(), ['Hello Intel'])
+    s.result(90, 0, b'thank you')
+    conn = Mock()
+    s.arm(conn, 'recording', 'new', 100)
+    s.result(90, 0, b'thank you what time is it thank you')
+    conn.sendall.assert_not_called()
+    assert not s.end_gate.triggered
+    s.result(101, 0, b'What time is it? Thank you.')
+    conn.sendall.assert_called_once()
+    assert json.loads(conn.sendall.call_args.args[0])['recording_id'] == 'new'
+
+
+def test_recorder_drops_queued_pre_cue_blocks_on_each_recording(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from tools import voice_mode as vm
+    sd = Mock()
+    stream = sd.InputStream.return_value
+    stream.time = 10.0
+    monkeypatch.setattr(vm, '_import_audio', lambda:(sd,np))
+    monkeypatch.setattr(vm, '_default_input_samplerate', lambda _:16000)
+    recorder = vm.AudioRecorder()
+    detector = Mock(service_capture=True)
+    recorder._end_phrase_detector = detector
+    monkeypatch.setattr(recorder, 'prepare_endpoint', lambda:True)
+    try:
+        recorder.start(Mock())
+        cb = sd.InputStream.call_args.kwargs['callback']
+        block = np.ones((160,1),dtype=np.int16)
+        cb(block,160,SimpleNamespace(inputBufferAdcTime=9.999),None)
+        assert not recorder._frames
+        cb(block*2,160,SimpleNamespace(inputBufferAdcTime=10.001),None)
+        assert len(recorder._frames)==1
+        recorder.cancel()
+        stream.time=20.0
+        recorder.start(Mock())
+        cb(block,160,SimpleNamespace(inputBufferAdcTime=19.999),None)
+        assert not recorder._frames
+        cb(block*3,160,SimpleNamespace(inputBufferAdcTime=20.001),None)
+        assert len(recorder._frames)==1
+    finally:
+        recorder.cancel();recorder.shutdown()
+
+
+def test_strict_cue_waits_for_playback_and_propagates_failure(monkeypatch):
+    from unittest.mock import Mock
+    from tools import voice_mode as vm
+    sd = Mock()
+    monkeypatch.setattr(vm, '_import_numpy', lambda:np)
+    monkeypatch.setattr(vm, '_import_audio', lambda:(sd,np))
+    monkeypatch.setattr(vm, '_sounddevice_output_allowed', lambda:True)
+    stream = sd.get_stream.return_value
+    stream.active = True
+    sleeps = []
+    def played(_):
+        sleeps.append(True)
+        stream.active = False
+    monkeypatch.setattr(vm.time, 'sleep', played)
+    vm.play_beep(require_complete=True)
+    assert sleeps
+    sd.stop.assert_called_once()
+    sd.play.side_effect = RuntimeError('no output device')
+    with pytest.raises(RuntimeError, match='no output device'):
+        vm.play_beep(require_complete=True)

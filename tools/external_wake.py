@@ -95,6 +95,7 @@ class ExternalWakeEngine:
 
 class ExternalEndPhraseDetector(ExternalWakeEngine):
     """One recording-scoped subscription; audio remains owned by the sidecar."""
+    phrase = "thank you"
     def __init__(self, cfg):
         super().__init__({"external": {"socket": cfg.get("socket", "/ipc/wake/service.sock")}})
         self.recording_id = None

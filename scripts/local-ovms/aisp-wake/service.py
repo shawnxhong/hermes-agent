@@ -31,7 +31,7 @@ class WakeGate:
         self.continuous = continuous
         self.recent = deque()
 
-    def result(self, timestamp, text):
+    def match(self, timestamp, text):
         if timestamp in self.triggered:
             return "same_sentence", None
         if not self.active:
@@ -39,13 +39,21 @@ class WakeGate:
         norm = normalize(text)
         for alias, needle in self.aliases:
             if re.search(r"(?<!\w)" + re.escape(needle) + r"(?!\w)", norm):
-                self.triggered.add(timestamp)
-                self.recent.append(timestamp)
-                if len(self.recent) > 1024:
-                    self.triggered.discard(self.recent.popleft())
-                self.active = self.continuous
                 return "trigger", alias
         return "miss", None
+
+    def commit(self, timestamp):
+        self.triggered.add(timestamp)
+        self.recent.append(timestamp)
+        if len(self.recent) > 1024:
+            self.triggered.discard(self.recent.popleft())
+        self.active = self.continuous
+
+    def result(self, timestamp, text):
+        action, alias = self.match(timestamp, text)
+        if action == "trigger":
+            self.commit(timestamp)
+        return action, alias
 
 
 class Native:
@@ -93,27 +101,54 @@ class Server:
         self.epoch = None
         self.armed_after = float('inf')
         self.delivered = False
+        self.observed = {}
+        self.arm_text = {}
+
+    def arm(self, conn, mode, recording_id, boundary):
+        """Called under lock after the client has finished its recording cue."""
+        self.mode, self.recording_id = mode, recording_id
+        self.conn, self.epoch = conn, str(uuid.uuid4())
+        self.armed_after = boundary
+        self.arm_text = dict(self.observed)
+        self.delivered = False
+        self.event(event="armed", mode=mode, boundary=boundary)
 
     def event(self, **data):
-        logging.getLogger("wake-status").info("%s", data.get("event", "status"))
+        logging.getLogger("wake-status").info("%s", " ".join(f"{k}={v}" for k, v in data.items()))
 
     def result(self, timestamp, flag, text):
         try:
             text = text.decode("utf-8", errors="replace")
             with self.lock:
-                action, alias = self.gate.result(timestamp, text) if self.gate else ("inactive", None)
-                end_action, _ = self.end_gate.result(timestamp, text)
-                if self.mode == "recording":
-                    action, alias = end_action, "thank you"
                 self.log.info("%s", text)
-                if (action == "trigger" and self.conn is not None and not self.delivered
-                        and timestamp >= self.armed_after):
-                    self.delivered = True
+                norm = normalize(text)
+                self.observed[timestamp] = norm
+                if len(self.observed) > 1024:
+                    del self.observed[next(iter(self.observed))]
+                if self.conn is None or self.delivered:
+                    return
+                eligible = text
+                if timestamp < self.armed_after:
+                    # Recording must never stop from a pre-beep segment. For wake,
+                    # only a newly appended phrase in an already observed segment
+                    # can cross the arming boundary; never replay its old prefix.
+                    before = self.arm_text.get(timestamp)
+                    if self.mode != "wake" or before is None or not norm.startswith(before):
+                        self.event(event="ignored_old_segment", mode=self.mode, timestamp=timestamp)
+                        return
+                    eligible = norm[len(before):].lstrip()
+                gate = self.end_gate if self.mode == "recording" else self.gate
+                action, alias = gate.match(timestamp, eligible)
+                if action == "trigger":
                     try:
                         self.conn.sendall((json.dumps({"event": "end_recording" if self.mode == "recording" else "wake",
                             "alias": alias, "timestamp": timestamp, "recording_id": self.recording_id})+"\n").encode())
                     except OSError:
                         self.event(event="delivery_failed")
+                    else:
+                        gate.commit(timestamp)
+                        self.delivered = True
+                        self.event(event="delivered", mode=self.mode, timestamp=timestamp, recording_id=self.recording_id)
         except Exception:
             self.log.exception("ASR callback failure")
 
@@ -153,12 +188,9 @@ class Server:
                 aliases = WakeGate(request["aliases"]).aliases if mode == "wake" else self.gate.aliases
                 with self.lock:
                     self.gate.aliases = aliases
-                    self.mode, self.recording_id = mode, recording_id
-                    self.conn, self.epoch = conn, str(uuid.uuid4())
-                    self.armed_after = time.monotonic()*1000
-                    self.delivered = False
+                    self.arm(conn, mode, recording_id, time.monotonic()*1000)
                     self.event(event="notifications_armed")
-                conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id})+"\n").encode())
+                    conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id})+"\n").encode())
                 while native.capture_alive():
                     try:
                         data = conn.recv(1)  # Subscription only; SDK owns capture.
@@ -193,6 +225,11 @@ def main():
     log = logging.getLogger("aisp-wake")
     log.setLevel(logging.INFO)
     log.addHandler(RotatingFileHandler(args.log, maxBytes=5*1024*1024, backupCount=4, encoding="utf-8"))
+    status = logging.getLogger("wake-status")
+    status.setLevel(logging.INFO)
+    handler = RotatingFileHandler(str(Path(args.log).with_name("events.log")), maxBytes=2*1024*1024, backupCount=2, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+    status.addHandler(handler)
     s = Server(log, json.loads(Path(args.aliases).read_text()))
     native = Native(args.library, args.model, args.device, s.result, args.context)
     native.start_capture(args.source)

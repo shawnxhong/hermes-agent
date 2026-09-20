@@ -15845,11 +15845,19 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # Audio cue: single beep BEFORE starting stream (avoid CoreAudio conflict)
         from tools.voice_endpoint import prepare_recording_endpoint
         prepare_recording_endpoint(self._voice_recorder)
+        strict_cue = getattr(getattr(self._voice_recorder, "_end_phrase_detector", None), "service_capture", False) is True
         if self._voice_beeps_enabled():
             try:
                 from tools.voice_mode import play_beep
-                play_beep(frequency=880, count=1)
+                if strict_cue:
+                    play_beep(frequency=880, count=1, require_complete=True)
+                else:
+                    play_beep(frequency=880, count=1)
             except Exception:
+                if strict_cue:
+                    with self._voice_lock:
+                        self._voice_recording = False
+                    raise
                 pass
 
         try:
