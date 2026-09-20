@@ -25,9 +25,11 @@ void* wake_create(const char* model, const char* device, const char* context, Ca
         props["source_language"] = aisp::language::Type::En;
         props["diar.enabled"] = false;
         b->pipeline = b->runtime.create_pipeline("live-asr", props);
+        if (b->pipeline->get_property(std::string("source_language")).as<aisp::language::Type>() != aisp::language::Type::En)
+            throw std::runtime_error("SDK did not retain source_language=en");
         if (b->pipeline->get_property(std::string("asr.context")).as<std::string>() != context)
             throw std::runtime_error("SDK did not retain asr.context");
-        std::fprintf(stderr,"Qwen3 live-ASR: device=%s language=English context=%s\n",device,context);
+        std::fprintf(stderr,"Qwen3 live-ASR: device=%s source_language=en (English) context=%s\n",device,context);
         b->callback = [cb](ov::AnyMap&& out) {
             if (aisp::keys::output_text.exists_in(out)) {
                 auto text = aisp::keys::output_text.get_from<std::string>(out);

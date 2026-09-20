@@ -1,0 +1,35 @@
+*** Begin Patch
+*** Update File: src/audio/src/audio_pump.cpp
+@@
+                 if (got > read_frames) {
+                     got = read_frames;  // defend against a misbehaving source
+                 }
++                // Device time includes capture stalls/dropped frames; the sample
++                // counter alone does not. Preserve pending converted samples.
++                if (m_source->is_realtime() && in.timestamp_ms > 0) {
++                    const size_t pending_frames = m_pending.size() / m_config.pipeline_format.num_channels;
++                    m_start_ms = in.timestamp_ms -
++                        ms_for_frames(m_config.pipeline_format.sampling_rate,
++                                      m_emitted_frames + pending_frames);
++                }
+ 
+                 m_converter.process(m_native.data(), got, /*flush=*/false, m_pending);
+*** Update File: src/audio/src/linux/pipewire_capture.cpp
+@@
+                             out.timestamp_ms =
+-                                steady_now_ms() - ms_for_frames(m_format.sampling_rate, n);
++                                steady_now_ms() - ms_for_frames(m_format.sampling_rate, n + ring->size_frames());
+*** Update File: src/nodes/node_vad/src/vad_streaming_node.cpp
+@@
+-        if (size() == 0) {
++        // Do not concatenate samples across dropped blocks or capture restarts.
++        // Keep sub-frame clock jitter, but discard old state across real gaps.
++        if (size() > 0) {
++            const int64_t expected = buffer_timestamp + static_cast<int64_t>(SamplesToDurationMs(size()));
++            if (timestamp > expected + 40 || timestamp < expected - 40) {
++                reset();
++            }
++        }
++        if (size() == 0) {
+             buffer_timestamp = timestamp;
+*** End Patch
