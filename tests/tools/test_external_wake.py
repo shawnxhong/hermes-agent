@@ -78,3 +78,22 @@ def test_missing_service_fails_explicitly(tmp_path):
     engine = ExternalWakeEngine({"external": {"socket": str(tmp_path / "missing")}})
     with pytest.raises(OSError):
         engine.reset()
+
+
+def test_every_callback_logged_and_late_results_do_not_dispatch():
+    from unittest.mock import Mock
+    log = Mock()
+    server = service.Server(log)
+    server.gate = service.WakeGate(["Hello Intel"])
+    server.conn = Mock()
+    server.epoch = "first-listen"
+    server.result(4, 1, b"hello")
+    server.result(4, 0, b"Hello, Intel!")
+    server.result(4, 2, b"Hello Intel.")
+    server.result(5, 0, b"Hello Intel")
+    records = [json.loads(call.args[0]) for call in log.info.call_args_list]
+    assert [r["action"] for r in records] == ["miss", "trigger", "same_sentence", "inactive"]
+    assert records[1]["final"] is False
+    assert records[2]["final"] is True
+    assert records[2]["text"] == "Hello Intel."
+    server.conn.sendall.assert_called_once()
