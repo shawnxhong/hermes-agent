@@ -1247,7 +1247,7 @@ class WakeWordDetector:
         np = None
         stream = None
 
-        if self.external_audio:
+        if self.external_audio or getattr(self.engine, "service_capture", False):
             # Drain any stale frames from a previous arm.
             try:
                 while True:
@@ -1320,7 +1320,11 @@ class WakeWordDetector:
         try:
             while not self._stop.is_set():
                 try:
-                    if self.external_audio:
+                    if getattr(self.engine, "service_capture", False):
+                        if self._stop.wait(frame_length / SAMPLE_RATE):
+                            break
+                        data = None  # Independent service owns microphone capture.
+                    elif self.external_audio:
                         try:
                             frame = self._audio_q.get(timeout=0.25)
                         except Exception:

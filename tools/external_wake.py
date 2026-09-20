@@ -1,4 +1,4 @@
-"""Client-fed PCM adapter for an independently supervised wake ASR service."""
+"""Notification subscriber for an independently capturing wake ASR service."""
 import json
 import select
 import socket
@@ -6,6 +6,7 @@ import threading
 
 
 class ExternalWakeEngine:
+    service_capture = True
     frame_length = 1280  # Keep existing 80ms capture/polling; service batches ASR.
 
     def __init__(self, cfg):
@@ -46,9 +47,6 @@ class ExternalWakeEngine:
         with self.lock:
             if self.sock is None:
                 return False
-            if self._receive():
-                return True
-            self.sock.sendall(frame.astype("<i2").tobytes())
             return self._receive()
 
     def _receive(self):

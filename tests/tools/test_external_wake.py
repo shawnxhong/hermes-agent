@@ -46,8 +46,6 @@ def test_socket_path_pause_and_real_factory(tmp_path):
             with conn, conn.makefile("rb") as reader:
                 assert json.loads(reader.readline())["aliases"] == ["Hello Intel", "High Intel", "Hi Inter"]
                 conn.sendall(b'{"event":"ready"}\n')
-                n = engine.frame_length * 2
-                assert len(reader.read(n)) == n
                 conn.sendall(b'{"event":"wake","alias":"Hi Inter","timestamp":17}\n')
                 done.set()
                 while reader.read(16000):
@@ -83,20 +81,51 @@ def test_missing_service_fails_explicitly(tmp_path):
 def test_every_callback_logged_and_late_results_do_not_dispatch():
     from unittest.mock import Mock
     log = Mock()
-    server = service.Server(log)
-    server.gate = service.WakeGate(["Hello Intel"])
+    server = service.Server(log, ["Hello Intel"])
     server.conn = Mock()
+    server.armed_after = 0
     server.epoch = "first-listen"
     server.result(4, 1, b"hello")
     server.result(4, 0, b"Hello, Intel!")
     server.result(4, 2, b"Hello Intel.")
     server.result(5, 0, b"Hello Intel")
-    records = [json.loads(call.args[0]) for call in log.info.call_args_list]
-    assert [r["action"] for r in records] == ["miss", "trigger", "same_sentence", "inactive"]
-    assert records[1]["final"] is False
-    assert records[2]["final"] is True
-    assert records[2]["text"] == "Hello Intel."
+    records = [call.args[1] for call in log.info.call_args_list]
+    assert records == ["hello", "Hello, Intel!", "Hello Intel.", "Hello Intel"]
     server.conn.sendall.assert_called_once()
+    # Capture/results continue after subscriber disconnect, without queuing wakes.
+    server.conn = None
+    server.result(6, 0, b"Hi there, still listening.")
+    assert log.info.call_args.args[1] == "Hi there, still listening."
+    server.conn = Mock()
+    server.delivered = False
+    server.armed_after = 100
+    server.result(7, 0, b"Hello Intel")
+    server.conn.sendall.assert_not_called()
+    server.result(101, 0, b"Hello Intel")
+    server.conn.sendall.assert_called_once()
+
+
+def test_continuous_gate_checks_new_sentences_after_trigger():
+    gate = service.WakeGate(["Hi Intel"], continuous=True)
+    assert gate.result(1, "Hi Intel")[0] == "trigger"
+    assert gate.result(1, "Hi Intel again")[0] == "same_sentence"
+    assert gate.result(2, "Hi Intel")[0] == "trigger"
+
+
+def test_service_capture_detector_does_not_open_cli_microphone(monkeypatch):
+    import tools.wake_word as wake
+    from unittest.mock import Mock
+    microphone = Mock(side_effect=AssertionError("CLI must not own wake microphone"))
+    monkeypatch.setattr(wake, "_import_audio", microphone)
+    engine = Mock(service_capture=True, frame_length=1280)
+    engine.process.return_value = False
+    detector = wake.WakeWordDetector(engine, lambda: None)
+    detector.start()
+    detector.pause()
+    detector.resume()
+    detector.stop()
+    microphone.assert_not_called()
+    assert engine.reset.call_count == 2
 
 
 def test_english_language_candidates_not_merely_ignored_json_language():
