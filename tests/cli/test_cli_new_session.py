@@ -175,6 +175,93 @@ def test_new_command_creates_real_fresh_session_and_resets_agent_state(tmp_path)
     cli.agent._invalidate_system_prompt.assert_called_once()
 
 
+def _cached_clear_cli(tmp_path, monkeypatch):
+    cli = _prepare_cli_with_active_session(tmp_path)
+    agent = cli.agent
+    agent._cached_system_prompt = "Persona and current scene\nTools and date"
+    agent._cached_system_prompt_static = "Persona and current scene"
+    agent._session_db = cli._session_db
+    agent._build_system_prompt = MagicMock(return_value=agent._cached_system_prompt)
+    hooks = MagicMock()
+    monkeypatch.setattr("hermes_cli.lifecycle.invoke_hook", hooks)
+    monkeypatch.setattr("agent.credits_tracker.seed_credits_at_session_start", MagicMock())
+    return cli, hooks
+
+
+def test_clear_retains_prompt_and_agent_but_rotates_history(tmp_path, monkeypatch):
+    cli, hooks = _cached_clear_cli(tmp_path, monkeypatch)
+    agent = cli.agent
+    old_id = cli.session_id
+    prompt = agent._cached_system_prompt
+    static = agent._cached_system_prompt_static
+
+    cli._clear_conversation_context()
+
+    assert cli.agent is agent
+    assert cli.session_id != old_id
+    assert cli.conversation_history == []
+    assert agent._todo_store.read() == []
+    assert agent._last_flushed_db_idx == 0
+    assert agent._cached_system_prompt is prompt
+    assert agent._cached_system_prompt_static is static
+    agent._build_system_prompt.assert_called_once_with(None)
+    assert cli._session_db.get_session(cli.session_id)["system_prompt"] == prompt
+    assert cli._session_db.get_session(old_id)["end_reason"] == "new_session"
+    assert sum(c.args[0] == "on_session_start" for c in hooks.call_args_list) == 1
+
+
+def test_clear_refreshes_changed_sources_and_runtime_identity(tmp_path, monkeypatch):
+    cli, _ = _cached_clear_cli(tmp_path, monkeypatch)
+    cli.agent._build_system_prompt.side_effect = lambda _: (
+        "Updated SOUL and skill\nSession ID: " + cli.agent.session_id
+    )
+    old_id = cli.session_id
+    cli._clear_conversation_context()
+    prompt = cli.agent._cached_system_prompt
+    assert prompt.startswith("Updated SOUL and skill")
+    assert cli.session_id in prompt and old_id not in prompt
+    assert cli._session_db.get_session(cli.session_id)["system_prompt"] == prompt
+
+
+def test_clear_failed_preparation_never_restores_old_prompt(tmp_path, monkeypatch):
+    cli, _ = _cached_clear_cli(tmp_path, monkeypatch)
+    cli.agent._build_system_prompt.side_effect = RuntimeError("source unavailable")
+    cli._clear_conversation_context()
+    assert cli.conversation_history == []
+    assert cli.agent._cached_system_prompt is None
+    assert cli.agent._cached_system_prompt_static is None
+
+
+def test_new_does_not_eagerly_prepare_prompt(tmp_path, monkeypatch):
+    cli, _ = _cached_clear_cli(tmp_path, monkeypatch)
+    cli.new_session(silent=True)
+    cli.agent._build_system_prompt.assert_not_called()
+    cli.agent._invalidate_system_prompt.assert_called_once()
+
+
+def test_clear_before_agent_initialization_stays_lazy(tmp_path):
+    cli = _prepare_cli_with_active_session(tmp_path)
+    cli.agent = None
+    cli._clear_conversation_context()
+    assert cli.agent is None
+    assert cli.conversation_history == []
+
+
+def test_clear_preserves_selected_model_and_runtime_settings(tmp_path, monkeypatch):
+    cli, _ = _cached_clear_cli(tmp_path, monkeypatch)
+    cli.model = "session-selected-model"
+    cli._explicit_model_override = True
+    cli.reasoning_config = {"effort": "low"}
+    cli.service_tier = "priority"
+    cli._pending_one_turn_model_restore = {"model": "old-task-model"}
+    cli._clear_conversation_context()
+    assert cli.model == "session-selected-model"
+    assert cli._explicit_model_override is True
+    assert cli.reasoning_config == {"effort": "low"}
+    assert cli.service_tier == "priority"
+    assert cli._pending_one_turn_model_restore is None
+
+
 
 
 
@@ -295,5 +382,3 @@ def test_new_session_with_title(capsys):
 
     captured = capsys.readouterr()
     assert "My Test Session" in captured.out
-
-

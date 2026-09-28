@@ -10471,11 +10471,47 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
     def _clear_conversation_context(self):
         """Shared /clear and explicit voice-control session boundary."""
-        self.new_session(silent=True)
+        self.new_session(silent=True, prepare_system_prompt=True)
         _clear_output_history()
 
-    def new_session(self, silent=False, title=None):
+    def _prepare_cleared_session_prompt(self, previous_prompt, previous_static):
+        """Prepare only system context, never a model turn or old messages.
+
+        Re-render at this explicit boundary to honour changed prompt sources
+        and session-aware plugins. Reusing an unchecked snapshot would retain
+        stale persona/skill content or the previous session identity. The normal
+        first-session helper also persists the new snapshot and fires start
+        hooks; the next turn sees a populated cache and does not repeat them.
+        """
+        started = time.monotonic()
+        try:
+            from agent.conversation_loop import _restore_or_build_system_prompt
+
+            _restore_or_build_system_prompt(self.agent, None, [])
+            refreshed = self.agent._cached_system_prompt
+            if not isinstance(refreshed, str) or not refreshed.strip():
+                raise ValueError("Empty system prompt after clear")
+            reused = refreshed == previous_prompt
+            if reused:
+                self.agent._cached_system_prompt = previous_prompt
+                # Keep only a valid prefix; explicit-cache layouts depend on it.
+                if previous_static and refreshed.startswith(previous_static):
+                    self.agent._cached_system_prompt_static = previous_static
+            logger.info(
+                "clear_prompt ready reused=%s chars=%d elapsed_ms=%.1f",
+                reused, len(refreshed), (time.monotonic() - started) * 1000,
+            )
+        except Exception:
+            # Never revive the old prompt after a failed refresh. Normal turn
+            # setup can retry lazy construction against the new session.
+            self.agent._cached_system_prompt = None
+            self.agent._cached_system_prompt_static = None
+            logger.warning("clear_prompt preparation failed; using lazy rebuild", exc_info=True)
+
+    def new_session(self, silent=False, title=None, *, prepare_system_prompt=False):
         """Start a fresh session with a new session ID and cleared agent state."""
+        previous_prompt = getattr(self.agent, "_cached_system_prompt", None)
+        previous_static = getattr(self.agent, "_cached_system_prompt_static", None)
         old_session_id = self.session_id
         _boundary_snapshot = None
         if self.agent and self.conversation_history:
@@ -10522,75 +10558,78 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self.conversation_history = []
         self._pending_title = None
         self._resumed = False
-        # /new clears the -m / --model override flag: an explicit CLI model
-        # was for the previous session only, not for every session spawned
-        # afterwards.
-        self._explicit_model_override = False
-        self.reasoning_config = _parse_reasoning_config(
-            CLI_CONFIG["agent"].get("reasoning_effort", "")
-        )
-        # /new is a full conversation boundary: session-scoped runtime
-        # overrides (/model --session, /fast, one-turn restores) do not carry
-        # forward.  Re-derive model/provider and service tier from config.yaml
-        # so a session-only switch never leaks into the next session (#48055,
-        # #23131).
+        # Clear keeps the selected model/client; /new resets session overrides.
         self._pending_one_turn_model_restore = None
-        self.service_tier = _parse_service_tier_config(
-            CLI_CONFIG["agent"].get("service_tier", "")
-        )
-        _model_config = CLI_CONFIG.get("model", {})
-        _raw_default2 = (_model_config.get("default") or _model_config.get("model") or "") if isinstance(_model_config, dict) else (_model_config or "")
-        _config_model, _ = _split_model_config_default(_raw_default2)
-        if _config_model and _config_model != getattr(self, "model", None):
-            _config_provider = (
-                _model_config.get("provider", "")
-                if isinstance(_model_config, dict)
-                else ""
+        if not prepare_system_prompt:
+            # /new clears the -m / --model override flag: an explicit CLI model
+            # was for the previous session only, not for every session spawned
+            # afterwards.
+            self._explicit_model_override = False
+            self.reasoning_config = _parse_reasoning_config(
+                CLI_CONFIG["agent"].get("reasoning_effort", "")
             )
-            try:
-                from hermes_cli.model_switch import switch_model as _switch_model
-
-                _reset_result = _switch_model(
-                    raw_input=_config_model,
-                    current_provider=self.provider or "",
-                    current_model=self.model or "",
-                    current_base_url=self.base_url or "",
-                    current_api_key=self.api_key or "",
-                    is_global=False,
-                    explicit_provider=_config_provider or "",
+            # /new is a full conversation boundary: session-scoped runtime
+            # overrides (/model --session, /fast, one-turn restores) do not carry
+            # forward.  Re-derive model/provider and service tier from config.yaml
+            # so a session-only switch never leaks into the next session (#48055,
+            # #23131).
+            self._pending_one_turn_model_restore = None
+            self.service_tier = _parse_service_tier_config(
+                CLI_CONFIG["agent"].get("service_tier", "")
+            )
+            _model_config = CLI_CONFIG.get("model", {})
+            _raw_default2 = (_model_config.get("default") or _model_config.get("model") or "") if isinstance(_model_config, dict) else (_model_config or "")
+            _config_model, _ = _split_model_config_default(_raw_default2)
+            if _config_model and _config_model != getattr(self, "model", None):
+                _config_provider = (
+                    _model_config.get("provider", "")
+                    if isinstance(_model_config, dict)
+                    else ""
                 )
-                if _reset_result.success:
-                    if self.agent:
-                        self.agent.switch_model(
-                            new_model=_reset_result.new_model,
-                            new_provider=_reset_result.target_provider,
-                            api_key=_reset_result.api_key,
-                            base_url=_reset_result.base_url,
-                            api_mode=_reset_result.api_mode,
-                            capabilities=getattr(
-                                _reset_result, "runtime_capabilities", None
-                            ),
-                        )
-                    self.model = _reset_result.new_model
-                    self.provider = _reset_result.target_provider
-                    self.requested_provider = _reset_result.target_provider
-                    self._explicit_api_key = _reset_result.api_key
-                    self._explicit_base_url = _reset_result.base_url
-                    if _reset_result.api_key:
-                        self.api_key = _reset_result.api_key
-                    if _reset_result.base_url:
-                        self.base_url = _reset_result.base_url
-                    if _reset_result.api_mode:
-                        self.api_mode = _reset_result.api_mode
-                    if not silent:
-                        _cprint(
-                            f"  (model reset to config default: "
-                            f"{_reset_result.new_model})"
-                        )
-            except Exception:
-                # Best-effort: an unreachable config default must never block
-                # /new. The session keeps the current working model.
-                logger.debug("/new model reset to config default failed", exc_info=True)
+                try:
+                    from hermes_cli.model_switch import switch_model as _switch_model
+
+                    _reset_result = _switch_model(
+                        raw_input=_config_model,
+                        current_provider=self.provider or "",
+                        current_model=self.model or "",
+                        current_base_url=self.base_url or "",
+                        current_api_key=self.api_key or "",
+                        is_global=False,
+                        explicit_provider=_config_provider or "",
+                    )
+                    if _reset_result.success:
+                        if self.agent:
+                            self.agent.switch_model(
+                                new_model=_reset_result.new_model,
+                                new_provider=_reset_result.target_provider,
+                                api_key=_reset_result.api_key,
+                                base_url=_reset_result.base_url,
+                                api_mode=_reset_result.api_mode,
+                                capabilities=getattr(
+                                    _reset_result, "runtime_capabilities", None
+                                ),
+                            )
+                        self.model = _reset_result.new_model
+                        self.provider = _reset_result.target_provider
+                        self.requested_provider = _reset_result.target_provider
+                        self._explicit_api_key = _reset_result.api_key
+                        self._explicit_base_url = _reset_result.base_url
+                        if _reset_result.api_key:
+                            self.api_key = _reset_result.api_key
+                        if _reset_result.base_url:
+                            self.base_url = _reset_result.base_url
+                        if _reset_result.api_mode:
+                            self.api_mode = _reset_result.api_mode
+                        if not silent:
+                            _cprint(
+                                f"  (model reset to config default: "
+                                f"{_reset_result.new_model})"
+                            )
+                except Exception:
+                    # Best-effort: an unreachable config default must never block
+                    # /new. The session keeps the current working model.
+                    logger.debug("/new model reset to config default failed", exc_info=True)
         _sync_process_session_id(self.session_id)
 
         if self.agent:
@@ -10678,6 +10717,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             except Exception:
                 pass
             self._notify_session_boundary("on_session_reset")
+
+            # /clear keeps the initialized Agent and its current capability
+            # surface. /new and scene changes intentionally remain lazy/full
+            # boundaries. A clear before the first turn must not initialize it.
+            if prepare_system_prompt and isinstance(previous_prompt, str) and previous_prompt:
+                self._prepare_cleared_session_prompt(previous_prompt, previous_static)
 
         if not silent:
             if title:
