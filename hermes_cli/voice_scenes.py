@@ -15,10 +15,17 @@ from hermes_constants import get_hermes_home
 
 log = logging.getLogger(__name__)
 DEFAULT_SCENES = {
-    "travel": {"skill": "travel-concierge", "announcement": "Travel assistant ready."},
-    "home": {"skill": "demo-home-assistant", "announcement": "Home assistant ready."},
+    "healthcare": {"skill": "healthcare", "announcement": "Healthcare assistant ready."},
+    "shopping": {"skill": "shopping", "announcement": "Shopping assistant ready."},
+    "travel": {"skill": "travel-advisor", "announcement": "Travel assistant ready."},
+    "home": {"skill": "home-assistant", "announcement": "Home assistant ready."},
 }
 ACK = "One moment please"
+EXIT_ACK = "Scene closed."
+CLEAR_CONTEXT = '__clear_context__'
+CLEAR_CLARIFY = '__clarify_clear_context__'
+CLEAR_ACK = 'Conversation cleared.'
+CLARIFY_ACK = "I haven't cleared anything. To clear only this conversation, say clear memory."
 
 
 def switching(cli):
@@ -42,7 +49,7 @@ def settings():
 
 def prepare_audio(scenes, tts):
     from hermes_cli.voice_wake_ack import cached_audio
-    texts = [ACK, "Scene switch failed. Please try again."]
+    texts = [ACK, EXIT_ACK, "Scene switch failed. Please try again."]
     texts.extend(item["announcement"] for item in scenes.values())
     return {text: cached_audio({"text": text, "tts": tts}) for text in texts}
 
@@ -71,6 +78,7 @@ class SceneController:
         self.base_prompt = None
         self.server = None
         self.lock_file = None
+        self.requests = {}
 
     def status(self):
         with self.lock:
@@ -78,21 +86,42 @@ class SceneController:
                     "switching": switching(self.cli), "generation": generation(self.cli),
                     "pending": self.pending[1] if self.pending else None, "error": self.error}
 
-    def request(self, name):
+    def request(self, name=None, *, action="switch", request_id=None):
         from agent.skill_commands import build_preloaded_skills_prompt
-        if name not in self.scenes:
+        if action not in {"switch", "toggle", "clear"}:
+            raise ValueError("Unknown scene action: " + str(action))
+        if action != "clear" and name not in self.scenes:
             raise ValueError("Unknown scene: " + str(name))
-        prompt, loaded, missing = build_preloaded_skills_prompt([self.scenes[name]["skill"]])
-        if missing or not prompt or not loaded:
-            raise ValueError("Scene skill is unavailable: " + self.scenes[name]["skill"])
+        if request_id is not None and (not isinstance(request_id, str) or not 1 <= len(request_id) <= 128):
+            raise ValueError("Invalid request ID")
         with self.lock:
+            if request_id in self.requests:
+                prior_action, prior_name, version = self.requests[request_id]
+                if (action, name) != (prior_action, prior_name):
+                    raise ValueError("Request ID already used for another action")
+                return {**self.status(), "request_generation": version}
+            original_name = name
+            selected = self.pending[1] if self.pending is not None else self.active
+            if selected in (CLEAR_CONTEXT, CLEAR_CLARIFY):
+                selected = self.active  # context clear does not change the scene
+            if action == "clear" or (action == "toggle" and selected == name):
+                name = None
+            prompt, loaded = "", []
+            if name is not None:
+                prompt, loaded, missing = build_preloaded_skills_prompt([self.scenes[name]["skill"]])
+                if missing or not prompt or not loaded:
+                    raise ValueError("Scene skill is unavailable: " + self.scenes[name]["skill"])
             now = time.monotonic()
-            if self.last_press[0] == name and now - self.last_press[1] < .3:
+            if action == "switch" and self.last_press[0] == name and now - self.last_press[1] < .3:
                 return self.status()
             self.last_press = (name, now)
             self.cli._scene_generation = generation(self.cli) + 1
             self.cli._scene_switching = True
             self.pending = (generation(self.cli), name, prompt, loaded)
+            if request_id is not None:
+                self.requests[request_id] = (action, original_name, generation(self.cli))
+                if len(self.requests) > 256:
+                    del self.requests[next(iter(self.requests))]
             self.error = None
             self._interrupt()
             if self.ack_thread is None or not self.ack_thread.is_alive():
@@ -102,7 +131,89 @@ class SceneController:
             from hermes_cli.voice_outbox import cancel_session
             cancel_session(self.cli.session_id)
             log.info("voice_scene accepted scene=%s generation=%s", name, generation(self.cli))
+            return {**self.status(), "request_generation": generation(self.cli)}
+
+    def request_clear(self, *, clarify=False):
+        """ASR control: rotate only on the serialized CLI loop, never here."""
+        with self.lock:
+            if getattr(self.cli, '_should_exit', False):
+                return self.status()
+            control = CLEAR_CLARIFY if clarify else CLEAR_CONTEXT
+            if self.pending and self.pending[1] == control:
+                return self.status()
+            self.cli._scene_generation = generation(self.cli) + 1
+            self.cli._scene_switching = True
+            self.pending = (generation(self.cli), control, None, None)
+            self.error = None
+            self._interrupt()
             return self.status()
+
+    def _apply_clear(self, version, *, clarify=False):
+        cli = self.cli
+        # A still-running worker owns the old session. Do not rotate under it.
+        if getattr(cli, '_agent_running', False):
+            return False
+        try:
+            self.mic_thread.join(timeout=3)
+            if self.mic_thread.is_alive():
+                raise RuntimeError('Microphone is still releasing')
+            if self.ack_thread:
+                self.ack_thread.join(timeout=10)
+                if self.ack_thread.is_alive():
+                    raise RuntimeError('Previous announcement is still active')
+            with self.lock:
+                if version != generation(cli):
+                    return True
+                from tools.voice_mode import stop_playback
+                stop_playback()
+                for pending_queue in (cli._pending_input, cli._interrupt_queue):
+                    while True:
+                        try:
+                            pending_queue.get_nowait()
+                        except queue.Empty:
+                            break
+                # Same state reset as /clear; no file/database deletion.
+                if not clarify:
+                    cli._clear_conversation_context()
+                cli._voice_followup_resume = None
+                cli._voice_continuity_ended = False
+                if not clarify:
+                    cli._attached_images.clear()
+                cli._reset_stream_state()
+                if not clarify and getattr(cli, '_app', None):
+                    cli._app.output.erase_screen()
+                    cli._app.output.cursor_goto(0, 0)
+                    cli._app.output.flush()
+                acknowledgement = CLARIFY_ACK if clarify else CLEAR_ACK
+                print(acknowledgement, flush=True)
+                from hermes_cli.voice_wake_ack import cached_audio
+                _, tts = settings()
+                self.audio[acknowledgement] = cached_audio({'text': acknowledgement, 'tts': tts})
+                self._speak(acknowledgement)
+                log.info('voice_context action=%s generation=%s', 'clarify' if clarify else 'clear', version)
+        except Exception as exc:
+            self.error = str(exc)
+            log.exception('Voice context clear failed')
+        finally:
+            with self.lock:
+                if version == generation(cli):
+                    # request_clear hard-stops even an idle cached agent.
+                    # Unlike scene switching, clear/clarify reuse that agent;
+                    # its next durable turn checks interruption BEFORE taking
+                    # the session lease. Retire this control's stop only at
+                    # the idle, current-generation boundary, including when
+                    # acknowledgement synthesis failed. Never un-signal a live
+                    # worker or a newer control request.
+                    clear_interrupt = getattr(getattr(cli, 'agent', None),
+                                              'clear_interrupt', None)
+                    if callable(clear_interrupt):
+                        clear_interrupt()
+                    self.pending = None
+                    cli._scene_switching = False
+                    cli._voice_processing = False
+                    cli._voice_tts_done.set()
+                    cli._wake_suspended = True
+        return True
 
     def _interrupt(self):
         from agent.interrupt_compat import request_hard_interrupt
@@ -136,9 +247,28 @@ class SceneController:
                 log.exception("Scene microphone cleanup failed")
         self.mic_thread = threading.Thread(target=release_mic, daemon=True)
         self.mic_thread.start()
+        # No model call: stop host media plus all registered device TTS output.
+        # Run outside the UI lock; new announcements wait for this barrier.
+        self.media_error = None
+        def stop_outputs():
+            try:
+                from tools.playback_control import request
+                result = request('stop')
+                if not result.get('success'):
+                    raise RuntimeError(result.get('error', 'Output stop failed'))
+            except Exception as exc:
+                self.media_error = str(exc)
+                log.exception('Device playback stop failed')
+        self.media_thread = threading.Thread(target=stop_outputs, daemon=True)
+        self.media_thread.start()
 
     def _speak(self, text):
         with self.audio_lock:
+            worker = getattr(self, 'media_thread', None)
+            if worker:
+                worker.join(timeout=10)
+                if worker.is_alive() or getattr(self, 'media_error', None):
+                    raise RuntimeError(getattr(self, 'media_error', None) or 'Output stop timed out')
             self.cli._voice_last_tts_text = text
             if not self.play(str(self.audio[text])):
                 raise RuntimeError("Scene announcement playback failed")
@@ -156,6 +286,8 @@ class SceneController:
             return False
         version, name, prompt, loaded = item
         cli = self.cli
+        if name in (CLEAR_CONTEXT, CLEAR_CLARIFY):
+            return self._apply_clear(version, clarify=name == CLEAR_CLARIFY)
         try:
             self.mic_thread.join(timeout=3)
             if self.mic_thread.is_alive():
@@ -199,7 +331,7 @@ class SceneController:
                 if version != generation(cli):
                     return True
                 self.active = name
-            self._speak(self.scenes[name]["announcement"])
+            self._speak(self.scenes[name]["announcement"] if name is not None else EXIT_ACK)
             time.sleep(.25)
             log.info("voice_scene ready scene=%s generation=%s", name, version)
         except Exception as exc:
@@ -255,7 +387,9 @@ class SceneController:
                             break
                         data.extend(chunk)
                     req = json.loads(data)
-                    result = self.status() if req.get("action") == "status" else self.request(req["scene"])
+                    action = req.get("action")
+                    result = self.status() if action == "status" else self.request(
+                        req.get("scene"), action=action, request_id=req.get("request_id"))
                     reply = {"ok": True, **result}
                 except Exception as exc:
                     reply = {"ok": False, "error": str(exc)}
@@ -287,16 +421,17 @@ def start_for_cli(cli):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["switch", "status", "prepare"])
+    parser.add_argument("action", choices=["switch", "toggle", "clear", "status", "prepare"])
     parser.add_argument("scene", nargs="?")
+    parser.add_argument("--request-id", help="Deduplicate a control request within this CLI process")
     args = parser.parse_args()
     if args.action == "prepare":
         raw, tts = settings()
         prepare_audio(raw.get("items") or DEFAULT_SCENES, tts)
         print("Scene announcements cached.")
         return
-    if args.action == "switch" and not args.scene:
-        parser.error("switch requires a scene ID: travel or home")
+    if args.action in {"switch", "toggle"} and not args.scene:
+        parser.error(args.action + " requires a scene ID")
     try:
         with socket.socket(socket.AF_UNIX) as conn:
             conn.settimeout(5)

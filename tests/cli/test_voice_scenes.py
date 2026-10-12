@@ -33,7 +33,9 @@ def rig(monkeypatch, tmp_path):
         events.append('reset')
         cli.session_id += '-new'
     cli.new_session = new_session
-    audio = {scenes.ACK: scenes.ACK,
+    from cli import HermesCLI
+    cli._clear_conversation_context = lambda: HermesCLI._clear_conversation_context(cli)
+    audio = {scenes.ACK: scenes.ACK, scenes.EXIT_ACK: scenes.EXIT_ACK,
              **{v['announcement']: v['announcement'] for v in scenes.DEFAULT_SCENES.values()}}
     def play(text):
         assert scenes.switching(cli)
@@ -42,6 +44,157 @@ def rig(monkeypatch, tmp_path):
     controller = scenes.SceneController(cli, scenes.DEFAULT_SCENES, audio, play=play)
     yield cli, controller, events
     controller.close()
+
+
+def test_clear_waits_for_worker_and_preserves_scene(rig, monkeypatch, tmp_path):
+    cli, controller, events = rig
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: cfg['text'])
+    cli._agent_running = True
+    cli._voice_tts_stop = threading.Event()
+    controller.active = 'home'
+    cli._pending_input.put('old voice input')
+    cli._interrupt_queue.put('old interruption')
+    keep = tmp_path/'MEMORY.md'
+    keep.write_text('long term memory stays')
+    controller.request_clear()
+    controller.request_clear()  # duplicate ASR callbacks coalesce
+    assert cli.session_id == 'old'
+    assert cli._voice_tts_stop.is_set()
+    assert not controller.apply_pending()
+    assert not events
+    cli._agent_running = False
+    assert controller.apply_pending()
+    assert events == ['reset', scenes.CLEAR_ACK]
+    assert cli.session_id == 'old-new'
+    assert controller.active == 'home'
+    assert cli.system_prompt == 'base\n\nold-skill'
+    assert cli._pending_input.empty() and cli._interrupt_queue.empty()
+    assert cli._wake_suspended and not scenes.switching(cli)
+    assert keep.read_text() == 'long term memory stays'
+    assert not controller.apply_pending()
+
+
+@pytest.mark.parametrize('clarify', [False, True])
+@pytest.mark.parametrize('tts_fails', [False, True])
+def test_clear_releases_real_agent_interrupt_before_next_durable_turn(
+        rig, monkeypatch, tmp_path, clarify, tts_fails):
+    """A stopped worker must not poison the next SQLite lease admission."""
+    from run_agent import AIAgent
+    from hermes_state import SessionDB
+    cli, controller, events = rig
+    agent = AIAgent(model='test', provider='custom', api_key='unused',
+                    base_url='http://127.0.0.1:1/v1', quiet_mode=True,
+                    enabled_toolsets=[], disabled_toolsets=['memory', 'session_search'])
+    cli.agent = agent
+    cli._agent_running = True
+    if tts_fails:
+        monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio',
+                            Mock(side_effect=RuntimeError('no TTS')))
+    else:
+        monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: cfg['text'])
+    controller.request_clear(clarify=clarify)
+    assert agent._interrupt_requested and agent._hard_interrupt_requested.is_set()
+    assert not controller.apply_pending()
+    assert agent._interrupt_requested  # Never un-signal a live worker.
+    cli._agent_running = False
+    assert controller.apply_pending()
+    assert not agent._interrupt_requested
+    assert not agent._hard_interrupt_requested.is_set()
+    assert not agent._interrupt_thread_signal_pending
+    assert agent._interrupt_message is None
+    with SessionDB(tmp_path/'admission.db') as db:
+        db.create_session(session_id=cli.session_id, source='cli', model='test')
+        assert db.acquire_session_turn_lease(
+            cli.session_id, 'next-turn', wait_seconds=0,
+            should_abort=lambda: agent._interrupt_requested)
+        db.release_session_turn_lease(cli.session_id, 'next-turn')
+
+
+def test_superseded_clear_keeps_new_control_interrupt(rig, monkeypatch):
+    cli, controller, events = rig
+    class Agent:
+        stopped = False
+        def hard_interrupt(self):
+            self.stopped = True
+        def clear_interrupt(self):
+            self.stopped = False
+    cli.agent = Agent()
+    def newer_control(cfg):
+        controller.request_clear(clarify=True)
+        return cfg['text']
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', newer_control)
+    controller.request_clear()
+    assert controller.apply_pending()
+    assert cli.agent.stopped
+    assert scenes.switching(cli)
+    assert controller.pending[1] == scenes.CLEAR_CLARIFY
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: cfg['text'])
+    assert controller.apply_pending()
+    assert not cli.agent.stopped
+
+
+def test_clarification_preserves_context_and_waits_for_worker(rig, monkeypatch):
+    cli, controller, events = rig
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', lambda cfg: cfg['text'])
+    cli.conversation_history = [{'role': 'user', 'content': 'Russia trip'}]
+    cli._attached_images.append('keep-image')
+    cli._agent_running = True
+    controller.active = 'travel'
+    cli._pending_input.put('stale continuation')
+    controller.request_clear(clarify=True)
+    assert not controller.apply_pending()
+    cli._agent_running = False
+    assert controller.apply_pending()
+    assert events == [scenes.CLARIFY_ACK]
+    assert cli.session_id == 'old'
+    assert cli.conversation_history == [{'role': 'user', 'content': 'Russia trip'}]
+    assert cli._attached_images == ['keep-image']
+    assert controller.active == 'travel'
+    assert cli._pending_input.empty() and cli._wake_suspended
+    assert not scenes.switching(cli)
+    controller.request_clear()
+    assert controller.apply_pending()
+    assert events[-2:] == ['reset', scenes.CLEAR_ACK]
+
+
+def test_clarification_tts_failure_does_not_clear_context(rig, monkeypatch):
+    cli, controller, events = rig
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', Mock(side_effect=RuntimeError('no TTS')))
+    controller.request_clear(clarify=True)
+    assert controller.apply_pending()
+    assert cli.session_id == 'old' and not events
+    assert cli._wake_suspended and not scenes.switching(cli)
+
+
+def test_new_scene_supersedes_pending_clear(rig):
+    cli, controller, events = rig
+    controller.request_clear()
+    controller.request('travel')
+    assert controller.apply_pending()
+    assert events.count('reset') == 1
+    assert scenes.CLEAR_ACK not in events
+    assert controller.active == 'travel'
+
+
+def test_clear_releases_wake_even_if_confirmation_fails(rig, monkeypatch):
+    cli, controller, events = rig
+    monkeypatch.setattr('hermes_cli.voice_wake_ack.cached_audio', Mock(side_effect=RuntimeError('TTS unavailable')))
+    controller.request_clear()
+    assert controller.apply_pending()
+    assert cli.session_id == 'old-new'
+    assert not scenes.switching(cli) and cli._wake_suspended
+    assert controller.error == 'TTS unavailable'
+
+
+def test_panel_toggle_during_pending_voice_clear_keeps_toggle_semantics(rig):
+    cli, controller, events = rig
+    controller.active = 'home'
+    controller.request_clear()
+    controller.request('home', action='toggle')
+    assert controller.apply_pending()
+    assert controller.active is None
+    assert scenes.EXIT_ACK in events
+    assert scenes.CLEAR_ACK not in events
 
 
 def test_ack_reset_ready_and_replace_skill(rig):
@@ -153,6 +306,55 @@ def test_repeat_scene_after_debounce_resets_again(rig):
     controller.apply_pending()
     assert session != cli.session_id
     assert cli.system_prompt.count('skill:travel-concierge') == 1
+
+
+@pytest.mark.parametrize('scene', ['healthcare', 'shopping', 'travel', 'home'])
+def test_toggle_enters_then_clears_scene(rig, scene):
+    cli, controller, events = rig
+    controller.request(scene, action='toggle')
+    controller.apply_pending()
+    assert controller.active == scene
+    session = cli.session_id
+    controller.request(scene, action='toggle')
+    controller.apply_pending()
+    assert controller.active is None and cli.session_id != session
+    assert cli.preloaded_skills == [] and cli._preloaded_skills_prompt == ''
+    assert cli.system_prompt == 'base'
+    assert events[-1] == scenes.EXIT_ACK
+
+
+def test_toggle_pending_and_cross_scene(rig):
+    cli, controller, _ = rig
+    controller.request('healthcare', action='toggle')
+    controller.request('healthcare', action='toggle')
+    assert controller.pending[1] is None
+    controller.request('shopping', action='toggle')
+    controller.apply_pending()
+    assert controller.active == 'shopping'
+    assert cli.preloaded_skills == ['shopping']
+    controller.request(action='clear')
+    controller.apply_pending()
+    assert controller.active is None and cli.preloaded_skills == []
+
+
+def test_duplicate_toggle_does_not_exit(rig):
+    cli, controller, _ = rig
+    first = controller.request('home', action='toggle', request_id='press-1')
+    controller.apply_pending()
+    session = cli.session_id
+    second = controller.request('home', action='toggle', request_id='press-1')
+    assert first['request_generation'] == second['request_generation']
+    assert controller.pending is None and controller.active == 'home'
+    assert cli.session_id == session
+    with pytest.raises(ValueError):
+        controller.request('travel', action='toggle', request_id='press-1')
+
+
+def test_unknown_action_cannot_mutate_scene(rig):
+    cli, controller, _ = rig
+    with pytest.raises(ValueError):
+        controller.request('home', action='bad')
+    assert controller.pending is None and cli.session_id == 'old'
 
 
 def test_hard_interrupt_is_control_not_user_message(rig):

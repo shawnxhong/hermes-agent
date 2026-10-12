@@ -935,6 +935,9 @@ class _PorcupineEngine(_Engine):
 
 def _build_engine(cfg: Dict[str, Any]) -> _Engine:
     provider = _provider(cfg)
+    if provider == "external-asr":
+        from tools.external_wake import ExternalWakeEngine
+        return ExternalWakeEngine(cfg)
     if provider == "porcupine":
         return _PorcupineEngine(cfg)
     if provider in ("sherpa", "sherpa-onnx", "kws", "open"):
@@ -1016,11 +1019,11 @@ def check_wake_word_requirements(cfg: Optional[Dict[str, Any]] = None) -> Dict[s
 
     if provider == "porcupine":
         feature = "wake.porcupine"
-    elif provider in ("sherpa", "sherpa-onnx", "kws", "open"):
+    elif provider in ("sherpa", "sherpa-onnx", "kws", "open", "external-asr"):
         feature = "wake.sherpa"
     else:
         feature = "wake.openwakeword"
-    deps_ok = lazy_deps.is_available(feature)
+    deps_ok = _audio_available() if provider == "external-asr" else lazy_deps.is_available(feature)
     lazy_ok = lazy_deps._allow_lazy_installs()
     # The audio probe imports sounddevice + numpy — two of the very packages
     # the lazy installer would fetch — so it can only be trusted once the
@@ -1041,7 +1044,7 @@ def check_wake_word_requirements(cfg: Optional[Dict[str, Any]] = None) -> Dict[s
     # The tflite backend needs a runtime openWakeWord doesn't declare off Linux.
     # Report it as a real remediation instead of arming a detector that can't fire.
     tflite_ok = True
-    if provider not in ("porcupine", "sherpa", "sherpa-onnx", "kws", "open"):
+    if provider not in ("porcupine", "sherpa", "sherpa-onnx", "kws", "open", "external-asr"):
         framework = resolve_inference_framework(cfg)
         if framework == "tflite":
             tflite_ok = ensure_tflite_runtime() or lazy_deps.is_available("wake.openwakeword.tflite") or lazy_ok
@@ -1209,6 +1212,8 @@ class WakeWordDetector:
     # pause/resume keep the engine; stop tears it down.
     def pause(self) -> None:
         self._halt_thread()
+        if hasattr(self.engine, "pause"):
+            self.engine.pause()
 
     def resume(self) -> None:
         self.start()
@@ -1242,7 +1247,7 @@ class WakeWordDetector:
         np = None
         stream = None
 
-        if self.external_audio:
+        if self.external_audio or getattr(self.engine, "service_capture", False):
             # Drain any stale frames from a previous arm.
             try:
                 while True:
@@ -1297,8 +1302,13 @@ class WakeWordDetector:
         # wake → voice → resume → wake runaway loop).
         try:
             self.engine.reset()
-        except Exception:
-            pass
+        except Exception as e:
+            if hasattr(self.engine, "pause"):
+                if stream is not None:
+                    stream.close()
+                startup_errors.append(e)
+                ready.set()
+                return
 
         logger.info("wake word: listening (frame=%d, rate=%d, external=%s)",
                     frame_length, SAMPLE_RATE, self.external_audio)
@@ -1310,7 +1320,11 @@ class WakeWordDetector:
         try:
             while not self._stop.is_set():
                 try:
-                    if self.external_audio:
+                    if getattr(self.engine, "service_capture", False):
+                        if self._stop.wait(frame_length / SAMPLE_RATE):
+                            break
+                        data = None  # Independent service owns microphone capture.
+                    elif self.external_audio:
                         try:
                             frame = self._audio_q.get(timeout=0.25)
                         except Exception:
@@ -1351,6 +1365,10 @@ class WakeWordDetector:
                     fired = self.engine.process(frame)
                 except Exception as e:
                     logger.debug("wake word: engine error: %s", e)
+                    if hasattr(self.engine, "pause"):
+                        logger.warning("External wake service failed: %s; Ctrl+B remains available", e)
+                        failed = True
+                        break
                     continue
                 if fired:
                     now = time.monotonic()

@@ -10469,6 +10469,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             return None
         return history_snapshot
 
+    def _clear_conversation_context(self):
+        """Shared /clear and explicit voice-control session boundary."""
+        self.new_session(silent=True)
+        _clear_output_history()
+
     def new_session(self, silent=False, title=None):
         """Start a fresh session with a new session ID and cleared agent state."""
         old_session_id = self.session_id
@@ -12699,8 +12704,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 cmd_original=cmd_original,
             ) is None:
                 return True  # confirmation cancelled — command handled, keep REPL alive
-            self.new_session(silent=True)
-            _clear_output_history()
+            self._clear_conversation_context()
             # Clear terminal screen.  Inside the TUI, Rich's console.clear()
             # goes through patch_stdout's StdoutProxy which swallows the
             # screen-clear escape sequences.  Use prompt_toolkit's output
@@ -15841,11 +15845,19 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # Audio cue: single beep BEFORE starting stream (avoid CoreAudio conflict)
         from tools.voice_endpoint import prepare_recording_endpoint
         prepare_recording_endpoint(self._voice_recorder)
+        strict_cue = getattr(getattr(self._voice_recorder, "_end_phrase_detector", None), "service_capture", False) is True
         if self._voice_beeps_enabled():
             try:
                 from tools.voice_mode import play_beep
-                play_beep(frequency=880, count=1)
+                if strict_cue:
+                    play_beep(frequency=880, count=1, require_complete=True)
+                else:
+                    play_beep(frequency=880, count=1)
             except Exception:
+                if strict_cue:
+                    with self._voice_lock:
+                        self._voice_recording = False
+                    raise
                 pass
 
         try:
@@ -15981,6 +15993,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 from tools.voice_endpoint import strip_end_phrase
                 transcript = strip_end_phrase(transcript)
                 if not transcript:
+                    return
+                from hermes_cli.voice_commands import route_control
+                if route_control(self, transcript):
+                    submitted = True
                     return
                 from tools.voice_mode import is_voice_stop_phrase
                 if is_voice_stop_phrase(transcript):
@@ -16322,6 +16338,10 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         )
                         _cprint(f"\n{_DIM}Ignored likely TTS echo (not queued).{_RST}")
                         return
+                from hermes_cli.voice_commands import route_control
+                if route_control(self, transcript):
+                    submitted = True
+                    return
                 if not self._voice_route_modal_transcript(transcript):
                     self._pending_input.put(_VoiceInputMessage(transcript))
                 submitted = True

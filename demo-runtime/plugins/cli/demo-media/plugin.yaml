@@ -1,0 +1,5 @@
+name: demo-media
+version: 0.2.0
+description: List and play Desktop media without desktop verification loops.
+author: shawnxhong
+hooks: []

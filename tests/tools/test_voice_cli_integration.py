@@ -49,6 +49,40 @@ def _make_voice_cli(**overrides):
 from tools.tts_tool import _strip_markdown_for_tts
 
 
+@pytest.mark.parametrize('barge', [False, True])
+def test_asr_clear_never_reaches_model_or_modal(barge, monkeypatch, tmp_path):
+    from hermes_cli.voice_scenes import SceneController, CLEAR_CONTEXT
+    from tools import voice_endpoint
+    cli = _make_voice_cli(_voice_mode=True, _voice_recording=True,
+                          _agent_running=False, _should_exit=False)
+    cli._interrupt_queue = queue.Queue()
+    cli._clear_active_overlays_for_interrupt = MagicMock()
+    cli._voice_route_modal_transcript = MagicMock(return_value=False)
+    cli._voice_stt_model = lambda: 'test'
+    cli._voice_stt_provider = lambda: 'openvino_igpu'
+    cli._voice_beeps_enabled = lambda: False
+    wav = tmp_path/'input.wav'
+    wav.write_bytes(b'fixture')
+    cli._voice_recorder = MagicMock()
+    cli._voice_recorder.stop.return_value = str(wav)
+    cli._scene_controller = SceneController(cli, {}, {}, play=lambda _: True)
+    monkeypatch.setattr('tools.voice_mode.transcribe_recording', lambda *a, **k: {
+        'success': True, 'transcript': 'Clear memory. Thank you!'
+    })
+    monkeypatch.setattr(voice_endpoint, 'settings', lambda: {'phrase': 'thank you'})
+    monkeypatch.setattr('tools.voice_mode.stop_playback', lambda: None)
+    monkeypatch.setattr('tools.voice_mode.stop_thinking_sound', lambda: None)
+    if barge:
+        cli._voice_submit_barge_utterance(str(wav))
+    else:
+        cli._voice_stop_and_transcribe()
+    assert cli._scene_controller.pending[1] == CLEAR_CONTEXT
+    assert cli._pending_input.empty()
+    cli._voice_route_modal_transcript.assert_not_called()
+    assert not wav.exists()
+    cli._scene_controller.mic_thread.join(2)
+
+
 class TestMarkdownStripping:
     def test_empty_after_stripping_returns_empty(self):
         text = "```python\nprint('hello')\n```"
@@ -680,4 +714,3 @@ class TestFallbackSpeakArmsBargeMonitor:
         # speak thread came and went without arming the mic.
         assert not cli._monitor_armed.wait(0.05)
         assert cli._monitor_calls == []
-

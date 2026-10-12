@@ -1,0 +1,4 @@
+name: email-queue
+version: 0.1.0
+description: Queue explicitly requested email through a private local service.
+author: shawnxhong

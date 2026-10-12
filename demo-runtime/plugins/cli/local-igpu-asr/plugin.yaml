@@ -1,0 +1,4 @@
+name: local-igpu-asr
+version: 0.1.0
+description: Local English OpenVINO iGPU transcription service adapter.
+author: shawnxhong

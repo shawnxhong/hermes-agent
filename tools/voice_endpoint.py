@@ -23,7 +23,8 @@ def settings():
     sherpa = (wake.get('sherpa') or {}) if isinstance(wake, dict) else {}
     if not isinstance(sherpa, dict):
         sherpa = {}
-    return {**raw, 'model_dir': raw.get('model_dir') or sherpa.get('model_dir'),
+    return {**raw, 'socket': (wake.get('external') or {}).get('socket', '/ipc/wake/service.sock'),
+            'model_dir': raw.get('model_dir') or sherpa.get('model_dir'),
             'phrase': str(raw.get('phrase') or "That's all")}
 
 

@@ -475,7 +475,7 @@ def _is_nan(value: float) -> bool:
         return False
 
 
-def play_beep(frequency: int = 880, duration: float = 0.12, count: int = 1) -> None:
+def play_beep(frequency: int = 880, duration: float = 0.12, count: int = 1, *, require_complete: bool = False) -> None:
     """Play a short beep tone using numpy + sounddevice.
 
     Args:
@@ -488,6 +488,8 @@ def play_beep(frequency: int = 880, duration: float = 0.12, count: int = 1) -> N
     try:
         np = _import_numpy()
     except ImportError:
+        if require_complete:
+            raise RuntimeError("Recording cue requires numpy")
         return
     try:
         gap = 0.06  # seconds between beeps
@@ -517,6 +519,8 @@ def play_beep(frequency: int = 880, duration: float = 0.12, count: int = 1) -> N
         try:
             sd, _ = _import_audio()
         except (ImportError, OSError):
+            if require_complete:
+                raise RuntimeError("Recording cue audio output unavailable")
             return
         sd.play(audio, samplerate=SAMPLE_RATE)
         # sd.wait() calls Event.wait() without timeout — hangs forever if the
@@ -524,8 +528,13 @@ def play_beep(frequency: int = 880, duration: float = 0.12, count: int = 1) -> N
         deadline = time.monotonic() + 2.0
         while sd.get_stream() and sd.get_stream().active and time.monotonic() < deadline:
             time.sleep(0.01)
+        incomplete = bool(sd.get_stream() and sd.get_stream().active)
         sd.stop()
+        if require_complete and incomplete:
+            raise RuntimeError("Recording cue playback did not complete")
     except Exception as e:
+        if require_complete:
+            raise
         logger.debug("Beep playback failed: %s", e)
 
 
@@ -865,7 +874,11 @@ class AudioRecorder:
             return False
         if self._end_phrase_detector is None:
             try:
-                self._end_phrase_detector = EndPhraseDetector(cfg)
+                if cfg.get('provider') == 'external-asr':
+                    from tools.external_wake import ExternalEndPhraseDetector
+                    self._end_phrase_detector = ExternalEndPhraseDetector(cfg)
+                else:
+                    self._end_phrase_detector = EndPhraseDetector(cfg)
             except Exception:
                 self._end_phrase_unavailable = True
                 logger.warning('Recording-end keyword unavailable; using silence fallback', exc_info=True)
@@ -932,6 +945,14 @@ class AudioRecorder:
             # When not recording the stream is idle — discard audio.
             if not self._recording:
                 return
+            # A persistent PortAudio stream can deliver queued pre-cue samples.
+            # Compare on its own clock, not Python's monotonic clock. Drop whole
+            # overlapping blocks conservatively rather than admit pre-beep audio.
+            boundary = getattr(self, "_capture_after", None)
+            if boundary is not None:
+                adc_time = getattr(time_info, "inputBufferAdcTime", None)
+                if not isinstance(adc_time, (int, float)) or adc_time < boundary:
+                    return
             self._frames.append(indata.copy())
             if self._end_phrase_detector is not None:
                 self._end_phrase_detector.feed(indata)
@@ -1110,11 +1131,7 @@ class AudioRecorder:
         # Ensure the persistent stream is alive (no-op after first call).
         self._sample_rate = _default_input_samplerate(sd)
         self.stop_reason = None
-        if on_silence_stop is not None and self.prepare_endpoint():
-            try:
-                self._end_phrase_detector.start(self._endpoint_stop, self._sample_rate, self._silence_threshold)
-            except Exception:
-                logger.warning('Recording-end worker unavailable; using silence fallback', exc_info=True)
+        endpoint_ready = on_silence_stop is not None and self.prepare_endpoint()
         try:
             self._ensure_stream()
         except Exception:
@@ -1123,7 +1140,22 @@ class AudioRecorder:
             raise
 
         with self._lock:
+            # start() is called only after synchronous cue playback completes.
+            # Enable the strict boundary for the independent ASR experiment.
+            self._capture_after = None
+            if getattr(self._end_phrase_detector, "service_capture", False) is True:
+                boundary = self._stream.time
+                if isinstance(boundary, (int, float)):
+                    self._capture_after = boundary
+                else:
+                    raise RuntimeError("Audio stream did not provide a capture clock")
             self._recording = True
+        # Arm only once the actual recorder is collecting audio (after the cue).
+        if endpoint_ready:
+            try:
+                self._end_phrase_detector.start(self._endpoint_stop, self._sample_rate, self._silence_threshold)
+            except Exception:
+                logger.warning('Recording-end worker unavailable; using silence fallback', exc_info=True)
         logger.info("Voice recording started (rate=%d, channels=%d)", self._sample_rate, CHANNELS)
 
     def _close_stream_with_timeout(self, timeout: float = 3.0) -> None:
@@ -1622,6 +1654,12 @@ def stop_playback() -> None:
         if proc and proc.poll() is None:
             try:
                 proc.terminate()
+                try:
+                    if proc.poll() is None:
+                        proc.wait(timeout=.4)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=.4)
                 logger.info("Audio playback interrupted pid=%s", proc.pid)
             except Exception:
                 logger.exception("Audio playback termination failed")
@@ -1672,6 +1710,10 @@ def _wsl_powershell_tts_available() -> bool:
     )
 
 
+from tools.playback_control import cancellable_output
+
+
+@cancellable_output
 def play_audio_file(file_path: str) -> bool:
     """Play an audio file through the default output device.
 
