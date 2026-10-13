@@ -22157,6 +22157,14 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         continue
                     logger.warning("process_loop unhandled error (msg may be lost): %s", e)
         
+        # Prepare the real local LLM prefix before input/wake threads can use
+        # the agent. The ready cue therefore follows warmup, without an init
+        # race or a competing first-turn inference request.
+        from hermes_cli.config import load_config as _load_warmup_config
+        from hermes_cli.voice_llm_warmup import warmup_for_cli
+
+        warmup_for_cli(self, _load_warmup_config())
+
         # Start processing thread
         process_thread = threading.Thread(target=process_loop, daemon=True)
         process_thread.start()

@@ -2021,6 +2021,8 @@ DEFAULT_CONFIG = {
     "voice_delivery": {"enabled": False, "continuity": {"enabled": False}},
     "voice": {
         "startup_cue_file": None,  # Optional local audio replacing the first wake-ready beep.
+        # Only interactive voice on a loopback /v3 OVMS route sends a request.
+        "llm_warmup": {"enabled": True, "timeout_seconds": 90},
         "record_key": "ctrl+b",
         "submit_mode": "direct",       # TUI: direct submits immediately; draft leaves an editable transcript
         "max_recording_seconds": 120,
