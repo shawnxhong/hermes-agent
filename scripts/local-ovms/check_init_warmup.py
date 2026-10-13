@@ -76,7 +76,8 @@ def integration():
                 "memory": {"memory_enabled": False, "user_profile_enabled": False},
                 "agent": {"max_turns": 1, "system_prompt": "English only."},
                 "compression": {"enabled": False},
-                "auxiliary": {"background_review": {"enabled": False}},
+                "auxiliary": {"background_review": {"enabled": False},
+                              "title_generation": {"enabled": False}},
                 "display": {"streaming": False, "tool_progress": "off"},
                 "voice": {"llm_warmup": {"enabled": True, "timeout_seconds": 30}},
             }
