@@ -219,3 +219,48 @@ def test_plugin_closed_turn_does_not_enqueue(monkeypatch):
     spec = importlib.util.spec_from_file_location('detail_plugin_test', ROOT/'demo-runtime/plugins/cli/email-queue/__init__.py')
     plugin = importlib.util.module_from_spec(spec); spec.loader.exec_module(plugin)
     assert json.loads(plugin.submit({'title':'t','content':'c'}))['status'] == 'rejected'
+
+
+@pytest.mark.parametrize('stage', ['auth', 'send'])
+@pytest.mark.parametrize('kind', ['timeout', 'http', 'rejected', 'bad_json'])
+def test_failure_metadata_only(tmp_path, monkeypatch, capsys, stage, kind):
+    import urllib.error
+    monkeypatch.setenv('FEISHU_APP_ID', 'PRIVATE_ID')
+    monkeypatch.setenv('FEISHU_APP_SECRET', 'PRIVATE_SECRET')
+    calls = []
+    def api(path, payload, token=None):
+        calls.append(path)
+        if stage == 'send' and path.startswith('auth'):
+            return {'code':0, 'tenant_access_token':'PRIVATE_TOKEN'}
+        if kind == 'timeout': raise urllib.error.URLError(TimeoutError('PRIVATE_SECRET'))
+        if kind == 'http': raise urllib.error.HTTPError('https://PRIVATE_URL', 503, 'PRIVATE_SECRET', {}, None)
+        if kind == 'rejected': return {'code':999, 'msg':'PRIVATE_BODY'}
+        raise json.JSONDecodeError('PRIVATE_SECRET', 'PRIVATE_BODY', 0)
+    store = d.DetailStore(tmp_path/'queue')
+    job = store.enqueue(request(body='PRIVATE_BODY'), ['feishu:oc_private'])
+    store.drain_one(d.Sender(tmp_path, store, call=api))
+    log = capsys.readouterr().err
+    assert 'job='+job['job_id'] in log and 'stage='+stage in log
+    assert 'elapsed_ms=' in log and 'PRIVATE' not in log and 'oc_private' not in log
+    if kind == 'http': assert 'http_status=503' in log
+    if kind == 'rejected': assert 'api_code=999' in log
+    if kind == 'timeout': assert 'reason_type=TimeoutError' in log
+    assert len(calls) == (1 if stage == 'auth' else 2)
+    assert store.status()[0]['status'] == ('failed' if stage == 'auth' or kind == 'rejected' else 'unknown')
+
+
+def test_logging_failure_does_not_change_delivery(tmp_path, monkeypatch):
+    monkeypatch.setenv('FEISHU_APP_ID', 'id')
+    monkeypatch.setenv('FEISHU_APP_SECRET', 'secret')
+    class BrokenLog:
+        def write(self, text): raise OSError('full')
+    monkeypatch.setattr(d.sys, 'stderr', BrokenLog())
+    calls = []
+    def api(*args):
+        calls.append(1)
+        raise TimeoutError()
+    store = d.DetailStore(tmp_path/'queue')
+    store.enqueue(request(), ['feishu:oc_one'])
+    store.drain_one(d.Sender(tmp_path, store, call=api))
+    assert store.status()[0]['status'] == 'failed'
+    assert len(calls) == 1

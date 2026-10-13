@@ -7,7 +7,9 @@ import os
 from pathlib import Path
 import re
 import signal
+import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -65,6 +67,32 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def failure_log(job, stage, started, *, error=None, code=None, part=None):
+    """Best-effort metadata only: never format exception text or API bodies."""
+    try:
+        ident = job.get('id', '')
+        ident = ident if isinstance(ident, str) and re.fullmatch('[a-f0-9]{32}', ident) else 'unknown'
+        fields = [f'job={ident}', f'stage={stage}',
+                  f'elapsed_ms={int((time.monotonic()-started)*1000)}']
+        if part is not None:
+            fields.append(f'part={int(part)}')
+        if type(code) is int:
+            fields.append(f'api_code={code}')
+        if error is not None:
+            reason = getattr(error, 'reason', None)
+            for key, value in [('exception', type(error).__name__),
+                               ('reason_type', type(reason).__name__)]:
+                fields.append(key+'='+re.sub('[^A-Za-z0-9_]', '_', value)[:80])
+            for key, value in [('http_status', getattr(error, 'code', None)),
+                               ('errno', getattr(reason if reason is not None else error, 'errno', None))]:
+                if type(value) is int:
+                    fields.append(f'{key}={value}')
+        print('feishu_delivery_failure '+' '.join(fields), file=sys.stderr, flush=True)
+    except Exception:
+        # Observability must not change send outcomes or trigger retries.
+        pass
+
+
 def api(path, payload, token=None):
     headers = {'Content-Type': 'application/json; charset=utf-8'}
     if token:
@@ -109,18 +137,22 @@ class Sender:
             except Exception:
                 return 'failed', 'email_configuration_unavailable', True
             return sender(job, recipient)
+        started = time.monotonic()
         try:
             auth = self.call('auth/v3/tenant_access_token/internal',
                              {'app_id': os.environ['FEISHU_APP_ID'],
                               'app_secret': os.environ['FEISHU_APP_SECRET']})
             token = auth.get('tenant_access_token')
             if auth.get('code') != 0 or not isinstance(token, str) or not token:
+                failure_log(job, 'auth_rejected', started, code=auth.get('code'))
                 return 'failed', 'feishu_auth_rejected', True
-        except Exception:
+        except Exception as error:
+            failure_log(job, 'auth', started, error=error)
             return 'failed', 'feishu_auth_unavailable', True
         texts = chunks(job['subject'] + '\n\n' + job['body'])
         for index, text in enumerate(texts):
             self.record(job['id'], index, 'sending')
+            started = time.monotonic()
             try:
                 result = self.call('im/v1/messages?receive_id_type=chat_id', {
                     'receive_id': recipient['address'].removeprefix('feishu:'),
@@ -129,13 +161,15 @@ class Sender:
                                           if len(texts) > 1 else {'text': text}, ensure_ascii=False),
                     'uuid': str(uuid.uuid5(uuid.NAMESPACE_URL, job['id'] + ':' + str(index)))}, token)
                 if result.get('code') != 0:
+                    failure_log(job, 'send_rejected', started, code=result.get('code'), part=index)
                     self.record(job['id'], index, 'failed')
                     return ('unknown' if index else 'failed'), 'feishu_rejected_or_partial', True
                 message_id = result.get('data', {}).get('message_id')
                 if not isinstance(message_id, str) or not message_id:
                     raise ValueError('Missing message acknowledgement')
                 self.record(job['id'], index, 'sent', message_id)
-            except Exception:
+            except Exception as error:
+                failure_log(job, 'send', started, error=error, part=index)
                 self.record(job['id'], index, 'unknown')
                 return 'unknown', 'feishu_outcome_unknown', True
         return 'sent', None, False
