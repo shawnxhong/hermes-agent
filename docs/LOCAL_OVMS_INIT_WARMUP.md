@@ -67,10 +67,13 @@ Sources:
   shows why a cache directory alone is insufficient proof for continuous batching.
 
 The accepted launch recipe uses `VLM_CB` and does not explicitly pass a prefix
-cache flag or bind a disk cache. Docker/API access was unavailable in this
-development session; the pinned image's version/defaults and actual prefix
-reuse have not been verified. Warmup may still prime compilation even when
-prefix reuse is off, but that is not a measured performance claim.
+cache flag or bind a disk cache. Subsequent Docker inspection verified OVMS
+`2026.2.1.1122f03bf`, OpenVINO `2026.2.1-21919-ede283a88e3`, and GenAI
+`2026.2.1.0-3123-7dea0459b2a`. The installed CLI reports
+`--enable_prefix_caching` defaults to true, and the live launch has no override.
+Local-model observations support prefix reuse, but no cache-hit counters or
+compiled-model disk cache have been measured. Disk KV persistence is still not
+provided by the inspected CLI.
 
 Recommendation: keep OVMS resident, warm the real prefix at CLI initialization,
 verify in-memory reuse, and investigate compiled-model persistence separately.
@@ -97,9 +100,26 @@ The isolated candidate smoke command adds `--integration`. It creates temporary
 `HERMES_HOME` state and an HTTP fixture, constructs the real `HermesCLI`, runs
 warmup and a native conversation, and checks identical system/tool prefixes,
 clean history and a still-open foreground client. It uses no GPU or audio.
-The candidate includes the exact test file used by the checker. That integration
-check and canonical runner remain required; standalone unit checks are not a
-substitute for Docker acceptance.
+The candidate includes the exact test file used by the checker. The final rc4
+image passed this integration check and 75 focused canonical tests for warmup,
+readiness, ASR prewarm, scenes/reset and prompt restoration. Scene test fixtures
+mock the host media bridge and use selected skill identifiers, preserving their
+behavioral assertions across the accepted skill renames. The runner needs a
+writable `test_durations.json` bind in an otherwise read-only test container.
+
+The exact rc4 image also passed a real-model warm-first probe: warmup returned
+ready in 2.941 s and the first visible response delta arrived in 2.061 s. OVMS
+was already resident and its prefix was previously exercised; these are single
+observations, not boot-cold or acoustic timings. The probe uses the accepted
+`/home/hermes` working directory, 13,137 system characters and 32 native tools,
+discards a bounded response, and never executes tools or audio. Its generated
+state is disposable; production histories and queues are not mounted.
+
+The earlier one-token diagnostic observed 13.251 s on its first request and
+1.296 s after warming the same prefix. That used rc3's identical warmup code;
+one-token probes can produce no visible SSE text when the token is a hidden
+control token. The final real-model check permits a short 32-token reply for
+visibility while warmup itself remains capped at one token.
 
 Then compare fixed-question trials with warmup enabled/disabled: CLI launch to
 ready, question submission to first token, and first audible response. Separate
