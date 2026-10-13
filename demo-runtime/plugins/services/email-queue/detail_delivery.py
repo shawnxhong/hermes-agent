@@ -22,6 +22,8 @@ class DetailStore(Store):
         super().validate_addresses(addresses)
 
     def enqueue(self, request, addresses):
+        if not isinstance(request, dict) or set(request) != {'scope', 'subject', 'body'}:
+            raise ValueError('Only scope, subject and body are accepted')
         # Reject invalid Unicode before SQLite/HTTP; do not alter the user's text.
         json.dumps(request, ensure_ascii=False).encode('utf-8')
         result = super().enqueue(request, addresses)
@@ -41,7 +43,7 @@ def settings(home):
     import yaml
     config = yaml.safe_load((home/'config.yaml').read_text()) or {}
     detail = config.get('detail_delivery', {})
-    channel = detail.get('channel', 'email')
+    channel = detail.get('channel', 'feishu')
     if channel == 'feishu':
         target = detail.get('feishu', {})
         if target.get('target_type', 'chat_id') != 'chat_id':
@@ -139,6 +141,27 @@ class Sender:
         return 'sent', None, False
 
 
+def startup(home, store, call=api, mail_factory=production_settings):
+    """Freeze the sole backend and recipients before opening the queue socket."""
+    addresses = tuple(settings(home))
+    store.validate_addresses(addresses)
+    channel = 'feishu' if addresses[0].startswith('feishu:') else 'email'
+    with closing(store.connect()) as db:
+        pending = db.execute("SELECT r.address FROM recipients r JOIN jobs j ON j.id=r.job "
+                             "WHERE j.status IN ('queued','sending') AND r.status='queued'").fetchall()
+    if any(row[0] not in addresses for row in pending):
+        raise ValueError('Pending details target differs from startup configuration; resolve old queue first')
+    if channel == 'email':
+        selected, _ = mail_factory(home)
+    else:
+        selected = Sender(home, store, call=call)
+    def send(job, recipient):
+        if recipient['address'] not in addresses:
+            return 'failed', 'inactive_delivery_target', True
+        return selected(job, recipient)
+    return addresses, send, channel
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--home', type=Path, required=True)
@@ -150,8 +173,8 @@ def main():
     store = DetailStore(args.home/'detail-queue')
     lock = open(store.folder/'service.lock', 'a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    addresses, sender, channel = startup(args.home, store)
     store.recover()
-    sender = Sender(args.home, store)
     path = store.folder/'service.sock'
     path.unlink(missing_ok=True)
     stop = threading.Event()
@@ -161,7 +184,10 @@ def main():
                 if not store.drain_one(sender): stop.wait(0.25)
             except Exception:
                 os._exit(1)
-    with Server(path, store, lambda: settings(args.home)) as server:
+    with Server(path, store, lambda: addresses) as server:
+        temporary = store.folder/'active.json.tmp'
+        temporary.write_text(json.dumps({'channel': channel}))
+        temporary.replace(store.folder/'active.json')
         threading.Thread(target=worker, daemon=True).start()
         def shutdown(*unused):
             stop.set()

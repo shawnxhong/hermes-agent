@@ -43,18 +43,77 @@ def test_surrogate_rejected_without_job(tmp_path):
     assert store.status() == []
 
 
-def test_config_hot_read_and_invalid_no_fallback(tmp_path, monkeypatch):
+def test_startup_snapshot_and_invalid_no_fallback(tmp_path, monkeypatch):
     monkeypatch.setenv('FEISHU_APP_ID', 'test-id')
     monkeypatch.setenv('FEISHU_APP_SECRET', 'test-secret')
     config = tmp_path/'config.yaml'
     config.write_text('detail_delivery: {channel: feishu, feishu: {target_id: oc_one}}')
-    assert d.settings(tmp_path) == ['feishu:oc_one']
+    targets, sender, channel = d.startup(tmp_path, d.DetailStore(tmp_path/'queue'))
+    assert targets == ('feishu:oc_one',) and channel == 'feishu'
     config.write_text('detail_delivery: {channel: feishu, feishu: {target_id: oc_two}}')
-    assert d.settings(tmp_path) == ['feishu:oc_two']
+    assert targets == ('feishu:oc_one',)
+    assert d.startup(tmp_path, d.DetailStore(tmp_path/'queue'))[0] == ('feishu:oc_two',)
+    assert sender({}, {'address':'recipient@example.com'}) == ('failed', 'inactive_delivery_target', True)
     monkeypatch.delenv('FEISHU_APP_SECRET')
     with pytest.raises(ValueError): d.settings(tmp_path)
     config.write_text('detail_delivery: {channel: unsupported}')
     with pytest.raises(ValueError): d.settings(tmp_path)
+
+
+def test_default_feishu_and_restart_email(tmp_path, monkeypatch):
+    monkeypatch.setenv('FEISHU_APP_ID', 'id')
+    monkeypatch.setenv('FEISHU_APP_SECRET', 'secret')
+    config = tmp_path/'config.yaml'
+    config.write_text('detail_delivery: {feishu: {target_id: oc_one}}')
+    store = d.DetailStore(tmp_path/'queue')
+    targets, _, channel = d.startup(tmp_path, store)
+    assert channel == 'feishu'
+    config.write_text('detail_delivery: {channel: email}')
+    calls = []
+    def factory(home):
+        return lambda job, r: (calls.append(r['address']) or ('sent',None,False)), lambda: ['a@example.com']
+    monkeypatch.setattr(d, 'production_settings', factory)
+    new_targets, sender, channel = d.startup(tmp_path, store, mail_factory=factory)
+    assert targets == ('feishu:oc_one',) and new_targets == ('a@example.com',)
+    assert channel == 'email'
+    store.enqueue(request(), new_targets)
+    store.drain_one(sender)
+    assert calls == ['a@example.com']
+
+
+def test_pending_other_target_blocks_startup(tmp_path, monkeypatch):
+    monkeypatch.setenv('FEISHU_APP_ID', 'id')
+    monkeypatch.setenv('FEISHU_APP_SECRET', 'secret')
+    (tmp_path/'config.yaml').write_text('detail_delivery: {feishu: {target_id: oc_one}}')
+    store = d.DetailStore(tmp_path/'queue')
+    store.enqueue(request(), ['old@example.com'])
+    with pytest.raises(ValueError, match='Pending details'):
+        d.startup(tmp_path, store)
+    assert store.status()[0]['status'] == 'queued'
+
+
+def test_request_cannot_override_channel(tmp_path):
+    store = d.DetailStore(tmp_path/'queue')
+    with pytest.raises(ValueError):
+        store.enqueue({**request(), 'channel':'email'}, ['feishu:oc_one'])
+    assert store.status() == []
+
+
+def test_only_one_tool_and_startup_channel_description(tmp_path, monkeypatch):
+    import hermes_constants
+    monkeypatch.setattr(hermes_constants, 'get_hermes_home', lambda: tmp_path)
+    (tmp_path/'detail-queue').mkdir()
+    (tmp_path/'detail-queue/active.json').write_text('{"channel":"feishu"}')
+    (tmp_path/'config.yaml').write_text('detail_delivery: {channel: email}')
+    spec = importlib.util.spec_from_file_location('single_detail_plugin', ROOT/'demo-runtime/plugins/cli/email-queue/__init__.py')
+    plugin = importlib.util.module_from_spec(spec); spec.loader.exec_module(plugin)
+    tools = []
+    class Context:
+        def register_tool(self, **kw): tools.append(kw)
+    plugin.register(Context())
+    assert [t['name'] for t in tools] == ['deliver_details']
+    assert 'through feishu' in tools[0]['schema']['description']
+    assert set(tools[0]['schema']['parameters']['properties']) == {'title','content'}
 
 
 def test_chunk_byte_bound_and_lossless():
@@ -128,6 +187,30 @@ def test_socket_real_enqueue(tmp_path):
             server.shutdown(); thread.join()
 
 
+def test_socket_frozen(tmp_path, monkeypatch):
+    monkeypatch.setenv('FEISHU_APP_ID', 'id')
+    monkeypatch.setenv('FEISHU_APP_SECRET', 'secret')
+    config = tmp_path/'config.yaml'
+    config.write_text('detail_delivery: {feishu: {target_id: oc_one}}')
+    store = d.DetailStore(tmp_path/'queue')
+    addresses, _, _ = d.startup(tmp_path, store)
+    path = tmp_path/'service.sock'
+    with d.Server(path, store, lambda: addresses) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+        try:
+            config.write_text('detail_delivery: {channel: email}')
+            for i in range(2):
+                with socket.socket(socket.AF_UNIX) as sock:
+                    sock.connect(str(path))
+                    sock.sendall((json.dumps(request(str(i)))+'\n').encode())
+                    result = json.loads(sock.makefile('rb').readline())
+                assert result['channel'] == 'feishu'
+            with store.connect() as db:
+                assert {r[0] for r in db.execute('SELECT address FROM recipients')} == {'feishu:oc_one'}
+        finally:
+            server.shutdown(); thread.join()
+
+
 def test_plugin_closed_turn_does_not_enqueue(monkeypatch):
     import types
     relay = types.ModuleType('agent.relay_runtime')
@@ -135,4 +218,4 @@ def test_plugin_closed_turn_does_not_enqueue(monkeypatch):
     monkeypatch.setitem(sys.modules, 'agent.relay_runtime', relay)
     spec = importlib.util.spec_from_file_location('detail_plugin_test', ROOT/'demo-runtime/plugins/cli/email-queue/__init__.py')
     plugin = importlib.util.module_from_spec(spec); spec.loader.exec_module(plugin)
-    assert json.loads(plugin.submit({'title':'t','content':'c'}, _details=True))['status'] == 'rejected'
+    assert json.loads(plugin.submit({'title':'t','content':'c'}))['status'] == 'rejected'

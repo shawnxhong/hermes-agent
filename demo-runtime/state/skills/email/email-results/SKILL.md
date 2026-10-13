@@ -1,29 +1,18 @@
 ---
 name: email-results
-description: Queue explicitly requested email to default recipients.
+description: Requested delivery using the sole configured channel.
 ---
 
-# Email requested details
+# Send requested details
 
-This skill is already loaded; do not list skills or read it again.
-When the user asks for email, reuse the relevant conversation and prepare the
-requested details. Do not narrate the preparation or read the body aloud.
+This skill is already loaded; do not load it again.
+The delivery tool describes the only active channel. Users cannot change it
+or recipients. If a different channel or recipient is required, explain the
+limitation and do not silently send elsewhere. Never edit configuration.
 
-Call `email_send` once, with only these two fields:
-```json
-{"subject":"London travel guide","body":"The requested details and sources."}
-```
-Use a short, single-line subject and a nonempty body. Replace both example
-values with the user's requested content. Recipients are configured by the
-service; never ask for an address or use another messaging tool.
-
-After `queued`, say briefly: "I've queued the details for email."
-After `duplicate`, no new email was added; do not submit again.
-After `rejected` or `unconfirmed`, report the result briefly; do not retry.
-Do not wait for delivery, poll status, claim the email arrived, or promise when it will arrive.
-
-Only use this tool when email is explicitly requested. General details requests
-use the configured delivery channel, not necessarily email. Do not include
-unrelated content, secrets or tool logs. Do not also call another delivery tool.
-This tool only supports default recipients; explain that limitation if the
-user explicitly requests a different address, and do not send to defaults instead.
+Prepare useful requested details and sources, not just a heading. Call
+`deliver_details` once with `title` and `content`. No other parameters.
+After `queued`, briefly name the returned channel and say queued, not delivered.
+For duplicate, rejected or unconfirmed, report accurately without retrying.
+Do not poll, read the content aloud, include secrets or promise arrival.
+In IM, reply directly unless external delivery is requested.
