@@ -209,13 +209,13 @@ def test_ack_reset_ready_and_replace_skill(rig):
     assert controller.apply_pending()
     assert events == [scenes.ACK, 'reset', 'Travel assistant ready.']
     assert cli.system_prompt == 'base\n\nskill:' + scenes.DEFAULT_SCENES['travel']['skill']
-    assert cli.preloaded_skills == ['travel-concierge']
+    assert cli.preloaded_skills == [scenes.DEFAULT_SCENES['travel']['skill']]
     assert cli._pending_input.empty() and not scenes.switching(cli)
     assert cli._wake_suspended and not cli._voice_continuous
     controller.request('home')
     controller.apply_pending()
-    assert cli.system_prompt == 'base\n\nskill:demo-home-assistant'
-    assert 'travel-concierge' not in cli.system_prompt
+    assert cli.system_prompt == 'base\n\nskill:' + scenes.DEFAULT_SCENES['home']['skill']
+    assert scenes.DEFAULT_SCENES['travel']['skill'] not in cli.system_prompt
 
 
 def test_latest_request_wins_and_ack_coalesces(rig):
