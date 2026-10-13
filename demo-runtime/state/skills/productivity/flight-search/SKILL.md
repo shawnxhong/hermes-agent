@@ -1,6 +1,6 @@
 ---
 name: flight-search
-description: Find flight option; email details on request.
+description: Find one flight option and requested details.
 ---
 
 # One-way flight lookup
@@ -8,7 +8,7 @@ description: Find flight option; email details on request.
 This is the complete skill body, already loaded. Do not call `skill_view`
 again for this skill or its `SKILL.md`. Reuse it on follow-up turns.
 While tools are needed, call them without narrating plans or giving a draft
-answer. Finish the necessary lookup and any requested local email submission first,
+answer. Finish the necessary lookup and any requested details submission first,
 then give one final reply in 1–3 short sentences, with no headings or lists.
 Do not answer and call another tool in the same response. If essential facts
 are missing, ask one short question instead, then wait for the user's reply.
@@ -25,13 +25,14 @@ where supported. If only a route or advertised "from" fare is available, say
 so: it is not a verified flight or date-specific price. Never invent an option.
 
 Only when the user actively requests detailed information, prepare those
-details and queue them for the configured default recipients. For this scene, asking
-for details authorizes that email; an ordinary flight lookup does not.
-Call `email_send` once with a short `subject` and details in `body`, including
-sources and verification limits. These are the only arguments. No address
-lookup or extra skill load is needed. Give a brief summary and say "queued
-for email" only after `queued`. Do not wait for delivery, poll, retry, or read
+details. In voice, call `deliver_details` once with a short `title` and detailed
+`content`, including sources and verification limits. The service selects the
+configured destination. Use `email_send` with `subject` and `body` instead only
+if the user explicitly asks for email; never call both for the same details.
+For IM, reply with details directly unless external delivery is requested.
+Give a brief summary and mention the returned channel only after `queued`.
+Do not wait for delivery, poll, retry, or read
 the body aloud. Report rejected or unconfirmed submissions briefly.
-Respect an explicit request not to email.
+Respect an explicit request not to send.
 
 Do not book, reserve, log in or pay. Do not apply this workflow to other tasks.

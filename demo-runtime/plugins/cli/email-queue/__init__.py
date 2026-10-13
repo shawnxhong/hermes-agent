@@ -13,7 +13,7 @@ SCHEMA = {
 }
 
 
-def submit(args, **kwargs):
+def submit(args, _details=False, **kwargs):
     from agent.relay_runtime import current_turn
     from hermes_constants import get_hermes_home
     turn = current_turn()
@@ -24,12 +24,16 @@ def submit(args, **kwargs):
             or getattr(lease, 'released', False)
             or not all(isinstance(value, str) and value for value in scope)):
         return json.dumps({'status': 'rejected', 'error': 'No active turn identity. Nothing queued. Do not retry.'})
+    if _details:
+        if not isinstance(args, dict) or set(args) != {'title', 'content'}:
+            return json.dumps({'status': 'rejected', 'error': 'Provide title and content only.'})
+        args = {'subject': args['title'], 'body': args['content']}
     if (not isinstance(args, dict) or set(args) != {'subject', 'body'}
             or not all(isinstance(args[k], str) and args[k].strip() for k in args)
             or len(args['subject']) > 200 or len(args['body']) > 65536
             or '\n' in args['subject'] or '\r' in args['subject']):
         return json.dumps({'status': 'rejected', 'error': 'Provide a nonempty single-line subject and text body only. Nothing queued.'})
-    path = Path(get_hermes_home())/'mail-queue/service.sock'
+    path = Path(get_hermes_home())/('detail-queue/service.sock' if _details else 'mail-queue/service.sock')
     sent = False
     try:
         with socket.socket(socket.AF_UNIX) as sock:
@@ -52,3 +56,11 @@ def submit(args, **kwargs):
 def register(ctx):
     ctx.register_tool(name='email_send', toolset='email_queue', schema=SCHEMA,
                       handler=submit, emoji='📨')
+    ctx.register_tool(name='deliver_details', toolset='detail_delivery', schema={
+        'name': 'deliver_details',
+        'description': 'Queue requested details to the configured destination. Call once with title and content. Queued does not mean delivered. Do not poll or retry.',
+        'parameters': {'type': 'object', 'properties': {
+            'title': {'type': 'string', 'minLength': 1, 'maxLength': 200},
+            'content': {'type': 'string', 'minLength': 1, 'maxLength': 65536}},
+            'required': ['title', 'content'], 'additionalProperties': False}},
+        handler=lambda args, **kw: submit(args, _details=True, **kw), emoji='📨')

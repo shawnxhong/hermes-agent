@@ -1,6 +1,6 @@
 ---
 name: email-results
-description: Queue requested details for the configured default email recipients.
+description: Queue explicitly requested email to default recipients.
 ---
 
 # Email requested details
@@ -22,7 +22,8 @@ After `duplicate`, no new email was added; do not submit again.
 After `rejected` or `unconfirmed`, report the result briefly; do not retry.
 Do not wait for delivery, poll status, claim the email arrived, or promise when it will arrive.
 
-Only send when requested, including a details request authorized by the active
-travel or flight skill. Do not include unrelated content, secrets or tool logs.
+Only use this tool when email is explicitly requested. General details requests
+use the configured delivery channel, not necessarily email. Do not include
+unrelated content, secrets or tool logs. Do not also call another delivery tool.
 This tool only supports default recipients; explain that limitation if the
 user explicitly requests a different address, and do not send to defaults instead.

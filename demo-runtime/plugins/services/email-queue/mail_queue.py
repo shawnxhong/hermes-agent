@@ -53,8 +53,7 @@ class Store:
                 or not 0 < len(body.strip()) <= 65536):
             raise ValueError('Invalid scope, subject or body')
         addresses = sorted(set(addresses))
-        if not addresses or any(not isinstance(a,str) or '@' not in a or any(c in a for c in '\r\n') for a in addresses):
-            raise ValueError('Default recipients unavailable')
+        self.validate_addresses(addresses)
         key = json.dumps(scope, separators=(',',':'))
         with closing(self.connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
@@ -68,6 +67,10 @@ class Store:
                 db.execute('INSERT INTO recipients VALUES (?,?,?,?,?)',
                            (job,address,'queued',f'<{uuid.uuid4().hex}@hermes.local>',None))
         return {'status':'queued','job_id':job,'instruction':'Say only that the email is queued. Delivery and timing are not guaranteed. Do not poll or retry.'}
+
+    def validate_addresses(self, addresses):
+        if not addresses or any(not isinstance(a,str) or '@' not in a or any(c in a for c in '\r\n') for a in addresses):
+            raise ValueError('Default recipients unavailable')
 
     def recover(self):
         with closing(self.connect()) as db, db:
