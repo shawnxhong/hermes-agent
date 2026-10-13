@@ -43,6 +43,18 @@ def integration():
 
         def do_POST(self):
             requests.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            if requests[-1].get("stream"):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                for delta, finish in [({"role": "assistant", "content": "Four."}, None), ({}, "stop")]:
+                    chunk = {"id": "offline-fixture", "object": "chat.completion.chunk",
+                             "created": 0, "model": model,
+                             "choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
+                    self.wfile.write(("data: " + json.dumps(chunk) + "\n\n").encode())
+                self.wfile.write(b"data: [DONE]\n\n")
+                self.wfile.flush()
+                return
             self.reply({"id": "offline-fixture", "object": "chat.completion",
                         "created": 0, "model": model,
                         "choices": [{"index": 0, "finish_reason": "stop",
