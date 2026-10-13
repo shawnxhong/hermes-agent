@@ -20,6 +20,9 @@ def rig(monkeypatch, tmp_path):
                         lambda names: ('skill:' + names[0], names, []))
     monkeypatch.setattr('tools.voice_mode.stop_playback', Mock())
     monkeypatch.setattr('tools.voice_mode.stop_thinking_sound', Mock())
+    # Docker scene cancellation also stops the host media bridge. Keep this
+    # fixture entirely offline, just as its local playback boundary is mocked.
+    monkeypatch.setattr('tools.playback_control.request', Mock(return_value={'success': True}))
     cli = SimpleNamespace(
         session_id='old', system_prompt='base\n\nold-skill',
         _preloaded_skills_prompt='old-skill', agent=None,
@@ -205,7 +208,7 @@ def test_ack_reset_ready_and_replace_skill(rig):
     assert events == [scenes.ACK]
     assert controller.apply_pending()
     assert events == [scenes.ACK, 'reset', 'Travel assistant ready.']
-    assert cli.system_prompt == 'base\n\nskill:travel-concierge'
+    assert cli.system_prompt == 'base\n\nskill:' + scenes.DEFAULT_SCENES['travel']['skill']
     assert cli.preloaded_skills == ['travel-concierge']
     assert cli._pending_input.empty() and not scenes.switching(cli)
     assert cli._wake_suspended and not cli._voice_continuous
@@ -305,7 +308,7 @@ def test_repeat_scene_after_debounce_resets_again(rig):
     controller.request('travel')
     controller.apply_pending()
     assert session != cli.session_id
-    assert cli.system_prompt.count('skill:travel-concierge') == 1
+    assert cli.system_prompt.count('skill:' + scenes.DEFAULT_SCENES['travel']['skill']) == 1
 
 
 @pytest.mark.parametrize('scene', ['healthcare', 'shopping', 'travel', 'home'])
