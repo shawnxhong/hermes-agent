@@ -1,6 +1,6 @@
 ---
 name: local-media-player
-description: List, play or stop local Desktop audio, music and video, including MP3 and MP4.
+description: Play Desktop music/video. Every stop or close request requires a fresh local_media stop call, even after an earlier stop; voice and IM share the device.
 ---
 
 # Local media

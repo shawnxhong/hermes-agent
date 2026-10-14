@@ -9,9 +9,9 @@ import unicodedata
 
 SCHEMA = {
     'name': 'local_media',
-    'description': 'List/play Desktop media. For EVERY request to stop/close music or video, call action=stop, even if you previously reported it stopped: voice and IM share the device, not playback history. Stop is safe to repeat and stops current/queued demo media and speech. No filename or prior status needed. Report this call result, not remembered state.',
+    'description': 'ALWAYS call action=stop when the user asks to stop/close media, music or video. NEVER answer already stopped without a fresh stop call: another channel can restart playback. Repeated stop is safe; it stops device media and queued speech. Also list/play Desktop files.',
     'parameters': {'type': 'object', 'properties': {
-        'action': {'type': 'string', 'enum': ['list', 'play', 'mp3', 'mp4', 'stop', 'status']},
+        'action': {'type': 'string', 'enum': ['list', 'play', 'mp3', 'mp4', 'stop', 'status'], 'description': 'Use stop for every stop/close request, regardless of earlier results; no status check needed.'},
         'target': {'type': 'string', 'description': 'For playback: filename/title fragment copied from the user, or empty for an unspecified file. Never invent a name.'}},
         'required': ['action'], 'additionalProperties': False},
 }
