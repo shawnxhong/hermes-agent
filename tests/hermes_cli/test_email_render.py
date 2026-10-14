@@ -498,3 +498,15 @@ def test_bullets_have_email_spacing_and_preserve_meaningful_numbers():
     assert '<ol' not in html and 'list-style-type:disc' in html
     assert 'padding-left:24px' in html and 'margin:0 0 6px' in html
     assert '4.5 hours' in plain and '2 hours' in plain
+
+
+def test_bullets_after_label_render_as_list_without_touching_fenced_code():
+    from hermes_cli.email_render import _separate_bullet_blocks
+    body = '## Route\n**Transport:**\n- Train\n- Flight\n\n```text\nLabel\n- literal code\n```'
+    plain, html = render_email(body)
+    assert html.count('<ul') == 1 and html.count('<li ') == 2
+    assert 'Label\n- literal code' in plain
+    fenced = '~~~text\nlabel\n- literal\n~~~'
+    assert _separate_bullet_blocks(fenced) == fenced
+    nested = '- Train\n    - Fast\n- Flight'
+    assert _separate_bullet_blocks(nested) == nested

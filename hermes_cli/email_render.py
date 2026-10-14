@@ -4,6 +4,7 @@ No model rewrite, remote resources, or interpretation of literal backslash escap
 Raw HTML is displayed as text. Only parser-generated, allowlisted HTML survives.
 """
 from html import escape
+import re
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
 
@@ -142,6 +143,27 @@ class _EmailHTML(HTMLParser):
             self.text.append(data)
 
 
+def _separate_bullet_blocks(body):
+    """Allow top-level bullets immediately after a label, preserving code blocks."""
+    lines = body.splitlines(keepends=True)
+    output = []
+    fence = None
+    previous = ''
+    for line in lines:
+        marker = re.match(r'^ {0,3}(`{3,}|~{3,})', line)
+        if fence:
+            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not line[marker.end():].strip():
+                fence = None
+        elif marker:
+            fence = marker[1]
+        elif (re.match(r'^[-+*] +\S', line) and previous.strip()
+              and not re.match(r'^(?:[-+*] +|[ \t])', previous)):
+            output.append('\n')
+        output.append(line)
+        previous = line
+    return ''.join(output)
+
+
 def render_email(body):
     """Return (readable plain text, HTML) from Unicode Markdown.
 
@@ -151,7 +173,7 @@ def render_email(body):
     parser = markdown.Markdown(extensions=['tables', 'fenced_code', 'nl2br'])
     parser.preprocessors.deregister('html_block')
     parser.inlinePatterns.deregister('html')
-    rendered = parser.convert(body.replace('\r\n', '\n').replace('\r', '\n'))
+    rendered = parser.convert(_separate_bullet_blocks(body.replace('\r\n', '\n').replace('\r', '\n')))
     filtered = _EmailHTML()
     filtered.feed(rendered)
     filtered.close()
