@@ -41,7 +41,7 @@ def test_markdown_structure_and_unicode():
     plain, html = render_email(BODY)
     for text in ('中文行程 café 😀', '第一行 & 第二行', '下一行', '护照', '周一', '出发'):
         assert text in plain
-    for tag in ('<h1', '<h2', '<strong>', '<ul>', '<table', '<blockquote', '<pre'):
+    for tag in ('<h1', '<h2', '<strong>', '<ul', '<table', '<blockquote', '<pre'):
         assert tag in html
     assert '第一行 &amp; 第二行<br' in html
     assert '下一行' in html
@@ -473,17 +473,28 @@ def test_lines_wire(tmp_path, monkeypatch, role, request):
 
 
 @pytest.mark.parametrize('role', ['cli', 'gateway', 'services'])
-def test_only_accepted_email_can_finish_turn(role):
+def test_email_completion_reports_actual_status(role):
     path = Path(__file__).resolve().parents[2] / f'demo-runtime/plugins/{role}/email-queue/__init__.py'
     spec = importlib.util.spec_from_file_location('finish_' + role, path)
     plugin = importlib.util.module_from_spec(spec);spec.loader.exec_module(plugin)
     def result(status, name='email_send'):
         return {'role':'tool','name':name,'content':json.dumps({'status':status,'job_id':'test-job'})}
     for status in ('queued','duplicate'):
-        assert plugin.finish_email_turn(tool_results=[result(status)])['final_response'] == "I've queued the details for email."
-    for status in ('rejected','unconfirmed','sent','unknown'):
+        assert plugin.finish_email_turn(tool_results=[result(status)])['final_response'] == 'Your email has been queued for sending.'
+    for status in ('rejected','unconfirmed'):
+        outcome = plugin.finish_email_turn(tool_results=[result(status)])
+        assert outcome['speak_final_response'] is True
+        assert 'could not' in outcome['final_response']
+    for status in ('sent','unknown'):
         assert plugin.finish_email_turn(tool_results=[result(status)]) is None
     assert plugin.finish_email_turn(tool_results=[result('queued','other_tool')]) is None
     assert plugin.finish_email_turn(tool_results=[result('queued'),result('queued')]) is None
     assert plugin.finish_email_turn(tool_results=[{'name':'email_send','content':'malformed'}]) is None
     assert plugin.finish_email_turn(tool_results=[{'name':'email_send','content':'{"status":"queued"}'}]) is None
+
+
+def test_bullets_have_email_spacing_and_preserve_meaningful_numbers():
+    plain, html = render_email('## Transport\n\n- **Train:** 4.5 hours\n- **Flight:** 2 hours')
+    assert '<ol' not in html and 'list-style-type:disc' in html
+    assert 'padding-left:24px' in html and 'margin:0 0 6px' in html
+    assert '4.5 hours' in plain and '2 hours' in plain

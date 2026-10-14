@@ -12,7 +12,7 @@ SCHEMA = {
         'subject': {'type': 'string', 'minLength': 1, 'maxLength': 200},
         'body': {'type': 'array', 'minItems': 1, 'maxItems': 4096,
                  'items': {'type': 'string', 'maxLength': 65536},
-                 'description': 'Markdown text blocks. Existing text with real newlines can be a single item; multiline paragraphs, lists, tables and code are valid. Items are joined with newlines; empty items add blank lines. Keep a newly composed draft concise (about 150-220 words unless asked for more). No HTML, line-by-line conversion or format-repair narration.'}},
+                 'description': 'Markdown text blocks. Existing text with real newlines can be a single item; multiline paragraphs, lists, tables and code are valid. Items are joined with newlines; empty items add blank lines. Keep a newly composed draft concise (about 150-220 words unless asked for more). For new drafts use unnumbered headings and bullet lists (-), not numbered paragraphs. Keep emphasis markers paired; never use standalone ** lines. No HTML, line-by-line conversion or format-repair narration.'}},
         'required': ['subject', 'body'], 'additionalProperties': False},
 }
 
@@ -60,8 +60,8 @@ def submit(args, **kwargs):
 
 
 def finish_email_turn(*, tool_results, **kwargs):
-    # Only a lone successful email operation is terminal. Mixed batches and
-    # rejected/unconfirmed requests stay in the native loop for normal handling.
+    # A lone email result is terminal; acknowledge its actual queue status.
+    # Mixed batches remain in the native loop for normal handling.
     if len(tool_results) != 1 or tool_results[0].get('name') != 'email_send':
         return None
     try:
@@ -70,7 +70,11 @@ def finish_email_turn(*, tool_results, **kwargs):
         return None
     if (isinstance(result, dict) and result.get('status') in {'queued', 'duplicate'}
             and isinstance(result.get('job_id'), str) and result['job_id']):
-        return {'final_response': "I've queued the details for email."}
+        return {'final_response': 'Your email has been queued for sending.', 'speak_final_response': True}
+    if isinstance(result, dict) and result.get('status') in {'rejected', 'unconfirmed'}:
+        message = ('Your email could not be queued.' if result['status'] == 'rejected'
+                   else 'I could not confirm whether your email was queued.')
+        return {'final_response': message, 'speak_final_response': True}
     return None
 
 

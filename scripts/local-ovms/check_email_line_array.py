@@ -8,6 +8,7 @@ import argparse
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import sqlite3
 import threading
@@ -109,6 +110,7 @@ def main():
                 if options.assert_no_truncation:
                     assert requests and all(r['finish_reasons'] and 'length' not in r['finish_reasons'] for r in requests), 'Output cap reached: '+str(requests)
                     assert all(r['requested_max_tokens']==options.max_tokens for r in requests), 'Unexpected retry budget boost'
+                assert result.get('speak_final_response') is True, 'Terminal queue result must request acknowledgement'
                 assert result.get('completed'), 'Native run must complete without truncation/recovery'
                 assert len(calls) == 1, 'Expected one native email tool call: '+str([(m.get('role'),str(m.get('content',''))[:400]) for m in result['messages'] if m.get('role')=='tool'])
                 assert isinstance(calls[0]['body'],(list,str)), 'Expected Markdown blocks or compatible text'
@@ -117,6 +119,9 @@ def main():
                 assert len(rows) == index + 1, 'Native handler must enqueue once'
                 subject, body = rows[-1]
                 assert body.count('\n') >= 5, 'Full native chain must retain structural newlines'
+                if index in (0, 2):
+                    assert not re.search(r'^\s*\d+[.)]\s', body, re.M), 'New draft should use bullets'
+                    assert not re.search(r'^\s*\*\*\s*$', body, re.M), 'Orphan emphasis marker'
                 plain, html = render_email(body)
                 assert '<h' in html and ('<ul' in html or '<table' in html)
                 evidence.append({'case':index,'native_tool_calls':len(calls),

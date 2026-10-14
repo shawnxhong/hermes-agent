@@ -116,13 +116,13 @@ class SentenceDelivery:
             state('submitted')
             self.queue.put(item)
 
-    def finish(self, text):
+    def finish(self, text, *, terminal=False):
         """Only queue the suffix; never replay already committed summary sentences."""
         with self.lock:
             if not self.active():
                 return
             prefix = ' '.join(self.committed)
-            if prefix:
+            if prefix and not terminal:
                 if text.startswith(prefix):
                     text = text[len(prefix):].strip()
                 else:

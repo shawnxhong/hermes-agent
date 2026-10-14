@@ -2259,6 +2259,7 @@ def run_conversation(
     # salvaged from #98741); finalize below reuses the gateway's existing
     # context-recovery contract (error/partial/compression_exhausted).
     _compression_timeout_exhausted = False
+    _speak_final_response = False  # Trusted terminal tool acknowledgement.
     _turn_exit_reason = "unknown"  # Diagnostic: why the loop ended
     # Last composed answer intentionally held back by a verification gate. If
     # that continuation consumes the remaining budget, this is the best
@@ -8300,12 +8301,13 @@ def run_conversation(
                         tool_results=[dict(m) for m in messages[_tool_result_start:]
                                       if isinstance(m, dict) and m.get('role') == 'tool'],
                     )
-                    _finish = next((r.get('final_response') for r in _finishes
+                    _finish = next((r for r in _finishes
                                     if isinstance(r, dict)
                                     and isinstance(r.get('final_response'), str)
                                     and r['final_response'].strip()), None)
                     if _finish is not None:
-                        final_response = _finish
+                        final_response = _finish['final_response']
+                        _speak_final_response = _finish.get('speak_final_response') is True
                         _turn_exit_reason = 'plugin_tool_completion'
                         break
 
@@ -9453,6 +9455,9 @@ def run_conversation(
         _pending_verification_response=_pending_verification_response,
         _pending_verification_response_previewed=_pending_verification_response_previewed,
     )
+    if (_speak_final_response and not result.get("interrupted") and not result.get("failed")
+            and result.get("final_response") == final_response):
+        result["speak_final_response"] = True
     if _compression_timeout_exhausted:
         # Reuse the gateway's existing context-recovery contract (#98722,
         # salvaged from #98741). The bloated transcript remains intact while

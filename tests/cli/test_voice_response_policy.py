@@ -101,3 +101,20 @@ def test_verbal_ack_stays_before_buffered_final_response():
 
     assert str(output.get_nowait()) == "I am working on it."
     assert str(output.get_nowait()) == "The work is complete, and the details were sent."
+
+
+def test_trusted_terminal_ack_can_speak_for_typed_input_only_in_voice_mode():
+    from cli import HermesCLI
+    cli = HermesCLI.__new__(HermesCLI)
+    cli._voice_mode = True
+    cli._voice_tts = True
+    assert cli._terminal_voice_ack_enabled({'speak_final_response': True})
+    for result in ({}, {'speak_final_response': 'true'},
+                   {'speak_final_response': True, 'failed': True},
+                   {'speak_final_response': True, 'interrupted': True}):
+        assert not cli._terminal_voice_ack_enabled(result)
+    cli._voice_tts = False
+    assert not cli._terminal_voice_ack_enabled({'speak_final_response': True})
+    cli._voice_tts = True
+    cli._voice_mode = False
+    assert not cli._terminal_voice_ack_enabled({'speak_final_response': True})

@@ -12,6 +12,9 @@ import markdown
 
 _STYLES = {
     'p': 'margin:0 0 12px;',
+    'ul': 'margin:8px 0 14px;padding-left:24px;list-style-type:disc;',
+    'ol': 'margin:8px 0 14px;padding-left:24px;',
+    'li': 'margin:0 0 6px;line-height:1.5;',
     'h1': 'font-size:24px;margin:20px 0 12px;',
     'h2': 'font-size:20px;margin:18px 0 10px;',
     'h3': 'font-size:18px;margin:16px 0 8px;',

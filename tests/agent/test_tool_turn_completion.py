@@ -34,11 +34,12 @@ def native(tmp_path, monkeypatch):
 
 def test_policy_finishes_without_followup_inference_and_persists(native):
     agent,manager,db=native
-    hook=Mock(return_value={'final_response':'Operation accepted.'})
+    hook=Mock(return_value={'final_response':'Operation accepted.', 'speak_final_response': True})
     manager._hooks['finish_tool_turn']=[hook]
     result=agent.run_conversation('Search example.')
     assert result['completed'] and result['final_response']=='Operation accepted.'
     assert result['turn_exit_reason']=='plugin_tool_completion'
+    assert result['speak_final_response'] is True
     assert agent.client.chat.completions.create.call_count==1
     results=hook.call_args.kwargs['tool_results']
     assert len(results)==1 and results[0]['name']=='web_search'
