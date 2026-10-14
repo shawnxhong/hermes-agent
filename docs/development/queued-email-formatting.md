@@ -131,5 +131,14 @@ SMTP/retry behavior is unchanged and asynchronous. An event-gated Unix-socket
 regression proves enqueue acknowledgement arrives while the SMTP sender is still
 blocked. Real native-model regressions assert one email tool call, one queued job,
 valid Markdown HTML and normal completion at the actual 1024-token budget.
+A final installed-image 1024-token run still hit one length stop on the longer
+checklist (about 93 seconds including recovery), despite one accepted tool call.
+Prompt brevity alone is therefore insufficient. The candidate's versioned CLI
+and Gateway profile templates raise model.max_tokens from 1024 to 2048; the
+recipe declares that explicit persisted-config migration. Native checks record
+every real API request's cap and finish reason, and --assert-no-truncation rejects
+both length stops and implicit retry budget boosts. The default test budget stays
+1024 so reproductions cannot silently hide the old limit. Raising the allowance
+does not force long spoken responses; existing voice brevity guidance remains.
 These changes are development-branch only; main and production baseline .1 are
 not modified or deployed by this task.

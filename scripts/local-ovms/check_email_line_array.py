@@ -4,6 +4,7 @@
 No SMTP worker, production state, real recipient or audio is used. Run in a
 candidate image with a writable temporary HERMES_HOME and local OVMS access.
 """
+import argparse
 import importlib.util
 import json
 import os
@@ -23,9 +24,14 @@ def load(name, path):
 
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--max-tokens',type=int,default=1024)
+    parser.add_argument('--assert-no-truncation',action='store_true')
+    options=parser.parse_args()
+    if not 128 <= options.max_tokens <= 8192:parser.error('max-tokens must be in 128..8192')
     home = Path(os.environ['HERMES_HOME'])
     home.mkdir(parents=True, exist_ok=True)
-    (home/'config.yaml').write_text('model:\n  default: qwen3.6-35b-a3b\n  provider: custom\n  base_url: http://127.0.0.1:8000/v3\n  context_length: 65536\n  max_tokens: 1024\nplugins:\n  enabled: []\n')
+    (home/'config.yaml').write_text(('model:\n  default: qwen3.6-35b-a3b\n  provider: custom\n  base_url: http://127.0.0.1:8000/v3\n  context_length: 65536\n  max_tokens: MAX_OUTPUT\nplugins:\n  enabled: []\n').replace('MAX_OUTPUT',str(options.max_tokens)))
     root = Path(os.environ.get('EMAIL_TEST_SOURCE', '/opt/hermes/app'))
     plugin_root = Path(os.environ.get('EMAIL_TEST_PLUGIN', '/opt/hermes/plugins/email-queue'))
     tool = load('email_line_tool', plugin_root/'__init__.py')
@@ -58,9 +64,26 @@ def main():
                 agent = AIAgent(model='qwen3.6-35b-a3b', provider='custom',
                     base_url='http://127.0.0.1:8000/v3',api_key='local-ovms',
                     api_mode='chat_completions',quiet_mode=True,max_iterations=6,
-                    max_tokens=1024,enabled_toolsets=['email_queue'],platform='cli',
+                    max_tokens=options.max_tokens,enabled_toolsets=['email_queue'],platform='cli',
                     skip_memory=True,skip_context_files=True,skip_background_review=True,
                     session_id=f'email-array-live-{index}')
+                requests=[]
+                def before_request(*, request, api_request_id, session_id, _events=requests,
+                                   _session=agent.session_id, **kw):
+                    if session_id != _session:return
+                    body=request.get('body',{})
+                    _events.append({'id':api_request_id,
+                        'requested_max_tokens':body.get('max_tokens',body.get('max_completion_tokens')),
+                        'finish_reasons':[]})
+                def after_request(*, finish_reason, api_request_id, session_id, _events=requests,
+                                  _session=agent.session_id, **kw):
+                    if session_id != _session:return
+                    for event in reversed(_events):
+                        if event['id']==api_request_id:
+                            event['finish_reasons'].append(finish_reason)
+                            break
+                manager._hooks['pre_api_request']=[before_request]
+                manager._hooks['post_api_request']=[after_request]
                 history = None
                 if index == 3:
                     history = [
@@ -83,6 +106,9 @@ def main():
                             calls.append(args)
                         elif fn.get('name') == 'tool_call' and args.get('name') == 'email_send':
                             calls.append(args['arguments'])
+                if options.assert_no_truncation:
+                    assert requests and all(r['finish_reasons'] and 'length' not in r['finish_reasons'] for r in requests), 'Output cap reached: '+str(requests)
+                    assert all(r['requested_max_tokens']==options.max_tokens for r in requests), 'Unexpected retry budget boost'
                 assert result.get('completed'), 'Native run must complete without truncation/recovery'
                 assert len(calls) == 1, 'Expected one native email tool call: '+str([(m.get('role'),str(m.get('content',''))[:400]) for m in result['messages'] if m.get('role')=='tool'])
                 assert isinstance(calls[0]['body'],(list,str)), 'Expected Markdown blocks or compatible text'
@@ -94,7 +120,7 @@ def main():
                 plain, html = render_email(body)
                 assert '<h' in html and ('<ul' in html or '<table' in html)
                 evidence.append({'case':index,'native_tool_calls':len(calls),
-                    'max_tokens':1024,'elapsed_seconds':round(elapsed,3),
+                    'max_tokens':options.max_tokens,'api_requests':requests,'elapsed_seconds':round(elapsed,3),
                     'body_kind':type(calls[0]['body']).__name__,
                     'body_array_items':len(calls[0]['body']) if isinstance(calls[0]['body'],list) else 1,'queue_body_characters':len(body),
                     'queue_body_newlines':body.count('\n'),'html_headings':html.count('<h'),
