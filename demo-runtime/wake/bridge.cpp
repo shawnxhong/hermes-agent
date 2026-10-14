@@ -14,6 +14,7 @@ struct Bridge {
     std::atomic<bool> capture_alive{false};
 };
 extern "C" {
+uint32_t wake_eos_flag() { return AISP_FLAG_EOS; }
 void* wake_create(const char* model, const char* device, const char* context, Callback cb) {
     try {
         auto b = std::make_unique<Bridge>();
@@ -31,8 +32,10 @@ void* wake_create(const char* model, const char* device, const char* context, Ca
             throw std::runtime_error("SDK did not retain asr.context");
         std::fprintf(stderr,"Qwen3 live-ASR: device=%s source_language=en (English) context=%s\n",device,context);
         b->callback = [cb](ov::AnyMap&& out) {
-            if (aisp::keys::output_text.exists_in(out)) {
-                auto text = aisp::keys::output_text.get_from<std::string>(out);
+            // Final EOS can be a separate callback with no output_text key.
+            if (aisp::keys::output_timestamp.exists_in(out) && aisp::keys::output_flag.exists_in(out)) {
+                auto text = aisp::keys::output_text.exists_in(out)
+                    ? aisp::keys::output_text.get_from<std::string>(out) : std::string{};
                 cb(aisp::keys::output_timestamp.get_from<int64_t>(out),
                    aisp::keys::output_flag.get_from<uint32_t>(out), text.c_str());
             }

@@ -96,6 +96,7 @@ class ExternalWakeEngine:
 class ExternalEndPhraseDetector(ExternalWakeEngine):
     """One recording-scoped subscription; audio remains owned by the sidecar."""
     phrase = "thank you"
+    reason = "end_phrase"
     def __init__(self, cfg):
         super().__init__({"external": {"socket": cfg.get("socket", "/ipc/wake/service.sock")}})
         self.recording_id = None
@@ -132,7 +133,7 @@ class ExternalEndPhraseDetector(ExternalWakeEngine):
                     if stopped.is_set() or self.sock is None:
                         return
                     if self.process(None):
-                        self.last_reason = "end_phrase"
+                        self.last_reason = self.reason
                         stopped.set()
                         callback()
                         return
@@ -153,3 +154,18 @@ class ExternalEndPhraseDetector(ExternalWakeEngine):
             thread = self._thread
         if thread and thread is not threading.current_thread():
             thread.join(timeout=1)
+
+
+class ExternalEOSDetector(ExternalEndPhraseDetector):
+    """Recording-scoped native AISP endpoint; no keyword or second capture."""
+    phrase = None
+    reason = "aisp_eos"
+
+    def subscription(self):
+        return {**super().subscription(), "endpoint": "aisp-eos"}
+
+    def ready(self, message):
+        return super().ready(message) and message.get("endpoint") == "aisp-eos"
+
+    def matched(self, message):
+        return super().matched(message) and message.get("reason") == "aisp_eos"

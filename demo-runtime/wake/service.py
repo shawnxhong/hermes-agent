@@ -57,6 +57,13 @@ class WakeGate:
 
 
 class Native:
+    @staticmethod
+    def eos_flag(library):
+        lib = C.CDLL(library)
+        lib.wake_eos_flag.argtypes = []
+        lib.wake_eos_flag.restype = C.c_uint32
+        return lib.wake_eos_flag()
+
     def __init__(self, library, model, device, callback, context=""):
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
@@ -89,12 +96,13 @@ class Native:
 
 
 class Server:
-    def __init__(self, log, aliases):
+    def __init__(self, log, aliases, eos_flag):
         self.log = log
         self.lock = threading.Lock()
         self.instance = str(uuid.uuid4())
         self.gate = WakeGate(aliases, continuous=True)
-        self.end_gate = WakeGate(["thank you"], continuous=True)
+        self.eos_flag = eos_flag
+        self.recording_speech = set()
         self.mode = "wake"
         self.recording_id = None
         self.conn = None
@@ -111,6 +119,7 @@ class Server:
         self.armed_after = boundary
         self.arm_text = dict(self.observed)
         self.delivered = False
+        self.recording_speech = set()
         self.event(event="armed", mode=mode, boundary=boundary)
 
     def event(self, **data):
@@ -122,7 +131,8 @@ class Server:
             with self.lock:
                 self.log.info("%s", text)
                 norm = normalize(text)
-                self.observed[timestamp] = norm
+                if norm:
+                    self.observed[timestamp] = norm
                 if len(self.observed) > 1024:
                     del self.observed[next(iter(self.observed))]
                 if self.conn is None or self.delivered:
@@ -137,16 +147,24 @@ class Server:
                         self.event(event="ignored_old_segment", mode=self.mode, timestamp=timestamp)
                         return
                     eligible = norm[len(before):].lstrip()
-                gate = self.end_gate if self.mode == "recording" else self.gate
-                action, alias = gate.match(timestamp, eligible)
+                if self.mode == "recording":
+                    if norm:
+                        self.recording_speech.add(timestamp)
+                    if not (flag & self.eos_flag) or timestamp not in self.recording_speech:
+                        return
+                    action, alias = "trigger", None
+                else:
+                    action, alias = self.gate.match(timestamp, eligible)
                 if action == "trigger":
                     try:
                         self.conn.sendall((json.dumps({"event": "end_recording" if self.mode == "recording" else "wake",
-                            "alias": alias, "timestamp": timestamp, "recording_id": self.recording_id})+"\n").encode())
+                            "alias": alias, "timestamp": timestamp, "recording_id": self.recording_id,
+                            "reason": "aisp_eos" if self.mode == "recording" else "wake_phrase"})+"\n").encode())
                     except OSError:
                         self.event(event="delivery_failed")
                     else:
-                        gate.commit(timestamp)
+                        if self.mode == "wake":
+                            self.gate.commit(timestamp)
                         self.delivered = True
                         self.event(event="delivered", mode=self.mode, timestamp=timestamp, recording_id=self.recording_id)
         except Exception:
@@ -185,12 +203,15 @@ class Server:
                 recording_id = request.get("recording_id")
                 if mode == "recording" and (not isinstance(recording_id, str) or not 1 <= len(recording_id) <= 128):
                     raise ValueError("Recording subscription requires identity")
+                if mode == "recording" and request.get("endpoint") != "aisp-eos":
+                    raise ValueError("Recording requires aisp-eos endpoint support")
                 aliases = WakeGate(request["aliases"]).aliases if mode == "wake" else self.gate.aliases
                 with self.lock:
                     self.gate.aliases = aliases
                     self.arm(conn, mode, recording_id, time.monotonic()*1000)
                     self.event(event="notifications_armed")
-                    conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id})+"\n").encode())
+                    conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id,
+                        "endpoint": "aisp-eos" if mode == "recording" else None})+"\n").encode())
                 while native.capture_alive():
                     try:
                         data = conn.recv(1)  # Subscription only; SDK owns capture.
@@ -230,7 +251,7 @@ def main():
     handler = RotatingFileHandler(str(Path(args.log).with_name("events.log")), maxBytes=2*1024*1024, backupCount=2, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     status.addHandler(handler)
-    s = Server(log, json.loads(Path(args.aliases).read_text()))
+    s = Server(log, json.loads(Path(args.aliases).read_text()), Native.eos_flag(args.library))
     native = Native(args.library, args.model, args.device, s.result, args.context)
     native.start_capture(args.source)
     s.serve(native, args.socket)

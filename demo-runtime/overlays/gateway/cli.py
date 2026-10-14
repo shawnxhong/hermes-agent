@@ -15836,7 +15836,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             with self._voice_lock:
                 if not self._voice_recording:
                     return
-            _reason = "End phrase detected" if getattr(self._voice_recorder, "stop_reason", None) == "end_phrase" else "Silence detected"
+            _reason = {"aisp_eos": "Speech ended", "end_phrase": "End phrase detected"}.get(
+                getattr(self._voice_recorder, "stop_reason", None), "Silence detected")
             _cprint(f"\n{_DIM}{_reason}, auto-stopping...{_RST}")
             if hasattr(self, '_app') and self._app:
                 self._app.invalidate()
@@ -15866,7 +15867,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             _recording_hint = f"auto-stops on silence | {_label} to stop & exit continuous"
             if getattr(self._voice_recorder, "_end_phrase_detector", None) is not None:
                 _phrase = self._voice_recorder._end_phrase_detector.phrase
-                _recording_hint = f"say {_phrase}, or pause | {_label} to stop & exit continuous"
+                _recording_hint = (f"stops automatically when you finish speaking | {_label} to stop & exit continuous"
+                                   if _phrase is None else
+                                   f"say {_phrase}, or pause | {_label} to stop & exit continuous")
         elif _is_termux_environment():
             _recording_hint = f"Termux:API capture | {_label} to stop"
         else:

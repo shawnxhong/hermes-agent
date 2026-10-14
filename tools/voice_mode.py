@@ -874,14 +874,15 @@ class AudioRecorder:
             return False
         if self._end_phrase_detector is None:
             try:
-                if cfg.get('provider') == 'external-asr':
-                    from tools.external_wake import ExternalEndPhraseDetector
-                    self._end_phrase_detector = ExternalEndPhraseDetector(cfg)
+                if cfg.get('provider') in ('external-asr', 'aisp-eos'):
+                    from tools.external_wake import ExternalEndPhraseDetector, ExternalEOSDetector
+                    detector = ExternalEOSDetector if cfg['provider'] == 'aisp-eos' else ExternalEndPhraseDetector
+                    self._end_phrase_detector = detector(cfg)
                 else:
                     self._end_phrase_detector = EndPhraseDetector(cfg)
             except Exception:
                 self._end_phrase_unavailable = True
-                logger.warning('Recording-end keyword unavailable; using silence fallback', exc_info=True)
+                logger.warning('Recording endpoint unavailable; using silence fallback', exc_info=True)
         return self._end_phrase_detector is not None
 
     def _endpoint_stop(self):
@@ -891,7 +892,7 @@ class AudioRecorder:
             cb = self._on_silence_stop
             self._on_silence_stop = None
             if cb:
-                self.stop_reason = 'end_phrase'
+                self.stop_reason = getattr(self._end_phrase_detector, 'last_reason', None) or 'end_phrase'
         if cb:
             threading.Thread(target=cb, daemon=True).start()
 

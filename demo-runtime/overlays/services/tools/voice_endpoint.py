@@ -16,6 +16,13 @@ def settings():
     from hermes_cli.config import load_config
     cfg = load_config()
     voice = cfg.get('voice') or {}
+    endpoint = voice.get('endpoint') if isinstance(voice, dict) else None
+    if isinstance(endpoint, dict) and endpoint.get('enabled') is True:
+        if endpoint.get('provider') != 'aisp-eos':
+            logger.warning('Unsupported voice endpoint provider; using silence fallback')
+            return None
+        wake = cfg.get('wake_word') or {}
+        return {**endpoint, 'socket': (wake.get('external') or {}).get('socket', '/ipc/wake/service.sock')}
     raw = voice.get('end_phrase') if isinstance(voice, dict) else None
     if not isinstance(raw, dict) or raw.get('enabled') is not True:
         return None
@@ -30,7 +37,7 @@ def settings():
 def strip_end_phrase(text):
     """Strip only a terminal control phrase in opted-in voice transcription."""
     cfg = settings()
-    if not cfg:
+    if not cfg or cfg.get('provider') == 'aisp-eos':
         return text
     # Old ending retained only as transcript cleanup during migration; it no
     # longer activates the keyword detector. Handle Whisper punctuation forms.

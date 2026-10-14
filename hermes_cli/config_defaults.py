@@ -2065,6 +2065,7 @@ DEFAULT_CONFIG = {
         },
         "silence_threshold": 200,     # RMS below this = silence (0-32767)
         "silence_duration": 3.0,      # Seconds of silence before auto-stop
+        "endpoint": {"enabled": False, "provider": "aisp-eos"},
         "end_phrase": {"enabled": False, "phrase": "That's all", "hint_file": None, "model_dir": None},
         "barge_in": True,             # Interrupt the agent / stop TTS when the user starts talking
         "barge_in_grace_seconds": 0.5,  # Trip suppression right after TTS playback starts (onset transient); the mic itself is live for the whole turn
