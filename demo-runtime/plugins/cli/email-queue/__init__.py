@@ -12,7 +12,7 @@ SCHEMA = {
         'subject': {'type': 'string', 'minLength': 1, 'maxLength': 200},
         'body': {'type': 'array', 'minItems': 1, 'maxItems': 4096,
                  'items': {'type': 'string', 'maxLength': 65536},
-                 'description': 'Markdown text blocks. Existing text with real newlines can be a single item; multiline paragraphs, lists, tables and code are valid. Items are joined with newlines; empty items add blank lines. Keep a newly composed draft concise (about 150-220 words unless asked for more). For new drafts use unnumbered headings and bullet lists (-), not numbered paragraphs. Keep emphasis markers paired; never use standalone ** lines. No HTML, line-by-line conversion or format-repair narration.'}},
+                 'description': 'Markdown text blocks. Existing text with real newlines can be a single item; multiline paragraphs, lists, tables and code are valid. Items are joined with newlines; empty items add blank lines. Keep a newly composed draft concise (about 150-220 words unless asked for more). Email content only: never include a queue acknowledgement or delivery-status sentence in the body. For new drafts use unnumbered headings and bullet lists (-), not numbered paragraphs. Keep emphasis markers paired; never use standalone ** lines. No HTML, line-by-line conversion or format-repair narration.'}},
         'required': ['subject', 'body'], 'additionalProperties': False},
 }
 

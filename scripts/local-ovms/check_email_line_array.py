@@ -122,6 +122,7 @@ def main():
                 if index in (0, 2):
                     assert not re.search(r'^\s*\d+[.)]\s', body, re.M), 'New draft should use bullets'
                     assert not re.search(r'^\s*\*\*\s*$', body, re.M), 'Orphan emphasis marker'
+                    assert 'queued for sending' not in body.lower(), 'Acknowledgement belongs outside the document'
                 plain, html = render_email(body)
                 assert '<h' in html and ('<ul' in html or '<table' in html)
                 evidence.append({'case':index,'native_tool_calls':len(calls),

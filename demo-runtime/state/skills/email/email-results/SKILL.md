@@ -22,6 +22,10 @@ Call `email_send` ONCE with subject and body, an array of Markdown text blocks:
 ```json
 {"subject":"Travel plan","body":["# Travel plan","## Transport\n- Train option\n- Flight option","## Itinerary\n| Day | Plan |\n| --- | --- |\n| 1 | Visit |"]}
 ```
+The body contains only the requested document. Never put the queue acknowledgement
+or a sending/delivery-status sentence inside the email body. The local client
+provides that acknowledgement separately after the tool result.
+
 Real newlines inside an item are valid. A whole already prepared Markdown document
 can be one array item; do not split and regenerate it line by line. Separate
 items create newlines; empty items are optional blank lines. No HTML or double
