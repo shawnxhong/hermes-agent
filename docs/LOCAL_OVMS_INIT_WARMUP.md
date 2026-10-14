@@ -105,14 +105,26 @@ The isolated candidate smoke command adds `--integration`. It creates temporary
 `HERMES_HOME` state and an HTTP fixture, constructs the real `HermesCLI`, runs
 warmup and a native conversation, and checks identical system/tool prefixes,
 clean history and a still-open foreground client. It uses no GPU or audio.
-The candidate includes the exact test file used by the checker. The final rc4
-image passed this integration check and 75 focused canonical tests for warmup,
+The candidate includes the exact test file used by the checker. The rc5 image
+passed this integration check, including HTTP-ready/model-not-ready responses,
+and 85 focused canonical tests for warmup,
 readiness, ASR prewarm, scenes/reset and prompt restoration. Scene test fixtures
 mock the host media bridge and use selected skill identifiers, preserving their
 behavioral assertions across the accepted skill renames. The runner needs a
 writable `test_durations.json` bind in an otherwise read-only test container.
 
-The exact rc4 image also passed a real-model warm-first probe: warmup returned
+On 2026-10-14, the rc5 image passed a real-model probe launched immediately after
+restarting OVMS. The HTTP listener started at 02:08:50.956 UTC and the model
+became AVAILABLE at 02:09:04.667 UTC. Warmup made seven readiness checks and
+returned ready in 74.703 s, within the shared 90 s budget. The following question
+produced its first visible delta in 2.791 s. This used the accepted `/home/hermes`
+working directory, 13,139 system characters and 32 native tools, with isolated
+state and discarded output. This is one model-process restart observation,
+not a host reboot or acoustic measurement. Cold preparation still takes time;
+the fix moves it before readiness and prevents a transient startup 404 from
+silently skipping warmup. Human reboot/voice acceptance remains pending.
+
+The earlier rc4 image passed a real-model warm-first probe: warmup returned
 ready in 2.941 s and the first visible response delta arrived in 2.061 s. OVMS
 was already resident and its prefix was previously exercised; these are single
 observations, not boot-cold or acoustic timings. The probe uses the accepted
