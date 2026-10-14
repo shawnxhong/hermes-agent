@@ -6,32 +6,29 @@ description: Queue requested details for the configured default email recipients
 # Email requested details
 
 This skill is already loaded; do not list skills or read it again.
-When the user asks for email, reuse the relevant conversation and prepare the
-requested details. Do not narrate the preparation or repeat the full email body.
+Reuse the relevant facts or prepared plan from the conversation. Do not narrate
+preparation, format repair or delivery. Do not read the email body aloud.
+For a newly composed plan, use a useful compact draft (about 150-220 words unless
+the user explicitly asks for more). Include the requested transport, itinerary
+and practical notes; avoid introductions, repeated facts and unnecessary detail.
+Do not shorten or rewrite a supplied document just to satisfy this default.
 
-Call `email_send` once, with only these two fields. `body` is an array of
-Markdown lines, NOT one long string:
+Call `email_send` ONCE with subject and body, an array of Markdown text blocks:
 ```json
-{"subject":"London travel guide","body":["# London travel guide","","## Transport","- First option","- Second option","","## Notes","A short paragraph."]}
+{"subject":"Travel plan","body":["# Travel plan","## Transport\n- Train option\n- Flight option","## Itinerary\n| Day | Plan |\n| --- | --- |\n| 1 | Visit |"]}
 ```
-Use a short, single-line subject. Replace the example with the requested content.
-Each heading, paragraph, list item, table row and code line must be its own array
-item. Insert an empty string between paragraphs or sections. Do not concatenate
-headings and lists into one item. The service inserts real newlines and renders
-HTML plus readable plain text; do not supply HTML or escaped newline sequences.
-For an existing Markdown document, read it and split its contents at actual line
-breaks into the array, preserving empty lines, indentation and code fences.
-Recipients are configured by the
-service; never ask for an address or use another messaging tool.
+Real newlines inside an item are valid. A whole already prepared Markdown document
+can be one array item; do not split and regenerate it line by line. Separate
+items create newlines; empty items are optional blank lines. No HTML or double
+escaping. Recipients are configured by the service; never ask for an address.
 
-After `queued`, say briefly: "I've queued the details for email."
-After `duplicate`, no new email was added; do not submit again.
-After `rejected` or `unconfirmed`, report the result briefly; do not retry.
-Do not wait for delivery, poll status, claim the email arrived, or promise when it will arrive.
-
-Only send when the user explicitly asks to send email. Requests for details,
-full plans or more information are answered in this chat and do not authorize
+`queued` or `duplicate` means the request is already accepted: STOP calling tools
+and give one final short acknowledgement, "I've queued the details for email."
+Never rewrite the body or submit another call after acceptance. On `rejected` or
+`unconfirmed`, state the result briefly and stop; do not retry or repair in a loop.
+The SMTP worker sends and retries in the background. Do not wait for delivery,
+poll status or claim arrival. Only send when the user explicitly asks for email.
+Requests for details or full plans are answered in this chat and do not authorize
 email, including travel and flight requests. Do not include unrelated content,
 secrets or tool logs.
-This tool only supports default recipients; explain that limitation if the
-user explicitly requests a different address, and do not send to defaults instead.
+Alternate recipients are unsupported; explain instead of sending to defaults.

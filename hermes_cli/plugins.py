@@ -168,6 +168,10 @@ VALID_HOOKS: Set[str] = {
     "run_turn_workflow",
     "pre_tool_call",
     "post_tool_call",
+    # Trusted plugin policy after a durably recorded tool batch. Return
+    # {final_response: str} to finish via the normal turn finalizer without
+    # another inference call; None leaves the native loop unchanged.
+    "finish_tool_turn",
     "transform_terminal_output",
     "transform_tool_result",
     # Transform LLM output before it's returned to the user.
@@ -431,6 +435,7 @@ SHELL_UNSUPPORTED_HOOKS: Set[str] = {
 # Bounded hooks: timeout is fail-open (abandon/skip, agent continues).
 _HOOK_TIMEOUT_BOUNDED_HOOKS: Set[str] = {
     "post_tool_call",
+    "finish_tool_turn",
     "transform_terminal_output",
     "transform_tool_result",
     "transform_llm_output",

@@ -160,22 +160,22 @@ def render_email(body):
 
 
 def normalize_email_body(value):
-    """Convert explicit model-produced Markdown lines to a bounded text body.
+    """Convert Markdown blocks (or legacy strings) to a bounded text body.
 
     Legacy callers may still supply a string. No escape decoding, sentence
-    guessing, or model rewrite is performed. Empty array items are blank lines.
+    guessing, or model rewrite is performed. Keep real newlines inside blocks;
+    empty array items still represent blank lines.
     """
     if isinstance(value, list):
         if not 1 <= len(value) <= 4096 or not all(
-            isinstance(line, str) and '\r' not in line and '\n' not in line
-            for line in value
+            isinstance(block, str) for block in value
         ):
-            raise ValueError('Provide one Markdown line per array item; use empty items for blank lines.')
+            raise ValueError('Provide an array of Markdown text blocks.')
         body = '\n'.join(value)
     elif isinstance(value, str):
         body = value
     else:
-        raise ValueError('Body must be a Markdown line array.')
+        raise ValueError('Body must be Markdown text or an array of Markdown blocks.')
     if not body.strip() or len(body) > 65536:
         raise ValueError('Body must contain 1 to 65536 characters including line breaks.')
     return body

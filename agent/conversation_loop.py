@@ -8254,6 +8254,7 @@ def run_conversation(
                     except Exception:
                         pass
 
+                _tool_result_start = len(messages)
                 agent._execute_tool_calls(assistant_message, messages, effective_task_id, api_call_count)
 
                 if getattr(agent, "_incremental_persistence_failed", False):
@@ -8287,6 +8288,26 @@ def run_conversation(
                             except Exception:
                                 pass
                     break
+
+                # A trusted plugin can complete its terminal tool operation
+                # without asking the model to generate another tool call.
+                # Persistence and guardrails above always take precedence.
+                from hermes_cli.lifecycle import has_hook as _has_finish_hook
+                if not agent._interrupt_requested and _has_finish_hook('finish_tool_turn'):
+                    from hermes_cli.lifecycle import invoke_hook as _finish_tool_hook
+                    _finishes = _finish_tool_hook(
+                        'finish_tool_turn', session_id=agent.session_id,
+                        tool_results=[dict(m) for m in messages[_tool_result_start:]
+                                      if isinstance(m, dict) and m.get('role') == 'tool'],
+                    )
+                    _finish = next((r.get('final_response') for r in _finishes
+                                    if isinstance(r, dict)
+                                    and isinstance(r.get('final_response'), str)
+                                    and r['final_response'].strip()), None)
+                    if _finish is not None:
+                        final_response = _finish
+                        _turn_exit_reason = 'plugin_tool_completion'
+                        break
 
                 # Reset per-turn retry counters after successful tool
                 # execution so a single truncation doesn't poison the

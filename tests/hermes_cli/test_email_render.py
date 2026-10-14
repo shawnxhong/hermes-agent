@@ -329,6 +329,45 @@ def test_real_smtp_rejection_then_retry_success(retry_queue):
             thread.join(timeout=5)
 
 
+def test_enqueue_ack_does_not_wait_for_smtp(retry_queue):
+    queue, store, _ = retry_queue
+    entered = threading.Event()
+    release = threading.Event()
+    stop = threading.Event()
+    def slow_sender(*args):
+        entered.set()
+        assert release.wait(5), 'test must release simulated SMTP'
+        return 'sent', None, False
+    def worker():
+        while not stop.is_set():
+            if not store.drain_one(slow_sender):
+                stop.wait(0.01)
+    from contextlib import ExitStack
+    from tempfile import TemporaryDirectory
+    with ExitStack() as stack:
+        sock = Path(stack.enter_context(TemporaryDirectory(prefix='email-ack-'))) / 's'
+        server = stack.enter_context(queue.Server(sock, store, lambda: ['reader@example.invalid']))
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        worker_thread = threading.Thread(target=worker, daemon=True)
+        server_thread.start(); worker_thread.start()
+        try:
+            with socket.socket(socket.AF_UNIX) as client:
+                client.settimeout(2)
+                client.connect(str(sock))
+                request = {'scope':['p','s','async'], 'subject':'test', 'body':'# Plan\n- Train'}
+                client.sendall((json.dumps(request)+'\n').encode())
+                response = json.loads(client.makefile('rb').readline())
+            assert response['status'] == 'queued'
+            assert entered.wait(2)
+            assert not release.is_set()  # Ack was received with SMTP still blocked.
+        finally:
+            release.set(); stop.set()
+            worker_thread.join(timeout=5)
+            server.shutdown(); server_thread.join(timeout=5)
+        assert not worker_thread.is_alive()
+    assert store.status()[0]['status'] == 'sent'
+
+
 def test_legacy_schema_upgrade_preserves_terminal_jobs(retry_queue, tmp_path):
     import sqlite3
     queue, _, clock = retry_queue
@@ -355,11 +394,21 @@ def test_legacy_schema_upgrade_preserves_terminal_jobs(retry_queue, tmp_path):
         assert [r[0] for r in db.execute('SELECT status FROM jobs ORDER BY id')] == ['sent', 'failed', 'unknown', 'sent']
 
 
-@pytest.mark.parametrize('value', [None, {}, [], [1], [''], [' ', ''], ['line\nbreak'], ['x\ry'], ['x'] * 4097, ['x' * 65536, 'y']])
+@pytest.mark.parametrize('value', [None, {}, [], [1], [''], [' ', ''], ['x'] * 4097, ['x' * 65536, 'y']])
 def test_line_array_rejects_invalid_content(value):
     from hermes_cli.email_render import normalize_email_body
     with pytest.raises(ValueError):
         normalize_email_body(value)
+
+
+def test_multiline_blocks_do_not_require_format_repair():
+    from hermes_cli.email_render import normalize_email_body
+    body = '# Travel plan\n\n## Transport\n- Train\n- Flight\n\n## Itinerary\n| Day | Plan |\n| --- | --- |\n| 1 | Museum |'
+    assert normalize_email_body([body]) == body
+    assert normalize_email_body(['first\r\nsecond', '', 'last']) == 'first\r\nsecond\n\nlast'
+    plain, html = render_email(normalize_email_body([body]))
+    assert '<h2' in html and '<ul' in html and '<table' in html
+    assert 'Train' in plain
 
 
 def test_line_array_preserves_structure_and_legacy_strings():
@@ -396,10 +445,13 @@ def test_lines_wire(tmp_path, monkeypatch, role, request):
         closed=False, turn_id='one-turn', lease=SimpleNamespace(
             profile_key='test-profile', session_id='test-session', released=False)))
     store = queue.Store(tmp_path / 'mail-queue')
-    lines = ['# Synthetic travel plan', '', '## Transport', '- Train option', '- Flight option', '',
+    lines = ['# Synthetic travel plan', '', '## Transport\n- Train option\n- Flight option', '',
              '## Highlights', '- Museum', '- Park', '', '| Day | Plan |', '| --- | --- |', '| 1 | Visit |']
     args = {'subject': 'Synthetic trip', 'body': lines}
-    assert plugin.SCHEMA['parameters']['properties']['body']['type'] == 'array'
+    import jsonschema
+    jsonschema.validate(args, plugin.SCHEMA['parameters'])
+    # Model-provided multiline blocks must pass registration validation too.
+    jsonschema.validate({'subject':'Ready plan', 'body':['# Plan\n\n- One\n- Two']}, plugin.SCHEMA['parameters'])
     with queue.Server(tmp_path / 'mail-queue/service.sock', store, lambda: ['reader@example.invalid']) as server:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -415,6 +467,23 @@ def test_lines_wire(tmp_path, monkeypatch, role, request):
     with sqlite3.connect(store.path) as db:
         body = db.execute('select body from jobs').fetchone()[0]
     assert body == normalize_email_body(lines)
-    assert body.count('\n') == len(lines) - 1
+    assert body.count('\n') == sum(block.count('\n') for block in lines) + len(lines) - 1
     _, html = render_email(body)
     assert '<h2' in html and '<ul' in html and '<table' in html
+
+
+@pytest.mark.parametrize('role', ['cli', 'gateway', 'services'])
+def test_only_accepted_email_can_finish_turn(role):
+    path = Path(__file__).resolve().parents[2] / f'demo-runtime/plugins/{role}/email-queue/__init__.py'
+    spec = importlib.util.spec_from_file_location('finish_' + role, path)
+    plugin = importlib.util.module_from_spec(spec);spec.loader.exec_module(plugin)
+    def result(status, name='email_send'):
+        return {'role':'tool','name':name,'content':json.dumps({'status':status,'job_id':'test-job'})}
+    for status in ('queued','duplicate'):
+        assert plugin.finish_email_turn(tool_results=[result(status)])['final_response'] == "I've queued the details for email."
+    for status in ('rejected','unconfirmed','sent','unknown'):
+        assert plugin.finish_email_turn(tool_results=[result(status)]) is None
+    assert plugin.finish_email_turn(tool_results=[result('queued','other_tool')]) is None
+    assert plugin.finish_email_turn(tool_results=[result('queued'),result('queued')]) is None
+    assert plugin.finish_email_turn(tool_results=[{'name':'email_send','content':'malformed'}]) is None
+    assert plugin.finish_email_turn(tool_results=[{'name':'email_send','content':'{"status":"queued"}'}]) is None

@@ -7,12 +7,12 @@ from hermes_cli.email_render import normalize_email_body
 
 SCHEMA = {
     'name': 'email_send',
-    'description': 'Queue requested details for the configured default email recipients only; alternate addresses are unsupported. Supply only subject and body. Call once; queued is not delivered. Do not poll or retry.',
+    'description': 'Queue requested details for the configured default email recipients only; alternate addresses are unsupported. Supply subject and Markdown body blocks. Reuse the prepared text; do not rewrite it to fix line layout. For a new plan, prefer a compact useful draft unless a longer one is explicitly requested. Call once, then stop; queued is not delivered.',
     'parameters': {'type': 'object', 'properties': {
         'subject': {'type': 'string', 'minLength': 1, 'maxLength': 200},
         'body': {'type': 'array', 'minItems': 1, 'maxItems': 4096,
-                 'items': {'type': 'string', 'maxLength': 65536, 'pattern': r'^[^\r\n]*$'},
-                 'description': 'Markdown lines, one line per array item. Each heading, paragraph, list item, table row and code line must be a separate item. An empty string creates a blank line. Do not concatenate document sections into one item. The service joins items with real newlines; no HTML or escaped newlines needed.'}},
+                 'items': {'type': 'string', 'maxLength': 65536},
+                 'description': 'Markdown text blocks. Existing text with real newlines can be a single item; multiline paragraphs, lists, tables and code are valid. Items are joined with newlines; empty items add blank lines. Keep a newly composed draft concise (about 150-220 words unless asked for more). No HTML, line-by-line conversion or format-repair narration.'}},
         'required': ['subject', 'body'], 'additionalProperties': False},
 }
 
@@ -32,7 +32,7 @@ def submit(args, **kwargs):
             or not isinstance(args['subject'], str) or not 0 < len(args['subject'].strip())
             or len(args['subject']) > 200
             or '\n' in args['subject'] or '\r' in args['subject']):
-        return json.dumps({'status': 'rejected', 'error': 'Provide a nonempty single-line subject and Markdown line array. Nothing queued.'})
+        return json.dumps({'status': 'rejected', 'error': 'Provide a nonempty single-line subject and Markdown body blocks. Nothing queued.'})
     try:
         body = normalize_email_body(args['body'])
     except ValueError as error:
@@ -59,6 +59,22 @@ def submit(args, **kwargs):
                            'error': 'Local queue confirmation unavailable. Do not claim delivery or retry.'})
 
 
+def finish_email_turn(*, tool_results, **kwargs):
+    # Only a lone successful email operation is terminal. Mixed batches and
+    # rejected/unconfirmed requests stay in the native loop for normal handling.
+    if len(tool_results) != 1 or tool_results[0].get('name') != 'email_send':
+        return None
+    try:
+        result = json.loads(tool_results[0].get('content', ''))
+    except (ValueError, TypeError):
+        return None
+    if (isinstance(result, dict) and result.get('status') in {'queued', 'duplicate'}
+            and isinstance(result.get('job_id'), str) and result['job_id']):
+        return {'final_response': "I've queued the details for email."}
+    return None
+
+
 def register(ctx):
     ctx.register_tool(name='email_send', toolset='email_queue', schema=SCHEMA,
                       handler=submit, emoji='📨')
+    ctx.register_hook('finish_tool_turn', finish_email_turn)

@@ -74,13 +74,13 @@ class Store:
             old = db.execute('SELECT id,status FROM jobs WHERE scope=?',(key,)).fetchone()
             if old:
                 return {'status':'duplicate','job_id':old['id'],'job_status':old['status'],
-                        'instruction':'No new email queued. Do not retry.'}
+                        'instruction':'Already accepted for this turn. Stop calling tools and give one final brief queued acknowledgement. Do not rewrite or resubmit.'}
             job = uuid.uuid4().hex
             db.execute('INSERT INTO jobs VALUES (?,?,?,?,?,?)',(job,key,subject,body,'queued',time.time()))
             for address in addresses:
                 db.execute('INSERT INTO recipients (job,address,status,message_id,error) VALUES (?,?,?,?,?)',
                            (job,address,'queued',f'<{uuid.uuid4().hex}@hermes.local>',None))
-        return {'status':'queued','job_id':job,'instruction':'Say only that the email is queued. Delivery and timing are not guaranteed. Do not poll or retry.'}
+        return {'status':'queued','job_id':job,'instruction':'Accepted. Stop calling tools and give one final brief queued acknowledgement. SMTP delivery runs in the background; do not rewrite, resubmit, poll or claim delivery.'}
 
     @staticmethod
     def finish_job(db, job_id):

@@ -582,8 +582,8 @@
     },
     "agent/conversation_loop.py": {
       "executable": false,
-      "sha256": "54248f82dbd641e47f079f7a5a25d656db4af597c664c19507595ce6dbe84f6b",
-      "size": 528878
+      "sha256": "a68b4147482425265a0ae1c8587661c0c9911acc819f5960f79eb8e16ce96481",
+      "size": 530220
     },
     "agent/copilot_acp_client.py": {
       "executable": false,
@@ -19972,8 +19972,8 @@
     },
     "hermes_cli/email_render.py": {
       "executable": false,
-      "sha256": "ef42e39d3dee1a2e7566e8f2c88b81c613bad611eefb6c844d3f7489601a41b8",
-      "size": 6882
+      "sha256": "b95f632b4b09e4eea640de05e08b79a9d8e31213bc420c6749ee4b864615033f",
+      "size": 6867
     },
     "hermes_cli/email_transport.py": {
       "executable": false,
@@ -20487,8 +20487,8 @@
     },
     "hermes_cli/plugins.py": {
       "executable": false,
-      "sha256": "8d4ded2a2b455d93c3384a3b48ea85cf1707b3660ec4175a284629d019cb1436",
-      "size": 307799
+      "sha256": "8b8d0fa0dea6c68f13e43d6623c5e5b39f7b555971119a1a88151af079716ec9",
+      "size": 308064
     },
     "hermes_cli/plugins_cmd.py": {
       "executable": false,
@@ -58023,8 +58023,8 @@
         },
         "agent/conversation_loop.py": {
           "executable": false,
-          "sha256": "54248f82dbd641e47f079f7a5a25d656db4af597c664c19507595ce6dbe84f6b",
-          "size": 528878
+          "sha256": "a68b4147482425265a0ae1c8587661c0c9911acc819f5960f79eb8e16ce96481",
+          "size": 530220
         },
         "agent/copilot_acp_client.py": {
           "executable": false,
@@ -77413,8 +77413,8 @@
         },
         "hermes_cli/email_render.py": {
           "executable": false,
-          "sha256": "ef42e39d3dee1a2e7566e8f2c88b81c613bad611eefb6c844d3f7489601a41b8",
-          "size": 6882
+          "sha256": "b95f632b4b09e4eea640de05e08b79a9d8e31213bc420c6749ee4b864615033f",
+          "size": 6867
         },
         "hermes_cli/email_transport.py": {
           "executable": false,
@@ -77928,8 +77928,8 @@
         },
         "hermes_cli/plugins.py": {
           "executable": false,
-          "sha256": "8d4ded2a2b455d93c3384a3b48ea85cf1707b3660ec4175a284629d019cb1436",
-          "size": 307799
+          "sha256": "8b8d0fa0dea6c68f13e43d6623c5e5b39f7b555971119a1a88151af079716ec9",
+          "size": 308064
         },
         "hermes_cli/plugins_cmd.py": {
           "executable": false,
@@ -115487,8 +115487,8 @@
         },
         "agent/conversation_loop.py": {
           "executable": false,
-          "sha256": "54248f82dbd641e47f079f7a5a25d656db4af597c664c19507595ce6dbe84f6b",
-          "size": 528878
+          "sha256": "a68b4147482425265a0ae1c8587661c0c9911acc819f5960f79eb8e16ce96481",
+          "size": 530220
         },
         "agent/copilot_acp_client.py": {
           "executable": false,
@@ -134877,8 +134877,8 @@
         },
         "hermes_cli/email_render.py": {
           "executable": false,
-          "sha256": "ef42e39d3dee1a2e7566e8f2c88b81c613bad611eefb6c844d3f7489601a41b8",
-          "size": 6882
+          "sha256": "b95f632b4b09e4eea640de05e08b79a9d8e31213bc420c6749ee4b864615033f",
+          "size": 6867
         },
         "hermes_cli/email_transport.py": {
           "executable": false,
@@ -135392,8 +135392,8 @@
         },
         "hermes_cli/plugins.py": {
           "executable": false,
-          "sha256": "8d4ded2a2b455d93c3384a3b48ea85cf1707b3660ec4175a284629d019cb1436",
-          "size": 307799
+          "sha256": "8b8d0fa0dea6c68f13e43d6623c5e5b39f7b555971119a1a88151af079716ec9",
+          "size": 308064
         },
         "hermes_cli/plugins_cmd.py": {
           "executable": false,
@@ -172962,8 +172962,8 @@
         },
         "agent/conversation_loop.py": {
           "executable": false,
-          "sha256": "54248f82dbd641e47f079f7a5a25d656db4af597c664c19507595ce6dbe84f6b",
-          "size": 528878
+          "sha256": "a68b4147482425265a0ae1c8587661c0c9911acc819f5960f79eb8e16ce96481",
+          "size": 530220
         },
         "agent/copilot_acp_client.py": {
           "executable": false,
@@ -192352,8 +192352,8 @@
         },
         "hermes_cli/email_render.py": {
           "executable": false,
-          "sha256": "ef42e39d3dee1a2e7566e8f2c88b81c613bad611eefb6c844d3f7489601a41b8",
-          "size": 6882
+          "sha256": "b95f632b4b09e4eea640de05e08b79a9d8e31213bc420c6749ee4b864615033f",
+          "size": 6867
         },
         "hermes_cli/email_transport.py": {
           "executable": false,
@@ -192867,8 +192867,8 @@
         },
         "hermes_cli/plugins.py": {
           "executable": false,
-          "sha256": "8d4ded2a2b455d93c3384a3b48ea85cf1707b3660ec4175a284629d019cb1436",
-          "size": 307799
+          "sha256": "8b8d0fa0dea6c68f13e43d6623c5e5b39f7b555971119a1a88151af079716ec9",
+          "size": 308064
         },
         "hermes_cli/plugins_cmd.py": {
           "executable": false,
