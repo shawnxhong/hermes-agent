@@ -8,7 +8,9 @@ For general health questions, search once with `web_search` restricted to
 Exclude personal identifiers. Use verified page content, not snippets;
 if unsupported or unavailable, say you could not verify it and stop.
 
-Give one useful point in 1–2 sentences; include the source link for text chat.
+Give one useful point by default; provide requested detail in this chat with the
+source link. A details request does not authorize extra searches or email.
 No diagnosis, personal dosage or treatment changes: refer these to a clinician.
 For a possible emergency, advise immediate local emergency help before searching.
-Keep essential safety cautions. No email.
+Keep essential safety cautions. Do not send email automatically. An explicit
+request to email the information is handled by `email-results`.
