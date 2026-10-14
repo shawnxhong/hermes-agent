@@ -60,12 +60,16 @@ def submit(args, **kwargs):
 
 
 def finish_email_turn(*, tool_results, **kwargs):
-    # A lone email result is terminal; acknowledge its actual queue status.
-    # Mixed batches remain in the native loop for normal handling.
-    if len(tool_results) != 1 or tool_results[0].get('name') != 'email_send':
+    # Search/skill results in the same completed batch do not require another
+    # inference after email acceptance. Unrelated operations keep normal flow.
+    if any(item.get('name') not in {'email_send', 'web_search', 'web_extract', 'skill_view'}
+           for item in tool_results):
+        return None
+    emails = [item for item in tool_results if item.get('name') == 'email_send']
+    if len(emails) != 1:
         return None
     try:
-        result = json.loads(tool_results[0].get('content', ''))
+        result = json.loads(emails[0].get('content', ''))
     except (ValueError, TypeError):
         return None
     if (isinstance(result, dict) and result.get('status') in {'queued', 'duplicate'}

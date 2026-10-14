@@ -76,7 +76,11 @@ class NativeSpeechDelivery(SentenceDelivery):
                 self._offer(final_text, final=True)
                 self.last_finished = spoken_text(final_text)
 
-    def finish(self, text):
+    def finish(self, text, *, terminal=False):
+        if terminal:
+            # A trusted tool acknowledgement is a new utterance, not a replay
+            # of the preceding model request or its partially spoken prefix.
+            return super().finish(text, terminal=True)
         with self.lock:
             if not self.active():
                 return

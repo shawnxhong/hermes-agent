@@ -8,6 +8,7 @@ from email.utils import formatdate
 import fcntl
 import importlib.util
 import json
+import logging
 import os
 from pathlib import Path
 import signal
@@ -18,6 +19,8 @@ import threading
 import time
 import uuid
 
+
+log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 3
 RETRY_DELAYS = (10, 30)  # Seconds after the first and second unsuccessful attempts.
@@ -121,12 +124,17 @@ class Store:
             recipient['attempts'] += 1
             db.execute("UPDATE recipients SET status='sending',attempts=? WHERE job=? AND address=?",
                        (recipient['attempts'], job['id'], recipient['address']))
+        started = time.monotonic()
+        log.info('mail_attempt_started job=%s attempt=%d queue_age_ms=%.0f',
+                 job['id'], recipient['attempts'], (time.time()-job['created'])*1000)
         try:
             state, error, _abort = send(job, recipient)
             if state not in {'sent', 'failed', 'unknown'}:
                 raise ValueError('Invalid sender result')
         except Exception:
             state, error = 'unknown', 'unexpected_sender_failure'
+        log.info('mail_attempt_finished job=%s attempt=%d status=%s elapsed_ms=%.0f error=%s',
+                 job['id'], recipient['attempts'], state, (time.monotonic()-started)*1000, error)
         next_attempt = 0
         if state != 'sent' and recipient['attempts'] < MAX_ATTEMPTS:
             state = 'queued'
@@ -150,6 +158,7 @@ class SMTPSender:
         adapter = self.adapter
         smtp = None
         phase = 'render'
+        started = time.monotonic()
         try:
             msg = EmailMessage(policy=SMTP)
             msg['From'],msg['To'] = adapter._address,recipient['address']
@@ -163,6 +172,8 @@ class SMTPSender:
             smtp.login(adapter._address,adapter._password)
             phase = 'submit'
             refused = smtp.send_message(msg)
+            log.info('mail_smtp_result job=%s accepted=%s elapsed_ms=%.0f',
+                     job.get('id', 'synthetic'), not bool(refused), (time.monotonic()-started)*1000)
             return ('failed','recipient_refused',False) if refused else ('sent',None,False)
         except smtplib.SMTPRecipientsRefused:
             return 'failed','recipient_refused',False
@@ -232,6 +243,7 @@ def main():
     parser.add_argument('action',choices=['serve','status'])
     parser.add_argument('--home',type=Path,required=True)
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     os.umask(0o077)
     os.environ['HERMES_HOME'] = str(args.home)
     if args.action == 'status':

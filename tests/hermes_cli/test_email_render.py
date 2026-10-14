@@ -487,6 +487,10 @@ def test_email_completion_reports_actual_status(role):
         assert 'could not' in outcome['final_response']
     for status in ('sent','unknown'):
         assert plugin.finish_email_turn(tool_results=[result(status)]) is None
+    for name in ('web_search','web_extract','skill_view'):
+        mixed = plugin.finish_email_turn(tool_results=[result('queued',name), result('queued')])
+        assert mixed['speak_final_response'] is True
+    assert plugin.finish_email_turn(tool_results=[result('queued','other_tool'),result('queued')]) is None
     assert plugin.finish_email_turn(tool_results=[result('queued','other_tool')]) is None
     assert plugin.finish_email_turn(tool_results=[result('queued'),result('queued')]) is None
     assert plugin.finish_email_turn(tool_results=[{'name':'email_send','content':'malformed'}]) is None
