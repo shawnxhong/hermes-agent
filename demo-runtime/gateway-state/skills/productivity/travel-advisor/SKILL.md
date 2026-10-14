@@ -26,5 +26,10 @@ and uncertainties. Lists and tables are welcome when helpful. A details request
 does not increase the search budget or authorize email. Only when the user
 explicitly asks to send email, use `email-results`.
 
+Keep detailed plans compact: a day-by-day table with 1–2 activities and one
+practical note per day is enough. State verification limits before the plan.
+Distinguish suggested activities from verified facts; do not add unverified
+opening hours, reopening status, prices or booking claims to fill out the plan.
+
 For flight information, use `flight-search`. Do not apply this travel procedure
 to unrelated questions.
