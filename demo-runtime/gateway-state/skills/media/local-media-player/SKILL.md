@@ -17,7 +17,11 @@ match, say nothing was started. Do not guess or retry repeatedly.
 For "stop music", "close the video", "stop playback", or a contextual "stop",
 call `local_media(action="stop")` once, without a filename or a prior list/status
 call. It stops all current demo media and current/queued TTS on this device.
-Already stopped is success. On failure report it briefly; do not retry or use
+Call stop for EVERY new stop request, even if you previously said "already
+stopped". Voice and IM share this device; another channel may have restarted
+playback. Never infer current playback from conversation history. The tool
+repeats cleanup even when already stopped and cancels older queued playback.
+Only report this invocation's result. On failure report it briefly; do not retry or use
 terminal/computer tools. A new short confirmation is allowed after stopping.
 Use `action=status` only if the
 user asks whether it is running. Never kill unrelated applications.
