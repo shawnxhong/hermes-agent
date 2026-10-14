@@ -22,26 +22,34 @@ sys.path.insert(0, str(ROOT))
 
 def integration():
     requests = []
+    readiness_checks = 0
     model = "qwen3.6-35b-a3b"
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
 
-        def reply(self, value):
+        def reply(self, value, status=200):
             body = json.dumps(value).encode()
-            self.send_response(200)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
 
         def do_GET(self):
+            nonlocal readiness_checks
+            if self.path == f"/v2/models/{model}/ready":
+                readiness_checks += 1
+                # Reproduce reboot: port/catalog reachable before graph ready.
+                self.reply({}, (404, 503)[readiness_checks - 1] if readiness_checks <= 2 else 200)
+                return
             self.reply({"object": "list", "data": [
                 {"id": model, "object": "model", "created": 0,
                  "owned_by": "local", "context_length": 65536}]})
 
         def do_POST(self):
+            assert readiness_checks >= 3, "inference sent before model readiness"
             requests.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
             if requests[-1].get("stream"):
                 self.send_response(200)
@@ -92,6 +100,7 @@ def integration():
             cli._console_print = lambda *args: None
             result = warmup_for_cli(cli, config)
             assert result["status"] == "ready", result
+            assert result["readiness_checks"] == 3, result
             assert len(requests) == 1, "unexpected warmup request count"
             first = requests[0]
             assert cli.conversation_history == [], "warmup polluted history"

@@ -30,7 +30,12 @@ voice:
 
 Defaults apply to existing configurations; no production YAML migration is
 required. Disable with `enabled: false`. Timeout must be positive and at most
-300 seconds. Preparation time is subtracted from the inference timeout. Agent
+300 seconds. Before inference, poll the model-specific KServe endpoint
+`/v2/models/<encoded model name>/ready`. OVMS starts its HTTP listener before
+registering/loading the model: connection failures, 404 and 503 are retried
+within the same budget. Other HTTP errors fail open immediately. Show a waiting
+message during loading and confirm readiness only after warmup inference succeeds.
+Preparation and readiness time are subtracted from the inference timeout. Agent
 construction itself uses the existing initialization timeouts: this setting is
 not a hard deadline on every import/provider/tool discovery step. The SDK
 request has retries disabled and owns a separate HTTP client, so cleanup does

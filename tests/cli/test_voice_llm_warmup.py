@@ -3,6 +3,7 @@ from copy import deepcopy
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
+from urllib.error import HTTPError, URLError
 
 from hermes_cli import voice_llm_warmup as warm
 
@@ -38,8 +39,11 @@ class WarmupTests(unittest.TestCase):
         self.prepare_mock = self.prepare.start()
         self.factory = patch.object(warm, "_make_client", return_value=self.request_client)
         self.factory_mock = self.factory.start()
+        self.readiness = patch.object(warm, "_wait_for_model", return_value=1)
+        self.readiness_mock = self.readiness.start()
         self.addCleanup(self.prepare.stop)
         self.addCleanup(self.factory.stop)
+        self.addCleanup(self.readiness.stop)
 
     def run_warmup(self, **settings):
         return warm.warmup_for_cli(self.cli, {"voice": {"llm_warmup": settings}})
@@ -131,7 +135,7 @@ class WarmupTests(unittest.TestCase):
         self.cli._init_agent.assert_not_called()
 
     def test_timeout_is_remaining_budget(self):
-        with patch.object(warm.time, "monotonic", side_effect=[0, 12, 13]):
+        with patch.object(warm.time, "monotonic", side_effect=[0, 12, 12, 13]):
             result = self.run_warmup(timeout_seconds=30)
         self.assertEqual(result["elapsed_seconds"], 13)
         self.assertEqual(self.factory_mock.call_args.args[1], 18)
@@ -170,6 +174,102 @@ class WarmupTests(unittest.TestCase):
         sent = self.request_client.chat.completions.create.call_args.kwargs
         self.assertNotIn("max_tokens", sent)
         self.assertEqual(sent["max_completion_tokens"], 1)
+
+    def test_model_readiness_failure_never_sends_inference(self):
+        self.readiness_mock.side_effect = TimeoutError()
+        self.assertEqual(self.run_warmup()["status"], "failed")
+        self.factory_mock.assert_not_called()
+        self.request_client.chat.completions.create.assert_not_called()
+
+    def test_readiness_time_is_subtracted_from_inference_budget(self):
+        with patch.object(warm.time, "monotonic", side_effect=[0, 2, 12, 13]):
+            self.assertEqual(self.run_warmup(timeout_seconds=30)["status"], "ready")
+        self.assertEqual(self.factory_mock.call_args.args[1], 18)
+
+    def test_readiness_exhaustion_does_not_start_inference(self):
+        with patch.object(warm.time, "monotonic", side_effect=[0, 2, 31, 31]):
+            self.assertEqual(self.run_warmup(timeout_seconds=30)["status"], "failed")
+        self.factory_mock.assert_not_called()
+
+    def test_interrupt_during_readiness_cancels_startup(self):
+        self.readiness_mock.side_effect = KeyboardInterrupt()
+        with self.assertRaises(KeyboardInterrupt):
+            self.run_warmup()
+        self.assertEqual(self.cli._llm_warmup_result["status"], "cancelled")
+        self.factory_mock.assert_not_called()
+
+
+class ModelReadinessTests(unittest.TestCase):
+    def setUp(self):
+        self.agent = SimpleNamespace(
+            base_url="http://127.0.0.1:8000/v3", model="local/model",
+            client=SimpleNamespace(default_headers={"Authorization": "Bearer fixture"}),
+        )
+        self.now = 0.0
+        self.wait = Mock()
+        self.clock = patch.object(warm.time, "monotonic", side_effect=lambda: self.now)
+        self.sleep = patch.object(warm.time, "sleep", side_effect=self.advance)
+        self.network = patch.object(warm, "urlopen")
+        self.clock.start()
+        self.sleep_mock = self.sleep.start()
+        self.urlopen = self.network.start()
+        self.addCleanup(self.clock.stop)
+        self.addCleanup(self.sleep.stop)
+        self.addCleanup(self.network.stop)
+
+    def advance(self, seconds):
+        self.now += seconds
+
+    def ready(self):
+        response = Mock()
+        response.__enter__ = Mock(return_value=SimpleNamespace(status=200))
+        response.__exit__ = Mock(return_value=False)
+        return response
+
+    def check(self, deadline=3):
+        return warm._wait_for_model(self.agent, deadline, on_wait=self.wait)
+
+    def test_ready_model_uses_kserve_url_and_no_sleep(self):
+        self.urlopen.return_value = self.ready()
+        self.assertEqual(self.check(), 1)
+        request = self.urlopen.call_args.args[0]
+        self.assertEqual(request.full_url, "http://127.0.0.1:8000/v2/models/local%2Fmodel/ready")
+        self.assertEqual(request.get_header("Authorization"), "Bearer fixture")
+        self.assertLessEqual(self.urlopen.call_args.kwargs["timeout"], 2)
+        self.wait.assert_not_called()
+        self.sleep_mock.assert_not_called()
+
+    def test_http_listener_up_before_model_registration(self):
+        self.urlopen.side_effect = [HTTPError("fixture", 404, "loading", None, None),
+                                    HTTPError("fixture", 503, "loading", None, None), self.ready()]
+        self.assertEqual(self.check(), 3)
+        self.wait.assert_called_once()
+        self.assertEqual(self.now, 1)
+
+    def test_connection_refused_before_http_listener_starts(self):
+        self.urlopen.side_effect = [URLError("refused"), self.ready()]
+        self.assertEqual(self.check(), 2)
+        self.wait.assert_called_once()
+
+    def test_not_ready_until_deadline_raises_timeout(self):
+        self.urlopen.side_effect = HTTPError("fixture", 503, "loading", None, None)
+        with self.assertRaises(TimeoutError):
+            self.check(deadline=1.25)
+        self.assertEqual(self.now, 1.25)
+        self.assertEqual(self.urlopen.call_count, 3)
+        self.assertEqual(self.sleep_mock.call_args.args[0], 0.25)
+
+    def test_non_startup_http_failure_is_not_retried(self):
+        self.urlopen.side_effect = HTTPError("fixture", 401, "unauthorized", None, None)
+        with self.assertRaises(HTTPError):
+            self.check()
+        self.urlopen.assert_called_once()
+        self.sleep_mock.assert_not_called()
+
+    def test_expired_budget_never_opens_socket(self):
+        with self.assertRaises(TimeoutError):
+            self.check(deadline=0)
+        self.urlopen.assert_not_called()
 
 
 if __name__ == "__main__":

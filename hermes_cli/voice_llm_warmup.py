@@ -9,7 +9,9 @@ from copy import deepcopy
 import logging
 import math
 import time
-from urllib.parse import urlsplit
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,43 @@ def _make_client(agent, timeout):
         timeout=timeout,
         max_retries=0,
     )
+
+
+def _wait_for_model(agent, deadline, *, on_wait):
+    """Wait for the model, not just OVMS's earlier-opening HTTP listener.
+
+    OVMS exposes KServe readiness for its generated VLM_CB graph at /v2.
+    Connection failures, 404 (graph not registered yet), and 503 (loading) are
+    expected during startup. Other HTTP failures remain actionable failures.
+    Every probe and sleep consumes the same budget as the warmup inference.
+    """
+    base = urlsplit(agent.base_url)
+    path = "/v2/models/" + quote(agent.model, safe="") + "/ready"
+    url = urlunsplit((base.scheme, base.netloc, path, "", ""))
+    headers = {k: v for k, v in agent.client.default_headers.items() if isinstance(v, str)}
+    request = Request(url, headers=headers, method="GET")
+    attempts = 0
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Local model did not become ready within the warmup budget")
+        attempts += 1
+        try:
+            with urlopen(request, timeout=min(remaining, 2.0)) as response:
+                if response.status == 200:
+                    return attempts
+        except HTTPError as exc:
+            if exc.code not in (404, 503):
+                raise
+            exc.close()
+        except (URLError, TimeoutError, ConnectionError):
+            pass
+        if attempts == 1:
+            on_wait()
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Local model did not become ready within the warmup budget")
+        time.sleep(min(0.5, remaining))
 
 
 def warmup_for_cli(cli, config) -> dict:
@@ -112,11 +151,20 @@ def warmup_for_cli(cli, config) -> dict:
         remaining = timeout - (time.monotonic() - started)
         if remaining <= 0:
             raise TimeoutError("warmup preparation exceeded its time budget")
+        result["readiness_checks"] = _wait_for_model(
+            agent, started + timeout,
+            on_wait=lambda: cli._console_print(
+                "[dim]Waiting for the local model to finish loading…[/]"),
+        )
+        remaining = timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            raise TimeoutError("model readiness exhausted the warmup budget")
         kwargs["timeout"] = remaining
         kwargs["stream"] = False
         client = _make_client(agent, remaining)
         client.chat.completions.create(**kwargs)
         result["status"] = "ready"
+        cli._console_print("[dim]Local assistant warmed and ready.[/]")
     except KeyboardInterrupt:
         result["status"] = "cancelled"
         raise
