@@ -179,6 +179,11 @@ TOOLSETS = {
         "includes": []
     },
     
+    "skills_readonly": {
+        "description": "Discover and read skill documents without skill management tools",
+        "tools": ["skills_list", "skill_view"],
+        "includes": []
+    },
     "browser": {
         "description": "Browser automation for web interaction (navigate, click, type, scroll, iframes, hold-click) with web search for finding URLs",
         "tools": [

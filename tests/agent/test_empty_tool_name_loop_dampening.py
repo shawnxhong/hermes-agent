@@ -232,6 +232,25 @@ def test_mixed_batch_preserves_tool_call_result_pairing(agent_env):
 
 
 
+def test_readonly_skill_manage_rejected_by_native_loop(agent_env, monkeypatch):
+    agent, handler = agent_env
+    from model_tools import get_tool_definitions
+    agent.tools = get_tool_definitions(enabled_toolsets=['skills_readonly'], quiet_mode=True)
+    agent.valid_tool_names = {t['function']['name'] for t in agent.tools}
+    agent.enabled_toolsets = ['skills_readonly']
+    def forbidden(*args, **kwargs):
+        pytest.fail('skill_manage reached execution')
+    monkeypatch.setattr('tools.skill_manager_tool.skill_manage', forbidden)
+    handler.response_queue.extend([
+        _tc_resp('skill_manage', '{"action":"create","name":"forbidden"}'),
+        _text_resp('I cannot manage skills in this session.'),
+    ])
+    result = agent.run_conversation('create a skill', conversation_history=[], task_id='readonly')
+    assert any(m.get('role') == 'tool' and 'skill_manage' in str(m.get('content'))
+               for m in result.get('messages', []))
+    assert 'cannot manage' in str(result.get('final_response', '')).lower()
+
+
 def test_invalid_tool_exhaustion_closes_tool_tail(agent_env):
     """Invalid-tool 3-strike partial must not leave a durable tool→user tail (#48879 class).
 

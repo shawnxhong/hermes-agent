@@ -7,7 +7,7 @@ description: Queue requested details for the configured default email recipients
 
 This skill is already loaded; do not list skills or read it again.
 When the user asks for email, reuse the relevant conversation and prepare the
-requested details. Do not narrate the preparation or read the body aloud.
+requested details. Do not narrate the preparation or repeat the full email body.
 
 Call `email_send` once, with only these two fields:
 ```json
@@ -22,7 +22,9 @@ After `duplicate`, no new email was added; do not submit again.
 After `rejected` or `unconfirmed`, report the result briefly; do not retry.
 Do not wait for delivery, poll status, claim the email arrived, or promise when it will arrive.
 
-Only send when requested, including a details request authorized by the active
-travel or flight skill. Do not include unrelated content, secrets or tool logs.
+Only send when the user explicitly asks to send email. Requests for details,
+full plans or more information are answered in this chat and do not authorize
+email, including travel and flight requests. Do not include unrelated content,
+secrets or tool logs.
 This tool only supports default recipients; explain that limitation if the
 user explicitly requests a different address, and do not send to defaults instead.
