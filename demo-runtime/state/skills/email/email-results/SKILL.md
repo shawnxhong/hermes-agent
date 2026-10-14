@@ -9,12 +9,19 @@ This skill is already loaded; do not list skills or read it again.
 When the user asks for email, reuse the relevant conversation and prepare the
 requested details. Do not narrate the preparation or read the body aloud.
 
-Call `email_send` once, with only these two fields:
+Call `email_send` once, with only these two fields. `body` is an array of
+Markdown lines, NOT one long string:
 ```json
-{"subject":"London travel guide","body":"The requested details and sources."}
+{"subject":"London travel guide","body":["# London travel guide","","## Transport","- First option","- Second option","","## Notes","A short paragraph."]}
 ```
-Use a short, single-line subject and a nonempty body. Replace both example
-values with the user's requested content. Recipients are configured by the
+Use a short, single-line subject. Replace the example with the requested content.
+Each heading, paragraph, list item, table row and code line must be its own array
+item. Insert an empty string between paragraphs or sections. Do not concatenate
+headings and lists into one item. The service inserts real newlines and renders
+HTML plus readable plain text; do not supply HTML or escaped newline sequences.
+For an existing Markdown document, read it and split its contents at actual line
+breaks into the array, preserving empty lines, indentation and code fences.
+Recipients are configured by the
 service; never ask for an address or use another messaging tool.
 
 After `queued`, say briefly: "I've queued the details for email."

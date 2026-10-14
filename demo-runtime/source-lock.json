@@ -19970,6 +19970,11 @@
       "sha256": "08660f2ac0cdbb97b7277df1062869527b99d8573a6c21ea120c444fe7332c6c",
       "size": 16626
     },
+    "hermes_cli/email_render.py": {
+      "executable": false,
+      "sha256": "ef42e39d3dee1a2e7566e8f2c88b81c613bad611eefb6c844d3f7489601a41b8",
+      "size": 6882
+    },
     "hermes_cli/email_transport.py": {
       "executable": false,
       "sha256": "92ac47e3b9b1faadbe0e58b7879b13c08636270261e2819983dd4af1eb72467d",
@@ -77405,6 +77410,11 @@
           "executable": false,
           "sha256": "08660f2ac0cdbb97b7277df1062869527b99d8573a6c21ea120c444fe7332c6c",
           "size": 16626
+        },
+        "hermes_cli/email_render.py": {
+          "executable": false,
+          "sha256": "ef42e39d3dee1a2e7566e8f2c88b81c613bad611eefb6c844d3f7489601a41b8",
+          "size": 6882
         },
         "hermes_cli/email_transport.py": {
           "executable": false,
@@ -134864,6 +134874,11 @@
           "executable": false,
           "sha256": "08660f2ac0cdbb97b7277df1062869527b99d8573a6c21ea120c444fe7332c6c",
           "size": 16626
+        },
+        "hermes_cli/email_render.py": {
+          "executable": false,
+          "sha256": "ef42e39d3dee1a2e7566e8f2c88b81c613bad611eefb6c844d3f7489601a41b8",
+          "size": 6882
         },
         "hermes_cli/email_transport.py": {
           "executable": false,
@@ -192334,6 +192349,11 @@
           "executable": false,
           "sha256": "08660f2ac0cdbb97b7277df1062869527b99d8573a6c21ea120c444fe7332c6c",
           "size": 16626
+        },
+        "hermes_cli/email_render.py": {
+          "executable": false,
+          "sha256": "ef42e39d3dee1a2e7566e8f2c88b81c613bad611eefb6c844d3f7489601a41b8",
+          "size": 6882
         },
         "hermes_cli/email_transport.py": {
           "executable": false,

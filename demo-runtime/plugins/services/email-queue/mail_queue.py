@@ -1,7 +1,9 @@
-"""Private durable queue; one accepted job per native turn, no delivery retries."""
+"""Private durable queue; one accepted job per native turn, bounded asynchronous delivery retries."""
 import argparse
 from contextlib import closing
 from email.message import EmailMessage
+from email.policy import SMTP
+from hermes_cli.email_render import render_email
 from email.utils import formatdate
 import fcntl
 import importlib.util
@@ -15,6 +17,10 @@ import sqlite3
 import threading
 import time
 import uuid
+
+
+MAX_ATTEMPTS = 3
+RETRY_DELAYS = (10, 30)  # Seconds after the first and second unsuccessful attempts.
 
 
 class Store:
@@ -35,6 +41,13 @@ class Store:
               job TEXT NOT NULL, address TEXT NOT NULL, status TEXT NOT NULL,
               message_id TEXT NOT NULL, error TEXT, PRIMARY KEY(job,address));
             ''')
+            columns = {row['name'] for row in db.execute('PRAGMA table_info(recipients)')}
+            if 'attempts' not in columns:
+                db.execute('ALTER TABLE recipients ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0')
+                # Existing in-flight submissions have already consumed an attempt.
+                db.execute("UPDATE recipients SET attempts=1 WHERE status='sending'")
+            if 'next_attempt' not in columns:
+                db.execute('ALTER TABLE recipients ADD COLUMN next_attempt REAL NOT NULL DEFAULT 0')
 
     def connect(self):
         db = sqlite3.connect(self.path, timeout=0.5)
@@ -65,47 +78,63 @@ class Store:
             job = uuid.uuid4().hex
             db.execute('INSERT INTO jobs VALUES (?,?,?,?,?,?)',(job,key,subject,body,'queued',time.time()))
             for address in addresses:
-                db.execute('INSERT INTO recipients VALUES (?,?,?,?,?)',
+                db.execute('INSERT INTO recipients (job,address,status,message_id,error) VALUES (?,?,?,?,?)',
                            (job,address,'queued',f'<{uuid.uuid4().hex}@hermes.local>',None))
         return {'status':'queued','job_id':job,'instruction':'Say only that the email is queued. Delivery and timing are not guaranteed. Do not poll or retry.'}
 
+    @staticmethod
+    def finish_job(db, job_id):
+        states = [r[0] for r in db.execute('SELECT status FROM recipients WHERE job=?', (job_id,))]
+        final = ('queued' if any(s in {'queued', 'sending'} for s in states)
+                 else 'sent' if all(s == 'sent' for s in states)
+                 else 'unknown' if 'unknown' in states
+                 else 'partial' if 'sent' in states else 'failed')
+        db.execute('UPDATE jobs SET status=? WHERE id=?', (final, job_id))
+
     def recover(self):
         with closing(self.connect()) as db, db:
-            db.execute("UPDATE recipients SET status='unknown',error='worker_interrupted' WHERE status='sending'")
-            db.execute("UPDATE recipients SET status='skipped',error='worker_interrupted' WHERE status='queued' AND job IN (SELECT id FROM jobs WHERE status='sending')")
-            db.execute("UPDATE jobs SET status='unknown' WHERE status='sending'")
+            # Only resume jobs interrupted while active. Historical terminal jobs
+            # (including failed/unknown/skipped) must never be resurrected.
+            jobs = list(db.execute("SELECT id FROM jobs WHERE status='sending'"))
+            for job in jobs:
+                db.execute("""UPDATE recipients SET
+                    status=CASE WHEN attempts < ? THEN 'queued' ELSE 'unknown' END,
+                    error='worker_interrupted', next_attempt=?
+                    WHERE job=? AND status='sending'""",
+                    (MAX_ATTEMPTS, time.time() + RETRY_DELAYS[-1], job['id']))
+                self.finish_job(db, job['id'])
 
     def drain_one(self, send):
+        # Reserve one due recipient durably BEFORE making any network request.
+        # Delayed retries never sleep in the sender or block newer queue jobs.
         with closing(self.connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
-            row = db.execute("SELECT * FROM jobs WHERE status='queued' ORDER BY created LIMIT 1").fetchone()
+            row = db.execute("""SELECT r.* FROM recipients r JOIN jobs j ON j.id=r.job
+                WHERE j.status='queued' AND r.status='queued'
+                  AND r.attempts < ? AND r.next_attempt <= ?
+                ORDER BY j.created, r.address LIMIT 1""", (MAX_ATTEMPTS, time.time())).fetchone()
             if row is None:
                 return False
-            job = dict(row)
-            db.execute("UPDATE jobs SET status='sending' WHERE id=?",(job['id'],))
-            recipients = [dict(r) for r in db.execute('SELECT * FROM recipients WHERE job=? ORDER BY address',(job['id'],))]
-        abort = False
-        for recipient in recipients:
-            address = recipient['address']
-            with closing(self.connect()) as db, db:
-                db.execute('UPDATE recipients SET status=? WHERE job=? AND address=?',
-                           ('skipped' if abort else 'sending',job['id'],address))
-            if abort:
-                continue
-            try:
-                state, error, abort = send(job, recipient)
-                if state not in {'sent','failed','unknown'}:
-                    raise ValueError('Invalid sender result')
-            except Exception:
-                state,error,abort = 'unknown','unexpected_sender_failure',True
-            with closing(self.connect()) as db, db:
-                db.execute('UPDATE recipients SET status=?,error=? WHERE job=? AND address=?',
-                           (state,error,job['id'],address))
+            recipient = dict(row)
+            job = dict(db.execute('SELECT * FROM jobs WHERE id=?', (recipient['job'],)).fetchone())
+            db.execute("UPDATE jobs SET status='sending' WHERE id=?", (job['id'],))
+            recipient['attempts'] += 1
+            db.execute("UPDATE recipients SET status='sending',attempts=? WHERE job=? AND address=?",
+                       (recipient['attempts'], job['id'], recipient['address']))
+        try:
+            state, error, _abort = send(job, recipient)
+            if state not in {'sent', 'failed', 'unknown'}:
+                raise ValueError('Invalid sender result')
+        except Exception:
+            state, error = 'unknown', 'unexpected_sender_failure'
+        next_attempt = 0
+        if state != 'sent' and recipient['attempts'] < MAX_ATTEMPTS:
+            state = 'queued'
+            next_attempt = time.time() + RETRY_DELAYS[recipient['attempts'] - 1]
         with closing(self.connect()) as db, db:
-            states = [r[0] for r in db.execute('SELECT status FROM recipients WHERE job=?',(job['id'],))]
-            final = ('sent' if all(s=='sent' for s in states) else 'unknown' if 'unknown' in states
-                     else 'partial' if 'sent' in states else 'failed')
-            db.execute('UPDATE jobs SET status=? WHERE id=?',(final,job['id']))
+            db.execute('UPDATE recipients SET status=?,error=?,next_attempt=? WHERE job=? AND address=?',
+                       (state, error, next_attempt, job['id'], recipient['address']))
+            self.finish_job(db, job['id'])
         return True
 
     def status(self):
@@ -120,13 +149,16 @@ class SMTPSender:
     def __call__(self, job, recipient):
         adapter = self.adapter
         smtp = None
-        phase = 'connect'
+        phase = 'render'
         try:
-            msg = EmailMessage()
+            msg = EmailMessage(policy=SMTP)
             msg['From'],msg['To'] = adapter._address,recipient['address']
             msg['Subject'],msg['Message-ID'] = job['subject'],recipient['message_id']
             msg['Date'] = formatdate(localtime=True)
-            msg.set_content(job['body'])
+            plain, html = render_email(job['body'])
+            msg.set_content(plain, charset='utf-8', cte='quoted-printable')
+            msg.add_alternative(html, subtype='html', charset='utf-8', cte='quoted-printable')
+            phase = 'connect'
             smtp = adapter._connect_smtp()
             smtp.login(adapter._address,adapter._password)
             phase = 'submit'
@@ -137,6 +169,8 @@ class SMTPSender:
         except smtplib.SMTPResponseException:
             return 'failed','smtp_rejected',phase=='connect'
         except Exception:
+            if phase == 'render':
+                return 'failed','message_render_failure',True
             return ('failed','connection_or_auth_failure',True) if phase=='connect' else ('unknown','smtp_outcome_unknown',True)
         finally:
             if smtp:
@@ -207,7 +241,7 @@ def main():
             jobs=[dict(r) for r in db.execute('SELECT id,status,created FROM jobs ORDER BY created DESC LIMIT 30')]
             for job in jobs:
                 job['recipients']=[dict(r) for r in db.execute(
-                    'SELECT address,status,error FROM recipients WHERE job=?',(job['id'],))]
+                    'SELECT address,status,error,attempts,next_attempt FROM recipients WHERE job=?',(job['id'],))]
             print(json.dumps(jobs,indent=2))
         return
     store = Store(args.home/'mail-queue')

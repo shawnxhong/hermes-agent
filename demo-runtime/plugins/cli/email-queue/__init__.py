@@ -3,12 +3,16 @@ import json
 from pathlib import Path
 import socket
 
+from hermes_cli.email_render import normalize_email_body
+
 SCHEMA = {
     'name': 'email_send',
     'description': 'Queue requested details for the configured default email recipients only; alternate addresses are unsupported. Supply only subject and body. Call once; queued is not delivered. Do not poll or retry.',
     'parameters': {'type': 'object', 'properties': {
         'subject': {'type': 'string', 'minLength': 1, 'maxLength': 200},
-        'body': {'type': 'string', 'minLength': 1, 'maxLength': 65536}},
+        'body': {'type': 'array', 'minItems': 1, 'maxItems': 4096,
+                 'items': {'type': 'string', 'maxLength': 65536, 'pattern': r'^[^\r\n]*$'},
+                 'description': 'Markdown lines, one line per array item. Each heading, paragraph, list item, table row and code line must be a separate item. An empty string creates a blank line. Do not concatenate document sections into one item. The service joins items with real newlines; no HTML or escaped newlines needed.'}},
         'required': ['subject', 'body'], 'additionalProperties': False},
 }
 
@@ -25,10 +29,16 @@ def submit(args, **kwargs):
             or not all(isinstance(value, str) and value for value in scope)):
         return json.dumps({'status': 'rejected', 'error': 'No active turn identity. Nothing queued. Do not retry.'})
     if (not isinstance(args, dict) or set(args) != {'subject', 'body'}
-            or not all(isinstance(args[k], str) and args[k].strip() for k in args)
-            or len(args['subject']) > 200 or len(args['body']) > 65536
+            or not isinstance(args['subject'], str) or not 0 < len(args['subject'].strip())
+            or len(args['subject']) > 200
             or '\n' in args['subject'] or '\r' in args['subject']):
-        return json.dumps({'status': 'rejected', 'error': 'Provide a nonempty single-line subject and text body only. Nothing queued.'})
+        return json.dumps({'status': 'rejected', 'error': 'Provide a nonempty single-line subject and Markdown line array. Nothing queued.'})
+    try:
+        body = normalize_email_body(args['body'])
+    except ValueError as error:
+        return json.dumps({'status': 'rejected', 'error': str(error) + ' Nothing queued.'})
+    # Preserve the queue's stable string protocol and the caller's original args.
+    request = {'scope': scope, 'subject': args['subject'], 'body': body}
     path = Path(get_hermes_home())/'mail-queue/service.sock'
     sent = False
     try:
@@ -38,7 +48,7 @@ def submit(args, **kwargs):
             if getattr(turn, 'closed', True):
                 return json.dumps({'status': 'rejected', 'error': 'Turn ended. Nothing queued.'})
             sent = True
-            sock.sendall((json.dumps({'scope': scope, **args})+'\n').encode())
+            sock.sendall((json.dumps(request)+'\n').encode())
             raw = sock.makefile('rb').readline(16384)
         result = json.loads(raw)
         if not isinstance(result, dict) or result.get('status') not in {'queued', 'duplicate', 'rejected'}:
