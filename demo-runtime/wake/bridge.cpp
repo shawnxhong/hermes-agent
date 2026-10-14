@@ -1,5 +1,6 @@
 // Thin C ABI around the supplied AISP live-asr pipeline; no agent/TTS nodes.
 #include "aisp.h"
+#include "aisp_version.h"
 #include <cstdio>
 #include <memory>
 #include <vector>
@@ -22,9 +23,11 @@ void* wake_create(const char* model, const char* device, const char* context, Ca
         props["asr.model"] = std::string(model);
         props["asr.device"] = std::string(device);
         props["asr.context"] = std::string(context);
+        props["asr.max_new_tokens"] = int32_t(128);
         props["vad.device"] = std::string("CPU");
         props["source_language"] = aisp::language::Type::En;
         props["diar.enabled"] = false;
+        std::fprintf(stderr, "AISP SDK %s; asr.max_new_tokens=128\n", AISP_VERSION_STR);
         b->pipeline = b->runtime.create_pipeline("live-asr", props);
         if (b->pipeline->get_property(std::string("source_language")).as<aisp::language::Type>() != aisp::language::Type::En)
             throw std::runtime_error("SDK did not retain source_language=en");
@@ -64,6 +67,9 @@ int wake_start_capture(void* raw, const char* source) {
         ov::AnyMap config;
         config["audio.source"] = std::string(source);
         config["audio.chunk_ms"] = int32_t(500);
+        // Preserve measured 0.3.6 capture policy across SDK default changes.
+        config["audio.max_queue_ms"] = int32_t(2000);
+        config["audio.render_queue_ms"] = int32_t(4000);
         b->session = aisp::MediaSession::create(b->pipeline, config);
         b->session->set_callback(b->callback);
         b->session->set_completion_callback([b](aisp::SessionRunResult) { b->capture_alive = false; });
