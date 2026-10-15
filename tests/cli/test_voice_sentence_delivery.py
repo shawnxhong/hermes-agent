@@ -228,3 +228,13 @@ def test_real_sync_pipeline_overlaps_and_reports(monkeypatch,tmp_path):
     pipeline.close()
     assert spoken==['First.','Second.']
     assert states[1]==states[2]==['synthesizing','ready','playing','played']
+
+
+def test_terminal_ack_follows_prior_speech_once_without_prefix_failure():
+    delivery = sink()
+    delivery.emit('I will prepare the details.')
+    delivery.finish('Your email has been queued for sending.', terminal=True)
+    delivery.finish('Your email has been queued for sending.', terminal=True)
+    assert str(delivery.queue.get_nowait()) == 'I will prepare the details.'
+    assert str(delivery.queue.get_nowait()) == 'Your email has been queued for sending.'
+    assert delivery.queue.empty()

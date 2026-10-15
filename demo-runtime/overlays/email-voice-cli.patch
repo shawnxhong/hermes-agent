@@ -1,0 +1,54 @@
+diff --git a/cli.py b/cli.py
+index 2aa9dbe18..b0240ed1f 100644
+--- a/cli.py
++++ b/cli.py
+@@ -15144,6 +15144,14 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
+         """TTS belongs only to a genuine local ASR turn, never typed input."""
+         return bool(self._voice_tts and voice_input)
+ 
++    def _terminal_voice_ack_enabled(self, result) -> bool:
++        """Only trusted terminal results may speak after a typed voice-mode turn."""
++        return bool(getattr(self, "_voice_mode", False)
++                    and getattr(self, "_voice_tts", False)
++                    and isinstance(result, dict)
++                    and result.get("speak_final_response") is True
++                    and not result.get("interrupted") and not result.get("failed"))
++
+     def _enqueue_voice_final_tts(
+         self,
+         text_queue,
+@@ -15152,6 +15160,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
+         voice_input: bool,
+         interrupted: bool,
+         delivery=None,
++        terminal=False,
+     ) -> str:
+         """Queue bounded final speech, omitting any already committed prefix."""
+         if text_queue is None or not voice_input or interrupted:
+@@ -15161,7 +15170,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
+         if not spoken:
+             return ""
+         if delivery is not None:
+-            delivery.finish(spoken)
++            delivery.finish(spoken, terminal=terminal)
+             return spoken
+         from tools.tts_tool import ImmediateTTSUtterance
+ 
+@@ -18406,6 +18415,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
+                     voice_input=voice_input,
+                     interrupted=bool(_interrupted_this_turn or interrupt_msg),
+                     delivery=sentence_delivery,
++                    terminal=self._terminal_voice_ack_enabled(result),
+                 )
+                 text_queue.put(None)
+                 if tts_thread is not None:
+@@ -18553,7 +18563,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
+             # Speak response aloud if voice TTS is enabled
+             # Skip batch TTS when streaming TTS already handled it
+             if (
+-                self._voice_tts_enabled_for_turn(voice_input)
++                (self._voice_tts_enabled_for_turn(voice_input)
++                 or self._terminal_voice_ack_enabled(result))
+                 and response
+                 and not use_streaming_tts
+                 and not (_interrupted_this_turn or interrupt_msg)

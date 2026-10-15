@@ -115,3 +115,27 @@ def test_real_sdk_native_callback_speaks_before_stream_end():
 def test_voice_marker_has_no_workflow_policy():
     from hermes_cli.voice_response_policy import build_voice_turn_prefix
     assert build_voice_turn_prefix() == build_voice_turn_prefix(followup_enabled=True) == '[Voice input] '
+
+
+@pytest.mark.parametrize('terminal', [False, True])
+def test_real_factory_and_cli_finalize_accept_terminal_flag(monkeypatch, terminal):
+    from cli import HermesCLI
+    from hermes_cli.voice_sentence_delivery import make_delivery
+    monkeypatch.setattr('hermes_cli.config.load_config', lambda: {
+        'voice': {'sentence_pipeline': {'enabled': True}}})
+    q = queue.Queue()
+    cli = NS(session_id='native-final', _scene_generation=0,
+             _voice_turn_tts_queue=q, _voice_last_tts_text='')
+    speech = make_delivery(cli, q, threading.Event())
+    assert isinstance(speech, NativeSpeechDelivery)
+    if terminal:
+        speech.on_stream_start('preparation')
+        speech('I will prepare your plan. ')
+        speech.on_stream_end(final_text='I will prepare your plan.', finished=True)
+    phrase = 'Your email has been queued for sending.' if terminal else 'Here is your answer.'
+    for _ in range(2):
+        HermesCLI._enqueue_voice_final_tts(cli,q,phrase,voice_input=True,
+            interrupted=False,delivery=speech,terminal=terminal)
+    queued = list(q.queue)
+    assert queued.count(phrase) == 1
+    assert len(queued) == (2 if terminal else 1)
