@@ -1,6 +1,8 @@
+diff --git a/cli.py b/cli.py
+index 2aa9dbe18..b0240ed1f 100644
 --- a/cli.py
 +++ b/cli.py
-@@ -15144,6 +15144,14 @@
+@@ -15144,6 +15144,14 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
          """TTS belongs only to a genuine local ASR turn, never typed input."""
          return bool(self._voice_tts and voice_input)
  
@@ -15,7 +17,7 @@
      def _enqueue_voice_final_tts(
          self,
          text_queue,
-@@ -15152,6 +15160,7 @@
+@@ -15152,6 +15160,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
          voice_input: bool,
          interrupted: bool,
          delivery=None,
@@ -23,7 +25,7 @@
      ) -> str:
          """Queue bounded final speech, omitting any already committed prefix."""
          if text_queue is None or not voice_input or interrupted:
-@@ -15161,7 +15170,7 @@
+@@ -15161,7 +15170,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
          if not spoken:
              return ""
          if delivery is not None:
@@ -32,7 +34,7 @@
              return spoken
          from tools.tts_tool import ImmediateTTSUtterance
  
-@@ -18403,6 +18412,7 @@
+@@ -18406,6 +18415,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                      voice_input=voice_input,
                      interrupted=bool(_interrupted_this_turn or interrupt_msg),
                      delivery=sentence_delivery,
@@ -40,7 +42,7 @@
                  )
                  text_queue.put(None)
                  if tts_thread is not None:
-@@ -18550,7 +18560,8 @@
+@@ -18553,7 +18563,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
              # Speak response aloud if voice TTS is enabled
              # Skip batch TTS when streaming TTS already handled it
              if (
