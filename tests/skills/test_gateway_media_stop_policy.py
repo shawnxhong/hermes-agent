@@ -177,3 +177,65 @@ def test_repeated_native_stop_calls_again_despite_previous_success(native, monke
     assert bridge.call_count == 2
     assert agent.client.chat.completions.create.call_count == 2
     assert sum(m['role'] == 'tool' for m in db.get_messages(agent.session_id)) == 2
+
+
+def test_late_provider_response_does_not_rearm_new_turn():
+    arm()
+    def delayed(request):
+        arm('What is 2+2?', turn='next')
+        return completion('Old response')
+    result = p.validate_stop_completion(request=payload(), next_call=delayed,
+                                       session_id='s', turn_id='t')
+    assert not result.choices[0].message.tool_calls
+    assert p.guard_stop_confirmation(response_text='4', platform='feishu', session_id='s') is None
+
+
+@pytest.mark.parametrize('exception', [TimeoutError, RuntimeError])
+def test_provider_exception_does_not_execute_and_next_turn_recovers(exception):
+    arm()
+    with pytest.raises(exception):
+        p.validate_stop_completion(request=payload(), next_call=Mock(side_effect=exception('test')),
+                                   session_id='s', turn_id='t')
+    arm('What is 2+2?', turn='next')
+    assert p.guard_stop_confirmation(response_text='4', platform='feishu', session_id='s') is None
+
+
+def test_cancelled_native_turn_does_not_execute_fallback(native, monkeypatch):
+    agent, db = native
+    bridge = Mock()
+    monkeypatch.setattr('tools.playback_control.request', bridge)
+    def cancelled(**kwargs):
+        agent._interrupt_requested = True
+        return completion('Music stopped.')
+    agent.client.chat.completions.create = Mock(side_effect=cancelled)
+    agent.run_conversation('stop music')
+    bridge.assert_not_called()
+
+
+def test_native_permission_block_never_confirms_success(native, monkeypatch):
+    agent, db = native
+    bridge = Mock()
+    monkeypatch.setattr('tools.playback_control.request', bridge)
+    from hermes_cli import plugins
+    plugins.PluginContext(plugins.PluginManifest(name='test-block'),
+                          plugins.get_plugin_manager()).register_hook('pre_tool_call',
+        lambda **kw: {'action': 'block', 'message': 'Test authorization block.'})
+    agent.client.chat.completions.create = Mock(return_value=completion(action='stop'))
+    result = agent.run_conversation('stop music')
+    bridge.assert_not_called()
+    assert result['final_response'] != 'Playback is stopped.'
+
+
+def test_multiple_native_calls_cannot_execute_unrelated_tool(native, monkeypatch):
+    agent, db = native
+    bridge = Mock(return_value={'success': True, 'action': 'stopped', 'state': 'inactive'})
+    monkeypatch.setattr('tools.playback_control.request', bridge)
+    response = completion(action='play')
+    wrong = response.choices[0].message.tool_calls[0].model_copy(deep=True)
+    wrong.id = 'wrong-call'; wrong.function.name = 'cronjob_manage'
+    wrong.function.arguments = '{}'
+    response.choices[0].message.tool_calls.append(wrong)
+    agent.client.chat.completions.create = Mock(return_value=response)
+    agent.run_conversation('stop music')
+    assert all(c.args == ('stop', '') for c in bridge.call_args_list)
+    assert bridge.call_count >= 1
