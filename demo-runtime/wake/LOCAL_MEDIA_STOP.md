@@ -1,7 +1,7 @@
 # Local media stop
 
-The continuously running wake ASR service recognizes the same exact English
-stop-command forms as the Feishu media-stop policy. The single matcher lives in
+With the default matching vocabulary, the continuously running wake ASR service
+recognizes the same exact English stop-command forms as Feishu. The shared grammar lives in
 `tools/media_stop_policy.py`; examples include `stop music`, `stop playback`,
 `Please close the video.` and `Could you stop the music please?`. Bare `stop`,
 Chinese commands, quoted/negated requests, compound tasks and wake-word-prefixed
@@ -12,12 +12,12 @@ Qwen3 ASR receives four wake hotwords, `Hello Intel`, `Hi Intel`, `Hey Intel`,
 and `Intel Intel`, plus media-stop hotwords through the SDK `asr.context`: `stop
 playback`, `stop music`, `stop video`, `stop audio`, `stop media`, `stop player`,
 `close video`, `close player`, `turn off music`, and `turn off video`. These hints
-are appended to caller-supplied `--context`, including when that argument is
-empty. The four canonical wake phrases also merge into the configured wake aliases
-at service startup and each wake-client subscription. Existing aliases remain;
-an older client cannot remove `Intel Intel` by sending its original alias list.
-The obsolete `thank you` end phrase is not included. Stop command grammar is
-unchanged.
+come exclusively from `asr.hotwords` in the service YAML. `wake.aliases` supplies
+wake matching independently and stays authoritative across client subscriptions;
+no canonical phrases are silently appended by code. The default configuration
+includes `Intel Intel` in both recognition hints and wake matching. The obsolete
+`thank you` end phrase is not included. The separate `media_stop` policy controls
+whether and which recognized commands stop playback.
 Hints are line-separated. A fixed `Intel Intel` waveform caused an early partial
 to copy the whole comma-separated vocabulary; the same waveform passed with
 line-separated hints. The regression checks every partial for inserted stop/end
@@ -58,7 +58,7 @@ stop, TTS cancellation and AISP EOS suites. The public launcher continues to be
 `hermes-box-voice start`; the deployment control must select the candidate images
 and media mount. Roll back the Compose/control selection to restore the baseline.
 
-## Unified wake configuration (supersedes hardcoded vocabulary above)
+## Unified wake configuration
 
 `demo-runtime/wake/config.yaml` is the versioned default. Deploy it as a
 read-only directory mount, then launch `service.py --config /config/wake/config.yaml`.
@@ -71,8 +71,8 @@ The service-owned aliases remain authoritative across client subscriptions:
 legacy clients cannot reintroduce an alias removed from the service config.
 
 The packaged default retains four canonical wake hints, ten stop hints and all
-previous recognition aliases. Stop *matching* still uses the shared Feishu
-command policy; ASR hints are recognition bias, not a stop-command allowlist.
+previous recognition aliases. Stop *matching* uses its own vocabulary and the
+shared Feishu grammar; ASR hints are recognition bias, not a stop-command allowlist.
 This is a wake-only configuration, not the private Hermes credentials/config.
 
 Edit the mounted host YAML and restart the `aisp-wake` Compose service. No image
