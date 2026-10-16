@@ -19,36 +19,36 @@ spec.loader.exec_module(service)
 EOS = 2
 
 
-def test_hotwords_are_valid_commands_and_keep_custom_bias():
-    context = service.context_with_hotwords('custom-domain')
-    assert context.startswith('custom-domain\n')
+def test_hotwords_keep_line_separated_sdk_format():
+    context = service.asr_context()
+    assert context.splitlines() == service.load_config()['asr']['hotwords']
     assert all(is_media_stop_command(phrase) and phrase in context for phrase in service.load_config()["asr"]["hotwords"] if phrase.startswith(("stop ", "close ", "turn off ")))
-    assert service.context_with_hotwords(context) == context
 
 
 def test_config_controls_context_and_matching_without_hidden_defaults(tmp_path, monkeypatch):
     path = tmp_path / 'config.yaml'
-    path.write_text('asr:\n  context: custom-domain\n  hotwords: [custom wake]\nwake:\n  aliases: [custom wake]\n')
+    path.write_text('asr:\n  hotwords: [custom wake]\nwake:\n  aliases: [custom wake]\n')
     config = service.load_config(path)
     lib = Mock()
     lib.wake_create.return_value = 1
     monkeypatch.setattr(service.C, 'CDLL', Mock(return_value=lib))
     service.Native('/test/libwake.so', '/models/qwen3-asr', 'GPU', lambda *a: None, config=config)
-    assert lib.wake_create.call_args.args[2] == b'custom-domain\ncustom wake'
+    assert lib.wake_create.call_args.args[2] == b'custom wake'
     server = service.Server(logging.getLogger('config-wake'), config['wake']['aliases'], EOS)
     assert server.gate.match(1, 'Hello Intel')[0] == 'miss'
     assert server.gate.match(1, 'custom wake')[0] == 'trigger'
     # Empty hints explicitly disable recognition bias, without fallback literals.
-    config['asr'] = {'context': '', 'hotwords': []}
-    assert service.context_with_hotwords(config=config) == ''
+    config['asr'] = {'hotwords': []}
+    assert service.asr_context(config) == ''
 
 
 @pytest.mark.parametrize('content', [
     '', 'asr: {}',
-    'asr: {context: "", hotwords: hello}\nwake: {aliases: [hello]}',
-    'asr: {context: "", hotwords: [42]}\nwake: {aliases: [hello]}',
-    'asr: {context: "", hotwords: []}\nwake: {aliases: []}',
-    'asr: {context: "", hotwords: []}\nwake: {aliases: [hello], typo: true}',
+    'asr: {context: extra, hotwords: []}\nwake: {aliases: [hello]}',
+    'asr: {hotwords: hello}\nwake: {aliases: [hello]}',
+    'asr: {hotwords: [42]}\nwake: {aliases: [hello]}',
+    'asr: {hotwords: []}\nwake: {aliases: []}',
+    'asr: {hotwords: []}\nwake: {aliases: [hello], typo: true}',
 ])
 def test_invalid_config_fails_before_native_start(tmp_path, content):
     path = tmp_path / 'config.yaml'
@@ -57,19 +57,16 @@ def test_invalid_config_fails_before_native_start(tmp_path, content):
         service.load_config(path)
 
 
-@pytest.mark.parametrize('context', ['', 'Hello Intel'])
-def test_native_passes_media_hotwords_to_actual_bridge_argument(monkeypatch, context):
+def test_native_passes_media_hotwords_to_actual_bridge_argument(monkeypatch):
     lib = Mock()
     lib.wake_create.return_value = 1
     monkeypatch.setattr(service.C, 'CDLL', Mock(return_value=lib))
-    native = service.Native('/test/libwake.so', '/models/qwen3-asr', 'GPU', lambda *args: None, context)
+    native = service.Native('/test/libwake.so', '/models/qwen3-asr', 'GPU', lambda *args: None)
     passed = lib.wake_create.call_args.args[2].decode()
     assert native.handle == 1
     assert 'stop playback' in passed and 'stop music' in passed and 'stop video' in passed
     assert all(phrase in passed for phrase in ('Hello Intel', 'Hi Intel', 'Hey Intel', 'Intel Intel'))
     assert 'thank you' not in passed.lower()
-    if context:
-        assert passed.startswith(context+'\n')
 
 
 @pytest.fixture

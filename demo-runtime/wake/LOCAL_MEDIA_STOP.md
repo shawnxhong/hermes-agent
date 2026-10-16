@@ -62,7 +62,9 @@ and media mount. Roll back the Compose/control selection to restore the baseline
 
 `demo-runtime/wake/config.yaml` is the versioned default. Deploy it as a
 read-only directory mount, then launch `service.py --config /config/wake/config.yaml`.
-Only this YAML supplies `asr.context`, `asr.hotwords`, and `wake.aliases`.
+Only this YAML supplies `asr.hotwords` and `wake.aliases`.
+The hotword list is joined with newlines into the SDK property `asr.context`;
+there is no separate user-configurable context field.
 Empty `asr.hotwords: []` disables hints. Missing/invalid configuration fails
 startup; no literal vocabulary fallback is appended. Hints remain one per line.
 The service-owned aliases remain authoritative across client subscriptions:

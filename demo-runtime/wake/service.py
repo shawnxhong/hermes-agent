@@ -31,12 +31,10 @@ def load_config(path=DEFAULT_CONFIG):
     if not isinstance(config, dict) or set(config) != {"asr", "wake"}:
         raise ValueError("Wake config requires exactly asr and wake sections")
     asr, wake = config["asr"], config["wake"]
-    if not isinstance(asr, dict) or set(asr) != {"context", "hotwords"}:
-        raise ValueError("asr requires context and hotwords")
+    if not isinstance(asr, dict) or set(asr) != {"hotwords"}:
+        raise ValueError("asr requires hotwords")
     if not isinstance(wake, dict) or set(wake) != {"aliases"}:
         raise ValueError("wake requires aliases")
-    if not isinstance(asr["context"], str):
-        raise ValueError("asr.context must be a string")
     for key, values in (("asr.hotwords", asr["hotwords"]), ("wake.aliases", wake["aliases"])):
         if not isinstance(values, list) or any(
             not isinstance(v, str) or not v.strip() or "\n" in v or "\r" in v for v in values
@@ -47,14 +45,10 @@ def load_config(path=DEFAULT_CONFIG):
     return config
 
 
-def context_with_hotwords(context=None, config=None):
-    """Preserve the tested one-phrase-per-line ASR hint format."""
+def asr_context(config=None):
+    """Convert configured hotwords to the SDK's one-phrase-per-line context."""
     config = load_config() if config is None else config
-    hints = "\n".join(config["asr"]["hotwords"])
-    context = (config["asr"]["context"] if context is None else context).strip()
-    if hints and (context == hints or context.endswith("\n" + hints)):
-        return context
-    return "\n".join(part for part in (context, hints) if part)
+    return "\n".join(config["asr"]["hotwords"])
 
 
 class MediaStopWorker:
@@ -152,8 +146,8 @@ class Native:
         lib.wake_eos_flag.restype = C.c_uint32
         return lib.wake_eos_flag()
 
-    def __init__(self, library, model, device, callback, context=None, config=None):
-        context = context_with_hotwords(context, config)
+    def __init__(self, library, model, device, callback, config=None):
+        context = asr_context(config)
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
         self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, type(self.cb)]
