@@ -6,8 +6,19 @@
 #include <vector>
 #include <atomic>
 
+// SDK 0.4.1 enumerates/resolves PipeWire endpoints before constructing its
+// PwDevice. Retain one balanced process-library reference for the bridge lifetime.
+// These stable C ABI declarations avoid depending on PipeWire development headers.
+extern "C" void pw_init(int*, char***);
+extern "C" void pw_deinit(void);
+struct PipeWireLifetime {
+    PipeWireLifetime() { pw_init(nullptr, nullptr); }
+    ~PipeWireLifetime() { pw_deinit(); }
+};
+
 using Callback = void (*)(int64_t, uint32_t, const char*);
 struct Bridge {
+    PipeWireLifetime audio_lifetime;
     aisp::Runtime runtime;
     aisp::Pipeline::Ptr pipeline;
     aisp::MediaSession::Ptr session;
@@ -94,6 +105,7 @@ int wake_stop_capture(void* raw) {
 }
 int wake_enumerate_playback(void (*cb)(int32_t, const char*)) {
     try {
+        PipeWireLifetime audio_lifetime;
         for (const auto& device : aisp::enumerate_audio_devices(aisp::AudioDeviceKind::Playback))
             cb(device.id, device.name.c_str());
         return 0;
