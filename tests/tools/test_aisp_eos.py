@@ -114,7 +114,7 @@ def test_eos_settings_override_legacy_keyword_and_preserve_transcript(monkeypatc
 
 @pytest.fixture
 def socket_service(tmp_path):
-    server = service.Server(logging.getLogger('test-socket'), ['Hello Intel'], EOS)
+    server = service.Server(logging.getLogger('test-socket'), ['Intel Intel', 'custom wake'], EOS)
     running = threading.Event()
     running.set()
     native = Mock(capture_alive=running.is_set)
@@ -147,7 +147,9 @@ def test_client_subscription_retains_canonical_intel_intel_wake_alias(socket_ser
         client.sendall(b'{"mode":"wake","aliases":["Hello Intel"]}\n')
         reader = client.makefile('rb')
         assert json.loads(reader.readline())['event'] == 'ready'
-        server.result(server.armed_after + 1, 0, b'Intel Intel')
+        server.result(server.armed_after + 1, 0, b'Hello Intel')
+        assert not server.delivered  # Client cannot restore a removed alias.
+        server.result(server.armed_after + 2, 0, b'Intel Intel')
         event = json.loads(reader.readline())
         assert event['event'] == 'wake' and event['alias'] == 'Intel Intel'
 

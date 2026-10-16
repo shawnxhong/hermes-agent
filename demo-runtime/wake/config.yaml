@@ -1,0 +1,32 @@
+# Restart aisp-wake after editing. No image rebuild is needed for mounted config.
+# Recognition hints do not define stop-command matching (shared Feishu policy).
+asr:
+  context: ""
+  hotwords:
+    - Hello Intel
+    - Hi Intel
+    - Hey Intel
+    - Intel Intel
+    - stop playback
+    - stop music
+    - stop video
+    - stop audio
+    - stop media
+    - stop player
+    - close video
+    - close player
+    - turn off music
+    - turn off video
+wake:
+  aliases:
+    - Hello Intel
+    - Hi Intel
+    - Hi Indel
+    - High Intel
+    - Hi Inter
+    - Hello Inter
+    - Hello Indel
+    - Hey Intel
+    - Hey Inter
+    - Hey Indel
+    - Intel Intel

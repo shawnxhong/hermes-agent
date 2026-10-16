@@ -22,21 +22,39 @@ EOS = 2
 def test_hotwords_are_valid_commands_and_keep_custom_bias():
     context = service.context_with_hotwords('custom-domain')
     assert context.startswith('custom-domain\n')
-    assert all(is_media_stop_command(phrase) and phrase in context for phrase in service.MEDIA_STOP_HOTWORDS)
+    assert all(is_media_stop_command(phrase) and phrase in context for phrase in service.load_config()["asr"]["hotwords"] if phrase.startswith(("stop ", "close ", "turn off ")))
     assert service.context_with_hotwords(context) == context
 
 
-def test_canonical_wake_aliases_merge_without_losing_custom_or_duplicating_case():
-    aliases = ['hello intel', 'Hi Indel', 'custom wake']
-    merged = service.wake_aliases_with_defaults(aliases)
-    assert aliases == ['hello intel', 'Hi Indel', 'custom wake']
-    assert 'Hi Indel' in merged and 'custom wake' in merged and 'Intel Intel' in merged
-    assert len([a for a in merged if service.normalize(a) == 'hello intel']) == 1
-    server = service.Server(logging.getLogger('canonical-wake'), aliases, EOS)
-    conn = Mock()
-    server.arm(conn, 'wake', None, 100)
-    server.result(101, 0, b'Intel Intel')
-    assert json.loads(conn.sendall.call_args.args[0])['alias'] == 'Intel Intel'
+def test_config_controls_context_and_matching_without_hidden_defaults(tmp_path, monkeypatch):
+    path = tmp_path / 'config.yaml'
+    path.write_text('asr:\n  context: custom-domain\n  hotwords: [custom wake]\nwake:\n  aliases: [custom wake]\n')
+    config = service.load_config(path)
+    lib = Mock()
+    lib.wake_create.return_value = 1
+    monkeypatch.setattr(service.C, 'CDLL', Mock(return_value=lib))
+    service.Native('/test/libwake.so', '/models/qwen3-asr', 'GPU', lambda *a: None, config=config)
+    assert lib.wake_create.call_args.args[2] == b'custom-domain\ncustom wake'
+    server = service.Server(logging.getLogger('config-wake'), config['wake']['aliases'], EOS)
+    assert server.gate.match(1, 'Hello Intel')[0] == 'miss'
+    assert server.gate.match(1, 'custom wake')[0] == 'trigger'
+    # Empty hints explicitly disable recognition bias, without fallback literals.
+    config['asr'] = {'context': '', 'hotwords': []}
+    assert service.context_with_hotwords(config=config) == ''
+
+
+@pytest.mark.parametrize('content', [
+    '', 'asr: {}',
+    'asr: {context: "", hotwords: hello}\nwake: {aliases: [hello]}',
+    'asr: {context: "", hotwords: [42]}\nwake: {aliases: [hello]}',
+    'asr: {context: "", hotwords: []}\nwake: {aliases: []}',
+    'asr: {context: "", hotwords: []}\nwake: {aliases: [hello], typo: true}',
+])
+def test_invalid_config_fails_before_native_start(tmp_path, content):
+    path = tmp_path / 'config.yaml'
+    path.write_text(content)
+    with pytest.raises(ValueError):
+        service.load_config(path)
 
 
 @pytest.mark.parametrize('context', ['', 'Hello Intel'])

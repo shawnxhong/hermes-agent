@@ -16,25 +16,43 @@ import time
 import unicodedata
 import uuid
 
+import yaml
+
 from tools.media_stop_policy import is_media_stop_command
 from tools.playback_control import request as playback_request
 
 
-WAKE_HOTWORDS = ("Hello Intel", "Hi Intel", "Hey Intel", "Intel Intel")
-
-MEDIA_STOP_HOTWORDS = (
-    "stop playback", "stop music", "stop video", "stop audio", "stop media",
-    "stop player", "close video", "close player", "turn off music", "turn off video",
-)
+DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
 
 
-def context_with_hotwords(context):
-    """Append wake/stop hints without replacing caller-supplied ASR context."""
-    # The comma-list form regurgitated the entire vocabulary in a partial for
-    # Intel Intel. Line-separated hints passed that fixed-waveform regression.
-    hints = "\n".join((*WAKE_HOTWORDS, *MEDIA_STOP_HOTWORDS))
-    context = context.strip()
-    if context == hints or context.endswith("\n" + hints):
+def load_config(path=DEFAULT_CONFIG):
+    """Load the single wake-service vocabulary source; fail on invalid input."""
+    config = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(config, dict) or set(config) != {"asr", "wake"}:
+        raise ValueError("Wake config requires exactly asr and wake sections")
+    asr, wake = config["asr"], config["wake"]
+    if not isinstance(asr, dict) or set(asr) != {"context", "hotwords"}:
+        raise ValueError("asr requires context and hotwords")
+    if not isinstance(wake, dict) or set(wake) != {"aliases"}:
+        raise ValueError("wake requires aliases")
+    if not isinstance(asr["context"], str):
+        raise ValueError("asr.context must be a string")
+    for key, values in (("asr.hotwords", asr["hotwords"]), ("wake.aliases", wake["aliases"])):
+        if not isinstance(values, list) or any(
+            not isinstance(v, str) or not v.strip() or "\n" in v or "\r" in v for v in values
+        ):
+            raise ValueError(f"{key} must be a list of nonempty single-line strings")
+    if not wake["aliases"]:
+        raise ValueError("wake.aliases must not be empty")
+    return config
+
+
+def context_with_hotwords(context=None, config=None):
+    """Preserve the tested one-phrase-per-line ASR hint format."""
+    config = load_config() if config is None else config
+    hints = "\n".join(config["asr"]["hotwords"])
+    context = (config["asr"]["context"] if context is None else context).strip()
+    if hints and (context == hints or context.endswith("\n" + hints)):
         return context
     return "\n".join(part for part in (context, hints) if part)
 
@@ -91,13 +109,6 @@ def normalize(text):
     return " ".join("".join(c for c in text if not unicodedata.category(c).startswith("P")).split())
 
 
-def wake_aliases_with_defaults(aliases):
-    result = list(aliases)
-    present = {normalize(a) for a in result if isinstance(a, str)}
-    result.extend(phrase for phrase in WAKE_HOTWORDS if normalize(phrase) not in present)
-    return result
-
-
 class WakeGate:
     def __init__(self, aliases, continuous=False):
         self.aliases = [(a, normalize(a)) for a in aliases if isinstance(a, str) and normalize(a)]
@@ -141,8 +152,8 @@ class Native:
         lib.wake_eos_flag.restype = C.c_uint32
         return lib.wake_eos_flag()
 
-    def __init__(self, library, model, device, callback, context=""):
-        context = context_with_hotwords(context)
+    def __init__(self, library, model, device, callback, context=None, config=None):
+        context = context_with_hotwords(context, config)
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
         self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, type(self.cb)]
@@ -178,7 +189,7 @@ class Server:
         self.log = log
         self.lock = threading.Lock()
         self.instance = str(uuid.uuid4())
-        self.gate = WakeGate(wake_aliases_with_defaults(aliases), continuous=True)
+        self.gate = WakeGate(aliases, continuous=True)
         self.eos_flag = eos_flag
         self.recording_speech = set()
         self.mode = "wake"
@@ -301,9 +312,8 @@ class Server:
                     raise ValueError("Recording subscription requires identity")
                 if mode == "recording" and request.get("endpoint") != "aisp-eos":
                     raise ValueError("Recording requires aisp-eos endpoint support")
-                aliases = WakeGate(wake_aliases_with_defaults(request["aliases"])).aliases if mode == "wake" else self.gate.aliases
                 with self.lock:
-                    self.gate.aliases = aliases
+                    # The service configuration owns aliases; legacy client lists cannot override it.
                     self.arm(conn, mode, recording_id, time.monotonic()*1000)
                     self.event(event="notifications_armed")
                     conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id,
@@ -329,13 +339,13 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--library", default="/opt/aisp-wake/libwake.so")
     p.add_argument("--model", default="/models/qwen3-asr")
-    p.add_argument("--context", default="", help="Additional ASR bias text; wake and media-stop hotwords are always appended")
+    p.add_argument("--config", default=str(DEFAULT_CONFIG), help="Wake service YAML configuration")
     p.add_argument("--device", default="GPU")
     p.add_argument("--socket", default="/ipc/wake/service.sock")
     p.add_argument("--log", default="/ipc/wake/partials.log")
-    p.add_argument("--aliases", required=True, help="JSON file containing configured phrase and aliases")
     p.add_argument("--source", default="CAPTURE_DEVICE")
     args = p.parse_args()
+    config = load_config(args.config)
     os.umask(0o077)
     Path(args.socket).unlink(missing_ok=True)  # No stale readiness across restart.
     Path(args.log).parent.mkdir(parents=True, exist_ok=True)
@@ -347,9 +357,9 @@ def main():
     handler = RotatingFileHandler(str(Path(args.log).with_name("events.log")), maxBytes=2*1024*1024, backupCount=2, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     status.addHandler(handler)
-    s = Server(log, json.loads(Path(args.aliases).read_text()), Native.eos_flag(args.library))
+    s = Server(log, config["wake"]["aliases"], Native.eos_flag(args.library))
     try:
-        native = Native(args.library, args.model, args.device, s.result, args.context)
+        native = Native(args.library, args.model, args.device, s.result, config=config)
         native.start_capture(args.source)
         s.serve(native, args.socket)
     finally:

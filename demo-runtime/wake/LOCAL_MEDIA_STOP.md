@@ -57,3 +57,24 @@ Build smoke: `python3 /opt/qwen-wake/check_media_stop.py`. Regression tests:
 stop, TTS cancellation and AISP EOS suites. The public launcher continues to be
 `hermes-box-voice start`; the deployment control must select the candidate images
 and media mount. Roll back the Compose/control selection to restore the baseline.
+
+## Unified wake configuration (supersedes hardcoded vocabulary above)
+
+`demo-runtime/wake/config.yaml` is the versioned default. Deploy it as a
+read-only directory mount, then launch `service.py --config /config/wake/config.yaml`.
+Only this YAML supplies `asr.context`, `asr.hotwords`, and `wake.aliases`.
+Empty `asr.hotwords: []` disables hints. Missing/invalid configuration fails
+startup; no literal vocabulary fallback is appended. Hints remain one per line.
+The service-owned aliases remain authoritative across client subscriptions:
+legacy clients cannot reintroduce an alias removed from the service config.
+
+The packaged default retains four canonical wake hints, ten stop hints and all
+previous recognition aliases. Stop *matching* still uses the shared Feishu
+command policy; ASR hints are recognition bias, not a stop-command allowlist.
+This is a wake-only configuration, not the private Hermes credentials/config.
+
+Edit the mounted host YAML and restart the `aisp-wake` Compose service. No image
+rebuild is required. `hermes-box-voice start` alone does not restart an already
+running wake service. The image contains the same default for standalone use.
+The wake image gets the pure-Python PyYAML 6.0.3 package and its license from a
+pinned, already-local Gateway image; no network package installation is needed.
