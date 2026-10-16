@@ -3,7 +3,7 @@ import logging
 import threading
 from unittest.mock import Mock
 
-from service import Server, context_with_stop_hotwords
+from service import Server, context_with_hotwords
 
 
 done = threading.Event()
@@ -18,8 +18,9 @@ def stop(action):
 
 server = Server(logging.getLogger('media-stop-smoke'), ['Hello Intel'], 2, stop)
 try:
-    context = context_with_stop_hotwords('Hello Intel')
-    assert context.startswith('Hello Intel\n') and 'stop playback' in context and 'stop music' in context
+    context = context_with_hotwords('custom-domain')
+    assert context.startswith('custom-domain\n') and 'stop playback' in context and 'stop music' in context
+    assert all(phrase in context for phrase in ('Hello Intel', 'Hi Intel', 'Hey Intel', 'Intel Intel'))
     server.result(101, 0, b'stop music')  # No subscriber or EOS required.
     assert done.wait(2)
     conn = Mock()

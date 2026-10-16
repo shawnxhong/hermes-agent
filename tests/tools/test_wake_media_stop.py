@@ -20,10 +20,10 @@ EOS = 2
 
 
 def test_hotwords_are_valid_commands_and_keep_custom_bias():
-    context = service.context_with_stop_hotwords('Hello Intel')
-    assert context.startswith('Hello Intel\n')
+    context = service.context_with_hotwords('custom-domain')
+    assert context.startswith('custom-domain\n')
     assert all(is_media_stop_command(phrase) and phrase in context for phrase in service.MEDIA_STOP_HOTWORDS)
-    assert service.context_with_stop_hotwords(context) == context
+    assert service.context_with_hotwords(context) == context
 
 
 @pytest.mark.parametrize('context', ['', 'Hello Intel'])
@@ -35,6 +35,8 @@ def test_native_passes_media_hotwords_to_actual_bridge_argument(monkeypatch, con
     passed = lib.wake_create.call_args.args[2].decode()
     assert native.handle == 1
     assert 'stop playback' in passed and 'stop music' in passed and 'stop video' in passed
+    assert all(phrase in passed for phrase in ('Hello Intel', 'Hi Intel', 'Hey Intel', 'Intel Intel'))
+    assert 'thank you' not in passed.lower()
     if context:
         assert passed.startswith(context+'\n')
 

@@ -8,11 +8,13 @@ Chinese commands, quoted/negated requests, compound tasks and wake-word-prefixed
 commands are outside this grammar. Punctuation/case handling is unchanged from
 Feishu; this is whole-string matching, not keyword substring search.
 
-Qwen3 ASR receives media-stop hotwords through the SDK `asr.context`: `stop
+Qwen3 ASR receives four wake hotwords, `Hello Intel`, `Hi Intel`, `Hey Intel`,
+and `Intel Intel`, plus media-stop hotwords through the SDK `asr.context`: `stop
 playback`, `stop music`, `stop video`, `stop audio`, `stop media`, `stop player`,
 `close video`, `close player`, `turn off music`, and `turn off video`. These hints
 are appended to caller-supplied `--context`, including when that argument is
-empty. They bias recognition without extending the accepted command grammar.
+empty. They bias recognition without extending the accepted command grammar or
+the configured wake aliases. The obsolete `thank you` end phrase is not included.
 
 A matching partial immediately queues the existing device-wide media bridge
 `stop` RPC. No wake word, active client subscription or EOS is required. A later

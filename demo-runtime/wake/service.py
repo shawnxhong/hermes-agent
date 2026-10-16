@@ -20,15 +20,17 @@ from tools.media_stop_policy import is_media_stop_command
 from tools.playback_control import request as playback_request
 
 
+WAKE_HOTWORDS = ("Hello Intel", "Hi Intel", "Hey Intel", "Intel Intel")
+
 MEDIA_STOP_HOTWORDS = (
     "stop playback", "stop music", "stop video", "stop audio", "stop media",
     "stop player", "close video", "close player", "turn off music", "turn off video",
 )
 
 
-def context_with_stop_hotwords(context):
-    """Append recognition hints without replacing caller-supplied ASR context."""
-    hints = "Keywords: " + ", ".join(MEDIA_STOP_HOTWORDS) + "."
+def context_with_hotwords(context):
+    """Append wake/stop hints without replacing caller-supplied ASR context."""
+    hints = "Keywords: " + ", ".join((*WAKE_HOTWORDS, *MEDIA_STOP_HOTWORDS)) + "."
     context = context.strip()
     if hints in context.splitlines():
         return context
@@ -131,7 +133,7 @@ class Native:
         return lib.wake_eos_flag()
 
     def __init__(self, library, model, device, callback, context=""):
-        context = context_with_stop_hotwords(context)
+        context = context_with_hotwords(context)
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
         self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, type(self.cb)]
@@ -318,7 +320,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--library", default="/opt/aisp-wake/libwake.so")
     p.add_argument("--model", default="/models/qwen3-asr")
-    p.add_argument("--context", default="", help="Additional ASR bias text; media-stop hotwords are always appended")
+    p.add_argument("--context", default="", help="Additional ASR bias text; wake and media-stop hotwords are always appended")
     p.add_argument("--device", default="GPU")
     p.add_argument("--socket", default="/ipc/wake/service.sock")
     p.add_argument("--log", default="/ipc/wake/partials.log")
