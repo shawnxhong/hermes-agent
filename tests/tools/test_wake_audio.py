@@ -107,3 +107,13 @@ def test_bad_language_is_not_silently_converted(tmp_path):
     path.write_text(yaml.safe_dump(config))
     with pytest.raises(ValueError, match='source_language'):
         service.load_config(path)
+
+
+def test_reference_verification_handles_reused_pipewire_ids():
+    before = GRAPH + [{'id': 100, 'info': {'props': {'object.serial': 10}}},
+                      {'id': 102, 'info': {'props': {'object.serial': 11}}}]
+    after = GRAPH + [
+        {'id': 100, 'info': {'props': {'object.serial': 20, 'node.name': f'aisp-aec-{os.getpid()}-0', 'client.id': 101}}},
+        {'id': 102, 'info': {'props': {'object.serial': 21, 'target.object': 'speaker', 'client.id': 101}}},
+        {'id': 103, 'type': 'PipeWire:Interface:Link', 'info': {'output-node-id': 90, 'input-node-id': 102}}]
+    assert reference_connected(before, after, 'speaker')

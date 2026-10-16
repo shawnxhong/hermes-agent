@@ -47,8 +47,12 @@ def resolve_reference(reference, graph, devices):
 
 
 def reference_connected(before, graph, target):
-    old_ids = {n['id'] for n in before}
-    fresh = [n for n in graph if n['id'] not in old_ids]
+    # PipeWire recycles numeric IDs when playback streams close. Serial numbers
+    # distinguish a newly created AEC node from an earlier node with that ID.
+    def identity(node):
+        return node['id'], props(node).get('object.serial')
+    old_nodes = {identity(n) for n in before}
+    fresh = [n for n in graph if identity(n) not in old_nodes]
     sources = [n for n in fresh if props(n).get('node.name', '').startswith(f'aisp-aec-{os.getpid()}-')]
     if not sources:
         return False
