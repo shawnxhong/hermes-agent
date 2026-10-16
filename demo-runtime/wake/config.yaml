@@ -1,5 +1,5 @@
 # Restart aisp-wake after editing. No image rebuild is needed for mounted config.
-# ASR hints and command matching are independent. Matching uses the shared Feishu grammar.
+# ASR hints and wake aliases are independent. No local playback-stop shortcut.
 asr:
   source_language: auto
   hotwords:
@@ -7,16 +7,6 @@ asr:
     - Hi Intel
     - Hey Intel
     - Intel Intel
-    - stop playback
-    - stop music
-    - stop video
-    - stop audio
-    - stop media
-    - stop player
-    - close video
-    - close player
-    - turn off music
-    - turn off video
 wake:
   aliases:
     - Hello Intel
@@ -31,26 +21,10 @@ wake:
     - Hey Indel
     - Intel Intel
 
-media_stop:
-  enabled: true
-  # Literal words, not regular expressions. Matches a full command, not a substring.
-  # Example: "Could you stop the music please?" (verb=stop, target=music).
-  match:
-    verbs:
-      - stop
-      - close
-      - quit
-      - turn off
-    targets:
-      - music
-      - audio
-      - video
-      - videos
-      - song
-      - songs
-      - media
-      - playback
-      - player
+# VAD frame probability threshold and block probability RMS gate (SDK private key).
+vad:
+  threshold: 0.5
+  block_rms_threshold: 0.35
 
 audio:
   aec: os

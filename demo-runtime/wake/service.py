@@ -1,6 +1,6 @@
 """Local-only live-ASR wake service. Log every partial, trigger once per timestamp."""
 import argparse
-from collections import deque, OrderedDict
+from collections import deque
 import array
 import ctypes as C
 import json
@@ -8,7 +8,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
-import queue
+import math
 import re
 import socket
 import threading
@@ -18,8 +18,6 @@ import uuid
 
 import yaml
 
-from tools.media_stop_policy import compile_media_stop_pattern
-from tools.playback_control import request as playback_request
 from tools.wake_audio import start_capture_with_aec
 
 
@@ -29,8 +27,8 @@ DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
 def load_config(path=DEFAULT_CONFIG):
     """Load the single wake-service vocabulary source; fail on invalid input."""
     config = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(config, dict) or set(config) != {"asr", "wake", "media_stop", "audio"}:
-        raise ValueError("Wake config requires exactly asr, wake, media_stop and audio sections")
+    if not isinstance(config, dict) or set(config) != {"asr", "wake", "vad", "audio"}:
+        raise ValueError("Wake config requires exactly asr, wake, vad and audio sections")
     asr, wake = config["asr"], config["wake"]
     if not isinstance(asr, dict) or set(asr) != {"hotwords", "source_language"}:
         raise ValueError("asr requires hotwords and source_language")
@@ -52,72 +50,20 @@ def load_config(path=DEFAULT_CONFIG):
         raise ValueError("audio.aec must be os or none")
     if not isinstance(audio['aec_reference'], str) or not audio['aec_reference'].strip():
         raise ValueError("audio.aec_reference must be a nonempty string")
-    validate_media_stop(config["media_stop"])
+    vad = config['vad']
+    if not isinstance(vad, dict) or set(vad) != {'threshold', 'block_rms_threshold'}:
+        raise ValueError("vad requires threshold and block_rms_threshold")
+    for key, value in vad.items():
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or not 0 <= value <= 1):
+            raise ValueError(f"vad.{key} must be a finite number between 0 and 1")
     return config
-
-
-def validate_media_stop(config):
-    if not isinstance(config, dict) or set(config) != {"enabled", "match"}:
-        raise ValueError("media_stop requires enabled and match")
-    if not isinstance(config["enabled"], bool):
-        raise ValueError("media_stop.enabled must be a boolean")
-    match = config["match"]
-    if not isinstance(match, dict) or set(match) != {"verbs", "targets"}:
-        raise ValueError("media_stop.match requires verbs and targets")
-    return compile_media_stop_pattern(match["verbs"], match["targets"])
 
 
 def asr_context(config=None):
     """Convert configured hotwords to the SDK's one-phrase-per-line context."""
     config = load_config() if config is None else config
     return "\n".join(config["asr"]["hotwords"])
-
-
-class MediaStopWorker:
-    """Keep host IPC and its timeout off the native ASR callback thread."""
-
-    def __init__(self, event, request):
-        self.event, self.request = event, request
-        self.pending = queue.Queue(maxsize=32)
-        self.closing = threading.Event()
-        self.thread = None
-
-    def submit(self, timestamp):
-        # Server.lock serializes submit calls. Start lazily: EOS-only tests and
-        # sessions that never hear a stop command need no additional thread.
-        try:
-            self.pending.put_nowait(timestamp)
-        except queue.Full:
-            self.event(event="media_stop_failed", timestamp=timestamp, reason="queue_full")
-            return
-        if self.thread is None:
-            self.thread = threading.Thread(target=self.run, daemon=True, name="wake-media-stop")
-            self.thread.start()
-
-    def run(self):
-        while not self.closing.is_set():
-            try:
-                timestamp = self.pending.get(timeout=.2)
-            except queue.Empty:
-                continue
-            started = time.monotonic()
-            try:
-                result = self.request("stop")
-                success = (isinstance(result, dict) and result.get("success") is True
-                           and result.get("action") == "stopped" and result.get("state") == "inactive")
-                self.event(event="media_stop_completed" if success else "media_stop_failed",
-                           timestamp=timestamp, elapsed_ms=round((time.monotonic()-started)*1000),
-                           reason="confirmed" if success else "unconfirmed")
-            except Exception as exc:
-                self.event(event="media_stop_failed", timestamp=timestamp,
-                           elapsed_ms=round((time.monotonic()-started)*1000), reason=type(exc).__name__)
-            finally:
-                self.pending.task_done()
-
-    def close(self):
-        self.closing.set()
-        if self.thread is not None:
-            self.thread.join(timeout=11)
 
 
 def normalize(text):
@@ -173,11 +119,12 @@ class Native:
         context = asr_context(config)
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
-        self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, C.c_char_p, type(self.cb)]
+        self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, C.c_char_p, C.c_float, C.c_float, type(self.cb)]
         self.lib.wake_create.restype = C.c_void_p
         self.lib.wake_feed.argtypes = [C.c_void_p, C.POINTER(C.c_float), C.c_size_t, C.c_int64]
         self.lib.wake_flush.argtypes = [C.c_void_p]
-        self.handle = self.lib.wake_create(model.encode(), device.encode(), context.encode(), config["asr"]["source_language"].encode(), self.cb)
+        self.handle = self.lib.wake_create(model.encode(), device.encode(), context.encode(), config["asr"]["source_language"].encode(),
+                                            config["vad"]["threshold"], config["vad"]["block_rms_threshold"], self.cb)
         if not self.handle:
             raise RuntimeError("AISP live-asr initialization failed")
 
@@ -216,10 +163,7 @@ class Native:
 
 
 class Server:
-    def __init__(self, log, aliases, eos_flag, stop_request=playback_request, *, media_stop_config=None):
-        policy = load_config()["media_stop"] if media_stop_config is None else media_stop_config
-        self.stop_pattern = validate_media_stop(policy)
-        self.stop_enabled = policy["enabled"]
+    def __init__(self, log, aliases, eos_flag):
         self.log = log
         self.lock = threading.Lock()
         self.instance = str(uuid.uuid4())
@@ -234,11 +178,6 @@ class Server:
         self.delivered = False
         self.observed = {}
         self.arm_text = {}
-        self.stop_sentences = OrderedDict()
-        self.media_stop = MediaStopWorker(self.event, stop_request)
-
-    def close(self):
-        self.media_stop.close()
 
     def arm(self, conn, mode, recording_id, boundary):
         """Called under lock after the client has finished its recording cue."""
@@ -263,19 +202,6 @@ class Server:
                     self.observed[timestamp] = norm
                 if len(self.observed) > 1024:
                     del self.observed[next(iter(self.observed))]
-                # Device-wide control is independent of subscription/arming and
-                # EOS. Consume the whole segment, including later revisions and
-                # flag-only EOS, so this command never becomes a Hermes event.
-                if timestamp in self.stop_sentences:
-                    return
-                if self.stop_enabled and self.stop_pattern.fullmatch(text.strip()):
-                    self.stop_sentences[timestamp] = None
-                    if len(self.stop_sentences) > 1024:
-                        self.stop_sentences.popitem(last=False)
-                    self.recording_speech.discard(timestamp)
-                    self.event(event="media_stop_matched", timestamp=timestamp)
-                    self.media_stop.submit(timestamp)
-                    return
                 if self.conn is None or self.delivered:
                     return
                 eligible = text
@@ -391,14 +317,11 @@ def main():
     handler = RotatingFileHandler(str(Path(args.log).with_name("events.log")), maxBytes=2*1024*1024, backupCount=2, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     status.addHandler(handler)
-    s = Server(log, config["wake"]["aliases"], Native.eos_flag(args.library),
-               media_stop_config=config["media_stop"])
-    try:
-        native = Native(args.library, args.model, args.device, s.result, config=config)
-        start_capture_with_aec(native, args.source, config["audio"], s.event)
-        s.serve(native, args.socket)
-    finally:
-        s.close()
+    s = Server(log, config["wake"]["aliases"], Native.eos_flag(args.library))
+    s.event(event="vad_config", **config["vad"])
+    native = Native(args.library, args.model, args.device, s.result, config=config)
+    start_capture_with_aec(native, args.source, config["audio"], s.event)
+    s.serve(native, args.socket)
 
 
 if __name__ == "__main__":
