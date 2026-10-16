@@ -3746,12 +3746,18 @@ def run_conversation(
                 elif _model_request_active is not None:
                     _model_request_active.set()
                 _redirect_crossed_response = False
-                from agent.model_call_stats import ModelCallStats
-                _call_stats = ModelCallStats(
-                    request_id=api_request_id, session_id=agent.session_id or "",
-                    platform=agent.platform or "", model=agent.model,
-                    provider=agent.provider or "", attempt=retry_count + 1,
-                )
+                _call_stats = None
+                try:
+                    from agent.model_call_stats import ModelCallStats
+                    _call_stats = ModelCallStats(
+                        request_id=api_request_id, session_id=agent.session_id or "",
+                        platform=agent.platform or "", model=agent.model,
+                        provider=agent.provider or "", attempt=retry_count + 1,
+                    )
+                except Exception:
+                    # Optional telemetry must not prevent execution or skip the
+                    # original request-active/redirect cleanup below.
+                    pass
                 agent._model_call_stats = _call_stats
                 try:
                     response = run_llm_execution_middleware(
@@ -3771,10 +3777,18 @@ def run_conversation(
                         middleware_trace=list(_llm_middleware_trace),
                     )
                 except BaseException as _call_error:
-                    _call_stats.finish(error_type=type(_call_error).__name__)
+                    try:
+                        if _call_stats is not None:
+                            _call_stats.finish(error_type=type(_call_error).__name__)
+                    except Exception:
+                        pass
                     raise
                 else:
-                    _call_stats.finish(response=response)
+                    try:
+                        if _call_stats is not None:
+                            _call_stats.finish(response=response)
+                    except Exception:
+                        pass
                 finally:
                     if getattr(agent, "_model_call_stats", None) is _call_stats:
                         agent._model_call_stats = None

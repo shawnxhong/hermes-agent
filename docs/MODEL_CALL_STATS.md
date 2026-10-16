@@ -42,3 +42,9 @@ tail -F /home/intel/hermes-runtime/docker-20261015.3/state/logs/agent.log /home/
 ```
 
 Existing log handlers/rotation are retained. No new per-token log output.
+
+Laptop integration additionally isolates collector initialization and finalization
+failures at the execution boundary. A telemetry failure must not create retries,
+change answers or skip request-active cleanup. Current laptop logs are under
+`/home/agentdemo/hermes-releases/runtime/laptop-docker-20261015.2/{state,gateway-state}/logs/agent.log`;
+the directory name remains unchanged when a candidate image is selected.

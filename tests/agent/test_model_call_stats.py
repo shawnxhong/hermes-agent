@@ -87,16 +87,19 @@ def test_logging_failure_is_not_a_model_failure(monkeypatch):
     collector().finish()
 
 
+@pytest.mark.parametrize('fault', [None, 'constructor', 'finish', 'logging'])
 @pytest.mark.parametrize('streaming', [False, True])
-def test_actual_native_loop_records_once_without_changing_answer(caplog, monkeypatch, streaming):
+def test_actual_native_loop_records_once_without_changing_answer(caplog, monkeypatch, streaming, fault):
     import httpx
     from openai import OpenAI
     from run_agent import AIAgent
     monkeypatch.setattr('agent.title_generator.maybe_auto_title', lambda *a, **kw:None)
     usage={'prompt_tokens':50,'completion_tokens':1,'total_tokens':51,
            'prompt_tokens_details':{'cached_tokens':40}}
+    requests=[]
     def handler(request):
         body=json.loads(request.content)
+        requests.append(body)
         assert 'model_call_stats' not in json.dumps(body)
         if body.get('stream'):
             chunks=[{'id':'provider-r','object':'chat.completion.chunk','created':1,'model':'test',
@@ -125,8 +128,20 @@ def test_actual_native_loop_records_once_without_changing_answer(caplog, monkeyp
         from openai.types.chat import ChatCompletion
         agent.client.chat.completions.create=Mock(return_value=ChatCompletion.model_validate(handler(
             httpx.Request('POST','http://local.test',json={})).json()))
+    if fault == 'constructor':
+        monkeypatch.setattr('agent.model_call_stats.ModelCallStats', Mock(side_effect=OSError('fixture init')))
+    elif fault == 'finish':
+        monkeypatch.setattr(ModelCallStats, 'finish', Mock(side_effect=OSError('fixture finish')))
+    elif fault == 'logging':
+        monkeypatch.setattr('agent.model_call_stats.log.info', Mock(side_effect=OSError('fixture disk full')))
     result=agent.run_conversation('Hello')
     assert result['final_response']=='Hello.'
+    assert len(requests)==1
+    assert getattr(agent, '_model_call_stats', None) is None
+    if fault:
+        assert not records(caplog)
+        client.close()
+        return
     rows=records(caplog); assert len(rows)==1
     r=rows[0]
     assert r['input_tokens']==50 and r['output_tokens']==1 and r['cached_input_tokens']==40
