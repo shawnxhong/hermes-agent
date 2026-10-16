@@ -3661,6 +3661,9 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
     """
     if agent._interrupt_requested:
         raise InterruptedError("Agent interrupted before streaming API call")
+    # Capture this attempt's collector before starting worker threads. A stale
+    # worker must never write measurements into a newer model call.
+    _call_stats = getattr(agent, "_model_call_stats", None)
 
     def _stream_final_text(response) -> str:
         try:
@@ -4313,6 +4316,8 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
         def _stream_created(raw_stream: Any) -> None:
             response = getattr(raw_stream, "response", None)
             attempt_stream_response["value"] = response
+            if _call_stats is not None and response is not None:
+                _call_stats.observe_headers(getattr(response, "headers", {}))
             agent._capture_rate_limits(response)
             agent._capture_credits(response)
             agent._stream_diag_capture_response(_diag, response)
@@ -4464,6 +4469,8 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
             stream,
             response=lambda: attempt_stream_response["value"],
         ):
+            if _call_stats is not None:
+                _call_stats.observe_chunk(chunk)
             last_chunk_time["t"] = time.time()
             agent._touch_activity("receiving stream response")
 

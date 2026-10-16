@@ -3746,6 +3746,13 @@ def run_conversation(
                 elif _model_request_active is not None:
                     _model_request_active.set()
                 _redirect_crossed_response = False
+                from agent.model_call_stats import ModelCallStats
+                _call_stats = ModelCallStats(
+                    request_id=api_request_id, session_id=agent.session_id or "",
+                    platform=agent.platform or "", model=agent.model,
+                    provider=agent.provider or "", attempt=retry_count + 1,
+                )
+                agent._model_call_stats = _call_stats
                 try:
                     response = run_llm_execution_middleware(
                         api_kwargs,
@@ -3763,7 +3770,14 @@ def run_conversation(
                         api_call_count=api_call_count,
                         middleware_trace=list(_llm_middleware_trace),
                     )
+                except BaseException as _call_error:
+                    _call_stats.finish(error_type=type(_call_error).__name__)
+                    raise
+                else:
+                    _call_stats.finish(response=response)
                 finally:
+                    if getattr(agent, "_model_call_stats", None) is _call_stats:
+                        agent._model_call_stats = None
                     if _redirect_lock is not None:
                         with _redirect_lock:
                             if _model_request_active is not None:
