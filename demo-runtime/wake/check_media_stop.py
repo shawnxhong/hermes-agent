@@ -3,7 +3,7 @@ import logging
 import threading
 from unittest.mock import Mock
 
-from service import Server
+from service import Server, context_with_stop_hotwords
 
 
 done = threading.Event()
@@ -18,6 +18,8 @@ def stop(action):
 
 server = Server(logging.getLogger('media-stop-smoke'), ['Hello Intel'], 2, stop)
 try:
+    context = context_with_stop_hotwords('Hello Intel')
+    assert context.startswith('Hello Intel\n') and 'stop playback' in context and 'stop music' in context
     server.result(101, 0, b'stop music')  # No subscriber or EOS required.
     assert done.wait(2)
     conn = Mock()
