@@ -102,3 +102,8 @@ Enabled local stop consumes matching partials once per segment without Hermes
 notification, as before. Nonempty matching lists are required even when disabled
 so re-enabling cannot activate an invalid policy. Config is loaded at startup;
 restart wake and reconnect voice after edits.
+
+SDK 0.4.1 adds `asr.source_language` (default auto) and an `audio` section for
+AEC mode/reference. These do not populate or alter stop matching vocabulary.
+See [SDK_0_4_1.md](SDK_0_4_1.md) for default-output selection and automatic AEC
+fallback; deployment preserves all pre-existing wake/stop configuration.
