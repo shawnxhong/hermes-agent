@@ -1,6 +1,6 @@
 """Local-only live-ASR wake service. Log every partial, trigger once per timestamp."""
 import argparse
-from collections import deque
+from collections import deque, OrderedDict
 import array
 import ctypes as C
 import json
@@ -8,12 +8,63 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
+import queue
 import re
 import socket
 import threading
 import time
 import unicodedata
 import uuid
+
+from tools.media_stop_policy import is_media_stop_command
+from tools.playback_control import request as playback_request
+
+
+class MediaStopWorker:
+    """Keep host IPC and its timeout off the native ASR callback thread."""
+
+    def __init__(self, event, request):
+        self.event, self.request = event, request
+        self.pending = queue.Queue(maxsize=32)
+        self.closing = threading.Event()
+        self.thread = None
+
+    def submit(self, timestamp):
+        # Server.lock serializes submit calls. Start lazily: EOS-only tests and
+        # sessions that never hear a stop command need no additional thread.
+        try:
+            self.pending.put_nowait(timestamp)
+        except queue.Full:
+            self.event(event="media_stop_failed", timestamp=timestamp, reason="queue_full")
+            return
+        if self.thread is None:
+            self.thread = threading.Thread(target=self.run, daemon=True, name="wake-media-stop")
+            self.thread.start()
+
+    def run(self):
+        while not self.closing.is_set():
+            try:
+                timestamp = self.pending.get(timeout=.2)
+            except queue.Empty:
+                continue
+            started = time.monotonic()
+            try:
+                result = self.request("stop")
+                success = (isinstance(result, dict) and result.get("success") is True
+                           and result.get("action") == "stopped" and result.get("state") == "inactive")
+                self.event(event="media_stop_completed" if success else "media_stop_failed",
+                           timestamp=timestamp, elapsed_ms=round((time.monotonic()-started)*1000),
+                           reason="confirmed" if success else "unconfirmed")
+            except Exception as exc:
+                self.event(event="media_stop_failed", timestamp=timestamp,
+                           elapsed_ms=round((time.monotonic()-started)*1000), reason=type(exc).__name__)
+            finally:
+                self.pending.task_done()
+
+    def close(self):
+        self.closing.set()
+        if self.thread is not None:
+            self.thread.join(timeout=11)
 
 
 def normalize(text):
@@ -96,7 +147,7 @@ class Native:
 
 
 class Server:
-    def __init__(self, log, aliases, eos_flag):
+    def __init__(self, log, aliases, eos_flag, stop_request=playback_request):
         self.log = log
         self.lock = threading.Lock()
         self.instance = str(uuid.uuid4())
@@ -111,6 +162,11 @@ class Server:
         self.delivered = False
         self.observed = {}
         self.arm_text = {}
+        self.stop_sentences = OrderedDict()
+        self.media_stop = MediaStopWorker(self.event, stop_request)
+
+    def close(self):
+        self.media_stop.close()
 
     def arm(self, conn, mode, recording_id, boundary):
         """Called under lock after the client has finished its recording cue."""
@@ -135,6 +191,19 @@ class Server:
                     self.observed[timestamp] = norm
                 if len(self.observed) > 1024:
                     del self.observed[next(iter(self.observed))]
+                # Device-wide control is independent of subscription/arming and
+                # EOS. Consume the whole segment, including later revisions and
+                # flag-only EOS, so this command never becomes a Hermes event.
+                if timestamp in self.stop_sentences:
+                    return
+                if is_media_stop_command(text):
+                    self.stop_sentences[timestamp] = None
+                    if len(self.stop_sentences) > 1024:
+                        self.stop_sentences.popitem(last=False)
+                    self.recording_speech.discard(timestamp)
+                    self.event(event="media_stop_matched", timestamp=timestamp)
+                    self.media_stop.submit(timestamp)
+                    return
                 if self.conn is None or self.delivered:
                     return
                 eligible = text
@@ -252,9 +321,12 @@ def main():
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     status.addHandler(handler)
     s = Server(log, json.loads(Path(args.aliases).read_text()), Native.eos_flag(args.library))
-    native = Native(args.library, args.model, args.device, s.result, args.context)
-    native.start_capture(args.source)
-    s.serve(native, args.socket)
+    try:
+        native = Native(args.library, args.model, args.device, s.result, args.context)
+        native.start_capture(args.source)
+        s.serve(native, args.socket)
+    finally:
+        s.close()
 
 
 if __name__ == "__main__":
