@@ -1,6 +1,7 @@
 """Media-only completion via existing native plugin APIs; no core patches."""
 from collections import OrderedDict
 import json
+import logging
 import re
 import subprocess
 import sys
@@ -175,6 +176,127 @@ def before_tool(*, session_id='', turn_id='', tool_name='', **kwargs):
         return {'action': 'block', 'message': 'The media operation is complete and verified by the player. Return its result; desktop verification is not part of this media operation.'}
 
 
+# Explicit stop policy stays inside the native model/tool loop. No selector LLM,
+# alternate workflow, prompt rewrite, or changes to the conversation's toolset.
+_STOP_COMMAND = re.compile(
+    r'(?:(?:can|could|would|will) you\s+)?(?:please\s+)?'
+    r'(?:stop|close|quit|turn off)\s+(?:playing\s+)?'
+    r'(?:(?:the|this|current|all)\s+)?'
+    r'(?:music|audio|video|videos|song|songs|media|playback|player)'
+    r'(?:\s+(?:now|again|please))*[.!?]*', re.I)
+_stop_turns = OrderedDict()
+_stop_current = OrderedDict()
+_log = logging.getLogger(__name__)
+_STOP_UNCONFIRMED = 'I could not confirm that playback stopped. The stop operation did not succeed.'
+
+
+def require_stop_tool(*, request, platform='', session_id='', turn_id='', **kwargs):
+    """Force a fresh native media call for an unambiguous Feishu stop command."""
+    if platform != 'feishu' or not session_id or not turn_id:
+        return None
+    key = (session_id, turn_id)
+    with _lock:
+        if _stop_current.get(session_id) == key:
+            current = _stop_turns.get(key)
+        else:
+            _stop_current.pop(session_id, None)
+            current = None
+    if current is None:
+        messages = request.get('messages') or []
+        message = next((m for m in reversed(messages) if m.get('role') == 'user'), {})
+        content = message.get('content')
+        if not isinstance(content, str) or not _STOP_COMMAND.fullmatch(content.strip()):
+            return None
+        _remember(_stop_turns, key, {})
+        _remember(_stop_current, session_id, key)
+        current = {}
+    if current.get('tool_call_id'):
+        return None
+    if not any(t.get('function', {}).get('name') == 'local_media' for t in request.get('tools') or []):
+        return None  # The final response gate reports unavailable, never success.
+    outgoing = dict(request)
+    outgoing['tool_choice'] = {'type': 'function', 'function': {'name': 'local_media'}}
+    _log.info('media_stop_policy required session=%s turn=%s', session_id, turn_id)
+    return {'request': outgoing, 'source': 'demo-media', 'reason': 'explicit media stop needs a fresh tool result'}
+
+
+def validate_stop_completion(*, request, next_call, session_id='', turn_id='', **kwargs):
+    """Reject text-only success before native history persistence as well."""
+    response = next_call(request)
+    with _lock:
+        active = _stop_current.get(session_id) == (session_id, turn_id)
+    if active and getattr(response, 'choices', None):
+        message = response.choices[0].message
+        if not getattr(message, 'tool_calls', None):
+            message.content = _STOP_UNCONFIRMED
+            _log.warning('media_stop_policy provider_skipped_tool session=%s turn=%s', session_id, turn_id)
+    return response
+
+
+def constrain_stop_args(*, tool_name, args, session_id='', turn_id='', **kwargs):
+    with _lock:
+        active = _stop_current.get(session_id) == (session_id, turn_id)
+    if active and tool_name == 'local_media':
+        return {'args': {'action': 'stop'}, 'source': 'demo-media', 'reason': 'preserve explicit stop intent'}
+    return None
+
+
+def restrict_stop_tools(*, tool_name, session_id='', turn_id='', **kwargs):
+    with _lock:
+        active = _stop_current.get(session_id) == (session_id, turn_id)
+    if active and tool_name != 'local_media':
+        return {'action': 'block', 'message': 'This request only authorizes local_media stop.'}
+    return None
+
+
+def record_stop_receipt(*, tool_name, args, result, session_id='', turn_id='', tool_call_id='', **kwargs):
+    key = (session_id, turn_id)
+    with _lock:
+        active = _stop_current.get(session_id) == key
+    if not active or tool_name != 'local_media' or args.get('action') != 'stop' or not tool_call_id:
+        return
+    try:
+        data = json.loads(result) if isinstance(result, str) else result
+    except (TypeError, ValueError):
+        data = None
+    stopped = (isinstance(data, dict) and data.get('success') is True
+               and data.get('state') == 'inactive' and data.get('action') == 'stopped')
+    _remember(_stop_turns, key, {'tool_call_id': tool_call_id, 'stopped': stopped})
+    _log.info('media_stop_policy receipt session=%s turn=%s stopped=%s', session_id, turn_id, stopped)
+
+
+def finish_stop_tool(*, session_id='', tool_results=(), **kwargs):
+    with _lock:
+        receipt = _stop_turns.get(_stop_current.get(session_id), {})
+    if not receipt.get('tool_call_id'):
+        return None
+    # The native executor must have durably recorded THIS call, not a result
+    # from history, another chat or a timed-out worker.
+    if not any(m.get('tool_call_id') == receipt['tool_call_id'] for m in tool_results):
+        return None
+    return {'final_response': 'Playback is stopped.' if receipt['stopped'] else _STOP_UNCONFIRMED}
+
+
+def guard_stop_confirmation(*, response_text, platform='', session_id='', **kwargs):
+    if platform != 'feishu':
+        return None
+    with _lock:
+        key = _stop_current.pop(session_id, None)
+        receipt = _stop_turns.pop(key, {}) if key else None
+    if receipt is None:
+        return None
+    # Also catches a provider that ignores tool_choice and returns text alone.
+    return 'Playback is stopped.' if receipt.get('stopped') else _STOP_UNCONFIRMED
+
+
 def register(ctx):
     ctx.register_tool(name='local_media', toolset='local_media', schema=SCHEMA,
                       handler=lambda args, **kw: json.dumps(execute(args.get('action'), args.get('target', '')), ensure_ascii=False), emoji='▶')
+
+    ctx.register_middleware('llm_request', require_stop_tool)
+    ctx.register_middleware('llm_execution', validate_stop_completion)
+    ctx.register_middleware('tool_request', constrain_stop_args)
+    ctx.register_hook('pre_tool_call', restrict_stop_tools)
+    ctx.register_hook('post_tool_call', record_stop_receipt)
+    ctx.register_hook('finish_tool_turn', finish_stop_tool)
+    ctx.register_hook('transform_llm_output', guard_stop_confirmation)
