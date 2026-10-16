@@ -135,14 +135,19 @@ def native(tmp_path, monkeypatch):
     return agent, db
 
 
-def test_actual_native_loop_rejects_provider_text_only_false_success(native, monkeypatch):
+def test_actual_native_loop_executes_stop_when_provider_ignores_tool_choice(native, monkeypatch):
     agent, db = native
-    bridge = Mock(); monkeypatch.setattr('tools.playback_control.request', bridge)
+    bridge = Mock(return_value={'success': True, 'action': 'stopped', 'state': 'inactive'})
+    monkeypatch.setattr('tools.playback_control.request', bridge)
     agent.client.chat.completions.create = Mock(return_value=completion('Music stopped.'))
     result = agent.run_conversation('stop music')
-    assert result['final_response'] == p._STOP_UNCONFIRMED
-    bridge.assert_not_called()
-    assert db.get_messages(agent.session_id)[-1]['content'] == p._STOP_UNCONFIRMED
+    assert result['final_response'] == 'Playback is stopped.'
+    bridge.assert_called_once_with('stop', '')
+    assert agent.client.chat.completions.create.call_count == 1
+    messages = db.get_messages(agent.session_id)
+    assert [m['role'] for m in messages] == ['user', 'assistant', 'tool', 'assistant']
+    assert messages[-1]['content'] == 'Playback is stopped.'
+    assert all(m.get('content') != 'Music stopped.' for m in messages)
 
 
 @pytest.mark.parametrize('success', [True, False])

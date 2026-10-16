@@ -221,14 +221,26 @@ def require_stop_tool(*, request, platform='', session_id='', turn_id='', **kwar
 
 
 def validate_stop_completion(*, request, next_call, session_id='', turn_id='', **kwargs):
-    """Reject text-only success before native history persistence as well."""
+    """Keep a provider ignoring tool_choice on the native stop execution path."""
     response = next_call(request)
     with _lock:
         active = _stop_current.get(session_id) == (session_id, turn_id)
     if active and getattr(response, 'choices', None):
         message = response.choices[0].message
         if not getattr(message, 'tool_calls', None):
-            message.content = _STOP_UNCONFIRMED
+            if any(t.get('function', {}).get('name') == 'local_media' for t in request.get('tools') or []):
+                # Some local providers ignore named tool_choice. Construct only
+                # the authorized stop call; the normal executor, guardrails,
+                # durable history and result gate still perform all execution.
+                from openai.types.chat import ChatCompletionMessageToolCall
+                import uuid
+                message.content = None
+                message.tool_calls = [ChatCompletionMessageToolCall.model_validate({
+                    'id': 'stop_' + uuid.uuid4().hex, 'type': 'function',
+                    'function': {'name': 'local_media', 'arguments': '{"action":"stop"}'}})]
+                response.choices[0].finish_reason = 'tool_calls'
+            else:
+                message.content = _STOP_UNCONFIRMED
             _log.warning('media_stop_policy provider_skipped_tool session=%s turn=%s', session_id, turn_id)
     return response
 
