@@ -61,6 +61,9 @@ def test_invalid_config_fails_before_native_start(tmp_path, content):
     parsed = yaml.safe_load(content)
     if isinstance(parsed, dict):
         parsed['media_stop'] = service.load_config()['media_stop']
+        parsed['audio'] = service.load_config()['audio']
+        if isinstance(parsed.get('asr'), dict):
+            parsed['asr']['source_language'] = 'auto'
         content = yaml.safe_dump(parsed)
     path.write_text(content)
     with pytest.raises(ValueError):

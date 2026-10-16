@@ -1,6 +1,7 @@
 # Restart aisp-wake after editing. No image rebuild is needed for mounted config.
 # ASR hints and command matching are independent. Matching uses the shared Feishu grammar.
 asr:
+  source_language: auto
   hotwords:
     - Hello Intel
     - Hi Intel
@@ -50,3 +51,7 @@ media_stop:
       - media
       - playback
       - player
+
+audio:
+  aec: os
+  aec_reference: default

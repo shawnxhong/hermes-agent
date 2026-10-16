@@ -20,6 +20,7 @@ import yaml
 
 from tools.media_stop_policy import compile_media_stop_pattern
 from tools.playback_control import request as playback_request
+from tools.wake_audio import start_capture_with_aec
 
 
 DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
@@ -28,11 +29,11 @@ DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
 def load_config(path=DEFAULT_CONFIG):
     """Load the single wake-service vocabulary source; fail on invalid input."""
     config = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(config, dict) or set(config) != {"asr", "wake", "media_stop"}:
-        raise ValueError("Wake config requires exactly asr, wake and media_stop sections")
+    if not isinstance(config, dict) or set(config) != {"asr", "wake", "media_stop", "audio"}:
+        raise ValueError("Wake config requires exactly asr, wake, media_stop and audio sections")
     asr, wake = config["asr"], config["wake"]
-    if not isinstance(asr, dict) or set(asr) != {"hotwords"}:
-        raise ValueError("asr requires hotwords")
+    if not isinstance(asr, dict) or set(asr) != {"hotwords", "source_language"}:
+        raise ValueError("asr requires hotwords and source_language")
     if not isinstance(wake, dict) or set(wake) != {"aliases"}:
         raise ValueError("wake requires aliases")
     for key, values in (("asr.hotwords", asr["hotwords"]), ("wake.aliases", wake["aliases"])):
@@ -42,6 +43,15 @@ def load_config(path=DEFAULT_CONFIG):
             raise ValueError(f"{key} must be a list of nonempty single-line strings")
     if not wake["aliases"]:
         raise ValueError("wake.aliases must not be empty")
+    if asr['source_language'] not in ('auto', 'zh', 'en', 'ja', 'yue', 'ko', 'de', 'fr', 'ru', 'it', 'sp', 'pt'):
+        raise ValueError("Invalid asr.source_language code")
+    audio = config['audio']
+    if not isinstance(audio, dict) or set(audio) != {'aec', 'aec_reference'}:
+        raise ValueError("audio requires aec and aec_reference")
+    if audio['aec'] not in ('os', 'none'):
+        raise ValueError("audio.aec must be os or none")
+    if not isinstance(audio['aec_reference'], str) or not audio['aec_reference'].strip():
+        raise ValueError("audio.aec_reference must be a nonempty string")
     validate_media_stop(config["media_stop"])
     return config
 
@@ -159,14 +169,15 @@ class Native:
         return lib.wake_eos_flag()
 
     def __init__(self, library, model, device, callback, config=None):
+        config = load_config() if config is None else config
         context = asr_context(config)
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
-        self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, type(self.cb)]
+        self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, C.c_char_p, type(self.cb)]
         self.lib.wake_create.restype = C.c_void_p
         self.lib.wake_feed.argtypes = [C.c_void_p, C.POINTER(C.c_float), C.c_size_t, C.c_int64]
         self.lib.wake_flush.argtypes = [C.c_void_p]
-        self.handle = self.lib.wake_create(model.encode(), device.encode(), context.encode(), self.cb)
+        self.handle = self.lib.wake_create(model.encode(), device.encode(), context.encode(), config["asr"]["source_language"].encode(), self.cb)
         if not self.handle:
             raise RuntimeError("AISP live-asr initialization failed")
 
@@ -180,11 +191,25 @@ class Native:
         if self.lib.wake_flush(self.handle):
             raise RuntimeError("AISP flush failed")
 
-    def start_capture(self, source):
-        self.lib.wake_start_capture.argtypes = [C.c_void_p, C.c_char_p]
+    def start_capture(self, source, aec="none", reference=""):
+        self.lib.wake_start_capture.argtypes = [C.c_void_p, C.c_char_p, C.c_char_p, C.c_char_p]
         self.lib.wake_capture_alive.argtypes = [C.c_void_p]
-        if self.lib.wake_start_capture(self.handle, source.encode()):
+        if self.lib.wake_start_capture(self.handle, source.encode(), aec.encode(), reference.encode()):
             raise RuntimeError("AISP microphone capture failed")
+
+    def stop_capture(self):
+        self.lib.wake_stop_capture.argtypes = [C.c_void_p]
+        if self.lib.wake_stop_capture(self.handle):
+            raise RuntimeError("AISP capture cleanup failed")
+
+    def playback_devices(self):
+        result = []
+        callback_type = C.CFUNCTYPE(None, C.c_int32, C.c_char_p)
+        callback = callback_type(lambda number, name: result.append((number, name.decode())))
+        self.lib.wake_enumerate_playback.argtypes = [callback_type]
+        if self.lib.wake_enumerate_playback(callback):
+            raise RuntimeError("AISP playback enumeration failed")
+        return result
 
     def capture_alive(self):
         return bool(self.lib.wake_capture_alive(self.handle))
@@ -296,7 +321,7 @@ class Server:
         os.chmod(path, 0o600)
         listener.listen(1)
         listener.settimeout(1)
-        self.event(event="ready", language="en")
+        self.event(event="ready")
         while True:
             if not native.capture_alive():
                 raise RuntimeError("Continuous audio source stopped")
@@ -370,7 +395,7 @@ def main():
                media_stop_config=config["media_stop"])
     try:
         native = Native(args.library, args.model, args.device, s.result, config=config)
-        native.start_capture(args.source)
+        start_capture_with_aec(native, args.source, config["audio"], s.event)
         s.serve(native, args.socket)
     finally:
         s.close()
