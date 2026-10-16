@@ -13,8 +13,16 @@ and `Intel Intel`, plus media-stop hotwords through the SDK `asr.context`: `stop
 playback`, `stop music`, `stop video`, `stop audio`, `stop media`, `stop player`,
 `close video`, `close player`, `turn off music`, and `turn off video`. These hints
 are appended to caller-supplied `--context`, including when that argument is
-empty. They bias recognition without extending the accepted command grammar or
-the configured wake aliases. The obsolete `thank you` end phrase is not included.
+empty. The four canonical wake phrases also merge into the configured wake aliases
+at service startup and each wake-client subscription. Existing aliases remain;
+an older client cannot remove `Intel Intel` by sending its original alias list.
+The obsolete `thank you` end phrase is not included. Stop command grammar is
+unchanged.
+Hints are line-separated. A fixed `Intel Intel` waveform caused an early partial
+to copy the whole comma-separated vocabulary; the same waveform passed with
+line-separated hints. The regression checks every partial for inserted stop/end
+phrases, alongside silence and unrelated-speech probes. This does not establish
+that hallucinations are eliminated for other audio or physical microphones.
 
 A matching partial immediately queues the existing device-wide media bridge
 `stop` RPC. No wake word, active client subscription or EOS is required. A later

@@ -26,6 +26,19 @@ def test_hotwords_are_valid_commands_and_keep_custom_bias():
     assert service.context_with_hotwords(context) == context
 
 
+def test_canonical_wake_aliases_merge_without_losing_custom_or_duplicating_case():
+    aliases = ['hello intel', 'Hi Indel', 'custom wake']
+    merged = service.wake_aliases_with_defaults(aliases)
+    assert aliases == ['hello intel', 'Hi Indel', 'custom wake']
+    assert 'Hi Indel' in merged and 'custom wake' in merged and 'Intel Intel' in merged
+    assert len([a for a in merged if service.normalize(a) == 'hello intel']) == 1
+    server = service.Server(logging.getLogger('canonical-wake'), aliases, EOS)
+    conn = Mock()
+    server.arm(conn, 'wake', None, 100)
+    server.result(101, 0, b'Intel Intel')
+    assert json.loads(conn.sendall.call_args.args[0])['alias'] == 'Intel Intel'
+
+
 @pytest.mark.parametrize('context', ['', 'Hello Intel'])
 def test_native_passes_media_hotwords_to_actual_bridge_argument(monkeypatch, context):
     lib = Mock()

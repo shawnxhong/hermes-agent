@@ -139,6 +139,19 @@ def socket_service(tmp_path):
     assert not errors
 
 
+def test_client_subscription_retains_canonical_intel_intel_wake_alias(socket_service):
+    server, path = socket_service
+    with socket.socket(socket.AF_UNIX) as client:
+        client.settimeout(3)
+        client.connect(str(path))
+        client.sendall(b'{"mode":"wake","aliases":["Hello Intel"]}\n')
+        reader = client.makefile('rb')
+        assert json.loads(reader.readline())['event'] == 'ready'
+        server.result(server.armed_after + 1, 0, b'Intel Intel')
+        event = json.loads(reader.readline())
+        assert event['event'] == 'wake' and event['alias'] == 'Intel Intel'
+
+
 def test_real_socket_eos_callback_once_and_next_recording(socket_service):
     server, path = socket_service
     detector = ExternalEOSDetector({'socket': str(path)})

@@ -30,9 +30,11 @@ MEDIA_STOP_HOTWORDS = (
 
 def context_with_hotwords(context):
     """Append wake/stop hints without replacing caller-supplied ASR context."""
-    hints = "Keywords: " + ", ".join((*WAKE_HOTWORDS, *MEDIA_STOP_HOTWORDS)) + "."
+    # The comma-list form regurgitated the entire vocabulary in a partial for
+    # Intel Intel. Line-separated hints passed that fixed-waveform regression.
+    hints = "\n".join((*WAKE_HOTWORDS, *MEDIA_STOP_HOTWORDS))
     context = context.strip()
-    if hints in context.splitlines():
+    if context == hints or context.endswith("\n" + hints):
         return context
     return "\n".join(part for part in (context, hints) if part)
 
@@ -87,6 +89,13 @@ class MediaStopWorker:
 def normalize(text):
     text = unicodedata.normalize("NFKC", text).casefold()
     return " ".join("".join(c for c in text if not unicodedata.category(c).startswith("P")).split())
+
+
+def wake_aliases_with_defaults(aliases):
+    result = list(aliases)
+    present = {normalize(a) for a in result if isinstance(a, str)}
+    result.extend(phrase for phrase in WAKE_HOTWORDS if normalize(phrase) not in present)
+    return result
 
 
 class WakeGate:
@@ -169,7 +178,7 @@ class Server:
         self.log = log
         self.lock = threading.Lock()
         self.instance = str(uuid.uuid4())
-        self.gate = WakeGate(aliases, continuous=True)
+        self.gate = WakeGate(wake_aliases_with_defaults(aliases), continuous=True)
         self.eos_flag = eos_flag
         self.recording_speech = set()
         self.mode = "wake"
@@ -292,7 +301,7 @@ class Server:
                     raise ValueError("Recording subscription requires identity")
                 if mode == "recording" and request.get("endpoint") != "aisp-eos":
                     raise ValueError("Recording requires aisp-eos endpoint support")
-                aliases = WakeGate(request["aliases"]).aliases if mode == "wake" else self.gate.aliases
+                aliases = WakeGate(wake_aliases_with_defaults(request["aliases"])).aliases if mode == "wake" else self.gate.aliases
                 with self.lock:
                     self.gate.aliases = aliases
                     self.arm(conn, mode, recording_id, time.monotonic()*1000)
