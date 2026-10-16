@@ -1,5 +1,5 @@
 # Restart aisp-wake after editing. No image rebuild is needed for mounted config.
-# Recognition hints do not define stop-command matching (shared Feishu policy).
+# ASR hints and command matching are independent. Matching uses the shared Feishu grammar.
 asr:
   hotwords:
     - Hello Intel
@@ -29,3 +29,24 @@ wake:
     - Hey Inter
     - Hey Indel
     - Intel Intel
+
+media_stop:
+  enabled: true
+  # Literal words, not regular expressions. Matches a full command, not a substring.
+  # Example: "Could you stop the music please?" (verb=stop, target=music).
+  match:
+    verbs:
+      - stop
+      - close
+      - quit
+      - turn off
+    targets:
+      - music
+      - audio
+      - video
+      - videos
+      - song
+      - songs
+      - media
+      - playback
+      - player

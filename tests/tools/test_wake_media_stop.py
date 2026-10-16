@@ -2,6 +2,9 @@
 import importlib.util
 import json
 import logging
+import copy
+
+import yaml
 from pathlib import Path
 import socket
 import threading
@@ -27,7 +30,10 @@ def test_hotwords_keep_line_separated_sdk_format():
 
 def test_config_controls_context_and_matching_without_hidden_defaults(tmp_path, monkeypatch):
     path = tmp_path / 'config.yaml'
-    path.write_text('asr:\n  hotwords: [custom wake]\nwake:\n  aliases: [custom wake]\n')
+    custom = service.load_config()
+    custom['asr']['hotwords'] = ['custom wake']
+    custom['wake']['aliases'] = ['custom wake']
+    path.write_text(yaml.safe_dump(custom))
     config = service.load_config(path)
     lib = Mock()
     lib.wake_create.return_value = 1
@@ -52,6 +58,10 @@ def test_config_controls_context_and_matching_without_hidden_defaults(tmp_path, 
 ])
 def test_invalid_config_fails_before_native_start(tmp_path, content):
     path = tmp_path / 'config.yaml'
+    parsed = yaml.safe_load(content)
+    if isinstance(parsed, dict):
+        parsed['media_stop'] = service.load_config()['media_stop']
+        content = yaml.safe_dump(parsed)
     path.write_text(content)
     with pytest.raises(ValueError):
         service.load_config(path)
@@ -73,10 +83,10 @@ def test_native_passes_media_hotwords_to_actual_bridge_argument(monkeypatch):
 def make_server():
     servers = []
 
-    def make(request=None):
+    def make(request=None, media_stop_config=None):
         if request is None:
             request = Mock(return_value={'success': True, 'action': 'stopped', 'state': 'inactive'})
-        server = service.Server(logging.getLogger('test-wake-stop'), ['Hello Intel'], EOS, request)
+        server = service.Server(logging.getLogger('test-wake-stop'), ['Hello Intel'], EOS, request, media_stop_config=media_stop_config)
         servers.append(server)
         return server, request
 
@@ -248,3 +258,66 @@ def test_real_unix_rpc_from_service_without_agent_imports(make_server, tmp_path,
         worker.join(3)
         assert not worker.is_alive() and not errors
     assert received == [{'action': 'stop', 'target': '', 'epoch': 'test-epoch'}]
+
+
+def test_disabled_stop_preserves_recording_eos_and_never_calls_rpc(make_server):
+    policy = service.load_config()['media_stop']
+    policy['enabled'] = False
+    server, request = make_server(media_stop_config=policy)
+    conn = Mock()
+    server.arm(conn, 'recording', 'disabled', 100)
+    server.result(101, 0, b'stop playback')
+    server.result(101, EOS, b'')
+    request.assert_not_called()
+    assert server.media_stop.thread is None
+    assert not server.stop_sentences
+    assert json.loads(conn.sendall.call_args.args[0])['event'] == 'end_recording'
+
+
+def test_matching_vocabulary_is_independent_of_asr_hints(make_server, tmp_path):
+    config = service.load_config()
+    config['asr']['hotwords'] = ['stop music']
+    config['media_stop']['match'] = {'verbs': ['silence'], 'targets': ['sound']}
+    path = tmp_path / 'config.yaml'
+    path.write_text(yaml.safe_dump(config))
+    loaded = service.load_config(path)
+    assert service.asr_context(loaded) == 'stop music'
+    server, request = make_server(media_stop_config=loaded['media_stop'])
+    server.result(101, 0, b'stop music')  # Hint alone cannot authorize stop.
+    assert not server.stop_sentences
+    server.result(102, 0, b'Could you silence the sound please?')  # No hint needed.
+    drain(server)
+    request.assert_called_once_with('stop')
+    assert list(server.stop_sentences) == [102]
+
+
+@pytest.mark.parametrize('text', [
+    'Stop playback', 'Please close the video.', 'turn off all audio now',
+    'Could you quit playing this song please?', 'Do not stop music',
+    'Hello Intel stop playback', 'stop music and email me', '停止播放',
+])
+def test_configured_default_grammar_matches_feishu(text, make_server):
+    server, _ = make_server()
+    assert bool(server.stop_pattern.fullmatch(text.strip())) == is_media_stop_command(text)
+
+
+def test_matching_config_treats_regex_metacharacters_as_literal(make_server):
+    policy = {'enabled': True, 'match': {'verbs': ['stop.*'], 'targets': ['sound']}}
+    server, _ = make_server(media_stop_config=policy)
+    assert not server.stop_pattern.fullmatch('stop music sound')
+    assert server.stop_pattern.fullmatch('stop.* sound')
+
+
+@pytest.mark.parametrize('patch', [
+    {'enabled': 'false'}, {'enabled': 0}, {'match': {'verbs': [], 'targets': ['music']}},
+    {'match': {'verbs': ['stop'], 'targets': 'music'}},
+    {'match': {'verbs': ['stop'], 'targets': [42]}},
+    {'match': {'verbs': ['stop'], 'targets': ['music'], 'typo': []}},
+])
+def test_invalid_media_stop_config_rejected(tmp_path, patch):
+    config = service.load_config()
+    config['media_stop'].update(copy.deepcopy(patch))
+    path = tmp_path / 'config.yaml'
+    path.write_text(yaml.safe_dump(config))
+    with pytest.raises(ValueError):
+        service.load_config(path)

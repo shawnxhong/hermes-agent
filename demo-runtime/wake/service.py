@@ -18,7 +18,7 @@ import uuid
 
 import yaml
 
-from tools.media_stop_policy import is_media_stop_command
+from tools.media_stop_policy import compile_media_stop_pattern
 from tools.playback_control import request as playback_request
 
 
@@ -28,8 +28,8 @@ DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
 def load_config(path=DEFAULT_CONFIG):
     """Load the single wake-service vocabulary source; fail on invalid input."""
     config = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(config, dict) or set(config) != {"asr", "wake"}:
-        raise ValueError("Wake config requires exactly asr and wake sections")
+    if not isinstance(config, dict) or set(config) != {"asr", "wake", "media_stop"}:
+        raise ValueError("Wake config requires exactly asr, wake and media_stop sections")
     asr, wake = config["asr"], config["wake"]
     if not isinstance(asr, dict) or set(asr) != {"hotwords"}:
         raise ValueError("asr requires hotwords")
@@ -42,7 +42,19 @@ def load_config(path=DEFAULT_CONFIG):
             raise ValueError(f"{key} must be a list of nonempty single-line strings")
     if not wake["aliases"]:
         raise ValueError("wake.aliases must not be empty")
+    validate_media_stop(config["media_stop"])
     return config
+
+
+def validate_media_stop(config):
+    if not isinstance(config, dict) or set(config) != {"enabled", "match"}:
+        raise ValueError("media_stop requires enabled and match")
+    if not isinstance(config["enabled"], bool):
+        raise ValueError("media_stop.enabled must be a boolean")
+    match = config["match"]
+    if not isinstance(match, dict) or set(match) != {"verbs", "targets"}:
+        raise ValueError("media_stop.match requires verbs and targets")
+    return compile_media_stop_pattern(match["verbs"], match["targets"])
 
 
 def asr_context(config=None):
@@ -179,7 +191,10 @@ class Native:
 
 
 class Server:
-    def __init__(self, log, aliases, eos_flag, stop_request=playback_request):
+    def __init__(self, log, aliases, eos_flag, stop_request=playback_request, *, media_stop_config=None):
+        policy = load_config()["media_stop"] if media_stop_config is None else media_stop_config
+        self.stop_pattern = validate_media_stop(policy)
+        self.stop_enabled = policy["enabled"]
         self.log = log
         self.lock = threading.Lock()
         self.instance = str(uuid.uuid4())
@@ -228,7 +243,7 @@ class Server:
                 # flag-only EOS, so this command never becomes a Hermes event.
                 if timestamp in self.stop_sentences:
                     return
-                if is_media_stop_command(text):
+                if self.stop_enabled and self.stop_pattern.fullmatch(text.strip()):
                     self.stop_sentences[timestamp] = None
                     if len(self.stop_sentences) > 1024:
                         self.stop_sentences.popitem(last=False)
@@ -351,7 +366,8 @@ def main():
     handler = RotatingFileHandler(str(Path(args.log).with_name("events.log")), maxBytes=2*1024*1024, backupCount=2, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     status.addHandler(handler)
-    s = Server(log, config["wake"]["aliases"], Native.eos_flag(args.library))
+    s = Server(log, config["wake"]["aliases"], Native.eos_flag(args.library),
+               media_stop_config=config["media_stop"])
     try:
         native = Native(args.library, args.model, args.device, s.result, config=config)
         native.start_capture(args.source)

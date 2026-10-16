@@ -62,7 +62,7 @@ and media mount. Roll back the Compose/control selection to restore the baseline
 
 `demo-runtime/wake/config.yaml` is the versioned default. Deploy it as a
 read-only directory mount, then launch `service.py --config /config/wake/config.yaml`.
-Only this YAML supplies `asr.hotwords` and `wake.aliases`.
+This YAML supplies `asr.hotwords`, `wake.aliases`, and `media_stop`.
 The hotword list is joined with newlines into the SDK property `asr.context`;
 there is no separate user-configurable context field.
 Empty `asr.hotwords: []` disables hints. Missing/invalid configuration fails
@@ -80,3 +80,25 @@ rebuild is required. `hermes-box-voice start` alone does not restart an already
 running wake service. The image contains the same default for standalone use.
 The wake image gets the pure-Python PyYAML 6.0.3 package and its license from a
 pinned, already-local Gateway image; no network package installation is needed.
+
+
+## Local stop enablement and matching
+
+`media_stop.enabled` controls the wake service's local stop action (default true).
+`media_stop.match.verbs` and `.targets` are independent literal vocabularies.
+The existing Feishu full-command grammar combines a verb and target with the
+same optional polite modifiers; the supplied defaults preserve existing matches.
+The shared compiler escapes vocabulary as literals, not regular expressions.
+Feishu continues using its established defaults; the sidecar config controls
+local wake ASR only.
+
+`asr.hotwords` only biases recognition: it neither enables stop nor populates
+matching vocabulary. Adding a hint cannot enable an action; removing a hint
+cannot remove a match. A command can match even without an ASR hint.
+Disabling local stop makes its text follow normal wake/recording handling:
+no local RPC, segment consumption or EOS suppression is performed. It does not
+disable Feishu stop commands or Hermes's handling of a normally recorded request.
+Enabled local stop consumes matching partials once per segment without Hermes
+notification, as before. Nonempty matching lists are required even when disabled
+so re-enabling cannot activate an invalid policy. Config is loaded at startup;
+restart wake and reconnect voice after edits.
