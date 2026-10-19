@@ -16,7 +16,7 @@ struct Bridge {
 };
 extern "C" {
 uint32_t wake_eos_flag() { return AISP_FLAG_EOS; }
-void* wake_create(const char* model, const char* device, const char* context, Callback cb) {
+void* wake_create(const char* model, const char* device, const char* context, const char* language, float vad_threshold, float block_rms_threshold, Callback cb) {
     try {
         auto b = std::make_unique<Bridge>();
         ov::AnyMap props;
@@ -25,15 +25,27 @@ void* wake_create(const char* model, const char* device, const char* context, Ca
         props["asr.context"] = std::string(context);
         props["asr.max_new_tokens"] = int32_t(128);
         props["vad.device"] = std::string("CPU");
-        props["source_language"] = aisp::language::Type::En;
+        // Init config is forwarded to VADStreamingNode. live-asr set_property
+        // does not forward VAD keys: changing these requires pipeline recreation.
+        props["vad.threshold"] = vad_threshold;
+        // Private SDK 0.4.1 key: RMS of VAD frame probabilities, not PCM energy.
+        props["vad.block_rms_threshold"] = block_rms_threshold;
+        auto lang = aisp::language::try_parse_code(language);
+        if (!lang) throw std::runtime_error("Invalid source_language");
+        props["source_language"] = *lang;
         props["diar.enabled"] = false;
         std::fprintf(stderr, "AISP SDK %s; asr.max_new_tokens=128\n", AISP_VERSION_STR);
         b->pipeline = b->runtime.create_pipeline("live-asr", props);
-        if (b->pipeline->get_property(std::string("source_language")).as<aisp::language::Type>() != aisp::language::Type::En)
-            throw std::runtime_error("SDK did not retain source_language=en");
+        if (b->pipeline->get_property(std::string("source_language")).as<aisp::language::Type>() != *lang)
+            throw std::runtime_error("SDK did not retain source_language");
         if (b->pipeline->get_property(std::string("asr.context")).as<std::string>() != context)
             throw std::runtime_error("SDK did not retain asr.context");
-        std::fprintf(stderr,"Qwen3 live-ASR: device=%s source_language=en (English) context=%s\n",device,context);
+        std::fprintf(stderr,"Qwen3 live-ASR: device=%s source_language=%s context=%s\n",device,language,context);
+        for (const auto& key : {"vad.threshold", "vad.block_rms_threshold"})
+            if (b->pipeline->get_property(std::string(key)).as<float>() != props[key].as<float>())
+                throw std::runtime_error("SDK did not retain VAD initialization config");
+        std::fprintf(stderr, "VAD init: threshold=%.3f block_rms_threshold=%.3f\n",
+                     vad_threshold, block_rms_threshold);
         b->callback = [cb](ov::AnyMap&& out) {
             // Final EOS can be a separate callback with no output_text key.
             if (aisp::keys::output_timestamp.exists_in(out) && aisp::keys::output_flag.exists_in(out)) {
@@ -61,11 +73,13 @@ int wake_flush(void* raw) {
     try { static_cast<Bridge*>(raw)->pipeline->wait(); return 0; }
     catch (...) { return -1; }
 }
-int wake_start_capture(void* raw, const char* source) {
+int wake_start_capture(void* raw, const char* source, const char* aec, const char* reference) {
     try {
         auto b = static_cast<Bridge*>(raw);
         ov::AnyMap config;
         config["audio.source"] = std::string(source);
+        config["audio.aec"] = std::string(aec);
+        if (std::string(aec) != "none") config["audio.aec_reference"] = std::string(reference);
         config["audio.chunk_ms"] = int32_t(500);
         // Preserve measured 0.3.6 capture policy across SDK default changes.
         config["audio.max_queue_ms"] = int32_t(2000);
@@ -78,6 +92,22 @@ int wake_start_capture(void* raw, const char* source) {
         std::fprintf(stderr,"Continuous microphone capture started; ASR device configured by service (default GPU)\n");
         return 0;
     } catch(const std::exception& e) { std::fprintf(stderr,"capture: %s\n",e.what()); return -1; }
+}
+int wake_stop_capture(void* raw) {
+    auto b = static_cast<Bridge*>(raw);
+    try {
+        if (b->session) b->session->stop();
+        b->session.reset();
+        b->capture_alive = false;
+        return 0;
+    } catch(const std::exception& e) { std::fprintf(stderr,"stop_capture: %s\n",e.what()); return -1; }
+}
+int wake_enumerate_playback(void (*cb)(int32_t, const char*)) {
+    try {
+        for (const auto& device : aisp::enumerate_audio_devices(aisp::AudioDeviceKind::Playback))
+            cb(device.id, device.name.c_str());
+        return 0;
+    } catch(const std::exception& e) { std::fprintf(stderr,"enumerate: %s\n",e.what()); return -1; }
 }
 int wake_capture_alive(void* raw) { return static_cast<Bridge*>(raw)->capture_alive ? 1 : 0; }
 void wake_destroy(void* raw) { delete static_cast<Bridge*>(raw); }

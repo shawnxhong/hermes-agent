@@ -1,0 +1,39 @@
+# Restart aisp-wake after editing. No image rebuild is needed for mounted config.
+# ASR hints and wake aliases are independent. No local playback-stop shortcut.
+asr:
+  source_language: en
+  hotwords:
+    - Intel
+wake:
+  aliases:
+    - Hello Intel
+    - Hi Intel
+    - Hi Indel
+    - High Intel
+    - Hi Inter
+    - Hello Inter
+    - Hello Indel
+    - Hey Intel
+    - Hey Inter
+    - Hey Indel
+    - Intel Intel
+
+# VAD frame probability threshold and block probability RMS gate (SDK private key).
+vad:
+  threshold: 0.5
+  block_rms_threshold: 0.35
+
+audio:
+  aec: os
+  aec_reference: default
+
+recording_quiet:
+  enabled: true
+  fan:
+    enabled: true
+    control_percent: 30
+    release_temperature_c: 80
+  output:
+    enabled: true
+    max_volume_percent: 20
+  max_duration_seconds: 120

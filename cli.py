@@ -15738,6 +15738,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         self._wake_suspended = True
         return True
 
+    from tools.recording_quiet import recording_start as _quiet_recording_start
+
+    @_quiet_recording_start
     def _voice_start_recording(self):
         """Start capturing audio from the microphone."""
         scene_generation = _scene_generation(self)
@@ -15965,9 +15968,16 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         wav_path = None
         try:
             if self._voice_recorder is None:
+                from tools.recording_quiet import end as end_quiet
+                end_quiet(self)
                 return
 
-            wav_path = self._voice_recorder.stop()
+            from tools.recording_quiet import end as end_quiet
+            quiet_lease = getattr(self, '_recording_quiet', None)
+            try:
+                wav_path = self._voice_recorder.stop()
+            finally:
+                end_quiet(self, quiet_lease)
 
             # Audio cue: double beep after stream stopped (no CoreAudio conflict)
             if self._voice_beeps_enabled():
@@ -16497,6 +16507,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
     def _disable_voice_mode(self):
         """Disable voice mode, cancel any active recording, and stop TTS."""
+        from tools.recording_quiet import end as end_quiet
+        end_quiet(self)
         self._voice_continuity_ended = True
         recorder = None
         with self._voice_lock:

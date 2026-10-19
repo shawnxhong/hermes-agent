@@ -8,12 +8,64 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
+import math
 import re
 import socket
 import threading
 import time
 import unicodedata
 import uuid
+
+import yaml
+
+from tools.wake_audio import start_capture_with_aec
+from tools.recording_quiet import validate_config as validate_quiet
+
+
+DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
+
+
+def load_config(path=DEFAULT_CONFIG):
+    """Load the single wake-service vocabulary source; fail on invalid input."""
+    config = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(config, dict) or set(config) != {"asr", "wake", "vad", "audio", "recording_quiet"}:
+        raise ValueError("Wake config requires exactly asr, wake, vad, audio and recording_quiet sections")
+    asr, wake = config["asr"], config["wake"]
+    if not isinstance(asr, dict) or set(asr) != {"hotwords", "source_language"}:
+        raise ValueError("asr requires hotwords and source_language")
+    if not isinstance(wake, dict) or set(wake) != {"aliases"}:
+        raise ValueError("wake requires aliases")
+    for key, values in (("asr.hotwords", asr["hotwords"]), ("wake.aliases", wake["aliases"])):
+        if not isinstance(values, list) or any(
+            not isinstance(v, str) or not v.strip() or "\n" in v or "\r" in v for v in values
+        ):
+            raise ValueError(f"{key} must be a list of nonempty single-line strings")
+    if not wake["aliases"]:
+        raise ValueError("wake.aliases must not be empty")
+    if asr['source_language'] not in ('auto', 'zh', 'en', 'ja', 'yue', 'ko', 'de', 'fr', 'ru', 'it', 'sp', 'pt'):
+        raise ValueError("Invalid asr.source_language code")
+    audio = config['audio']
+    if not isinstance(audio, dict) or set(audio) != {'aec', 'aec_reference'}:
+        raise ValueError("audio requires aec and aec_reference")
+    if audio['aec'] not in ('os', 'none'):
+        raise ValueError("audio.aec must be os or none")
+    if not isinstance(audio['aec_reference'], str) or not audio['aec_reference'].strip():
+        raise ValueError("audio.aec_reference must be a nonempty string")
+    validate_quiet(config['recording_quiet'])
+    vad = config['vad']
+    if not isinstance(vad, dict) or set(vad) != {'threshold', 'block_rms_threshold'}:
+        raise ValueError("vad requires threshold and block_rms_threshold")
+    for key, value in vad.items():
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or not 0 <= value <= 1):
+            raise ValueError(f"vad.{key} must be a finite number between 0 and 1")
+    return config
+
+
+def asr_context(config=None):
+    """Convert configured hotwords to the SDK's one-phrase-per-line context."""
+    config = load_config() if config is None else config
+    return "\n".join(config["asr"]["hotwords"])
 
 
 def normalize(text):
@@ -64,14 +116,17 @@ class Native:
         lib.wake_eos_flag.restype = C.c_uint32
         return lib.wake_eos_flag()
 
-    def __init__(self, library, model, device, callback, context=""):
+    def __init__(self, library, model, device, callback, config=None):
+        config = load_config() if config is None else config
+        context = asr_context(config)
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
-        self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, type(self.cb)]
+        self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, C.c_char_p, C.c_float, C.c_float, type(self.cb)]
         self.lib.wake_create.restype = C.c_void_p
         self.lib.wake_feed.argtypes = [C.c_void_p, C.POINTER(C.c_float), C.c_size_t, C.c_int64]
         self.lib.wake_flush.argtypes = [C.c_void_p]
-        self.handle = self.lib.wake_create(model.encode(), device.encode(), context.encode(), self.cb)
+        self.handle = self.lib.wake_create(model.encode(), device.encode(), context.encode(), config["asr"]["source_language"].encode(),
+                                            config["vad"]["threshold"], config["vad"]["block_rms_threshold"], self.cb)
         if not self.handle:
             raise RuntimeError("AISP live-asr initialization failed")
 
@@ -85,11 +140,25 @@ class Native:
         if self.lib.wake_flush(self.handle):
             raise RuntimeError("AISP flush failed")
 
-    def start_capture(self, source):
-        self.lib.wake_start_capture.argtypes = [C.c_void_p, C.c_char_p]
+    def start_capture(self, source, aec="none", reference=""):
+        self.lib.wake_start_capture.argtypes = [C.c_void_p, C.c_char_p, C.c_char_p, C.c_char_p]
         self.lib.wake_capture_alive.argtypes = [C.c_void_p]
-        if self.lib.wake_start_capture(self.handle, source.encode()):
+        if self.lib.wake_start_capture(self.handle, source.encode(), aec.encode(), reference.encode()):
             raise RuntimeError("AISP microphone capture failed")
+
+    def stop_capture(self):
+        self.lib.wake_stop_capture.argtypes = [C.c_void_p]
+        if self.lib.wake_stop_capture(self.handle):
+            raise RuntimeError("AISP capture cleanup failed")
+
+    def playback_devices(self):
+        result = []
+        callback_type = C.CFUNCTYPE(None, C.c_int32, C.c_char_p)
+        callback = callback_type(lambda number, name: result.append((number, name.decode())))
+        self.lib.wake_enumerate_playback.argtypes = [callback_type]
+        if self.lib.wake_enumerate_playback(callback):
+            raise RuntimeError("AISP playback enumeration failed")
+        return result
 
     def capture_alive(self):
         return bool(self.lib.wake_capture_alive(self.handle))
@@ -180,7 +249,7 @@ class Server:
         os.chmod(path, 0o600)
         listener.listen(1)
         listener.settimeout(1)
-        self.event(event="ready", language="en")
+        self.event(event="ready")
         while True:
             if not native.capture_alive():
                 raise RuntimeError("Continuous audio source stopped")
@@ -205,9 +274,8 @@ class Server:
                     raise ValueError("Recording subscription requires identity")
                 if mode == "recording" and request.get("endpoint") != "aisp-eos":
                     raise ValueError("Recording requires aisp-eos endpoint support")
-                aliases = WakeGate(request["aliases"]).aliases if mode == "wake" else self.gate.aliases
                 with self.lock:
-                    self.gate.aliases = aliases
+                    # The service configuration owns aliases; legacy client lists cannot override it.
                     self.arm(conn, mode, recording_id, time.monotonic()*1000)
                     self.event(event="notifications_armed")
                     conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id,
@@ -233,13 +301,13 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--library", default="/opt/aisp-wake/libwake.so")
     p.add_argument("--model", default="/models/qwen3-asr")
-    p.add_argument("--context", default="", help="Optional ASR bias text; empty avoids prompting control phrases")
+    p.add_argument("--config", default=str(DEFAULT_CONFIG), help="Wake service YAML configuration")
     p.add_argument("--device", default="GPU")
     p.add_argument("--socket", default="/ipc/wake/service.sock")
     p.add_argument("--log", default="/ipc/wake/partials.log")
-    p.add_argument("--aliases", required=True, help="JSON file containing configured phrase and aliases")
     p.add_argument("--source", default="CAPTURE_DEVICE")
     args = p.parse_args()
+    config = load_config(args.config)
     os.umask(0o077)
     Path(args.socket).unlink(missing_ok=True)  # No stale readiness across restart.
     Path(args.log).parent.mkdir(parents=True, exist_ok=True)
@@ -251,9 +319,10 @@ def main():
     handler = RotatingFileHandler(str(Path(args.log).with_name("events.log")), maxBytes=2*1024*1024, backupCount=2, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     status.addHandler(handler)
-    s = Server(log, json.loads(Path(args.aliases).read_text()), Native.eos_flag(args.library))
-    native = Native(args.library, args.model, args.device, s.result, args.context)
-    native.start_capture(args.source)
+    s = Server(log, config["wake"]["aliases"], Native.eos_flag(args.library))
+    s.event(event="vad_config", **config["vad"])
+    native = Native(args.library, args.model, args.device, s.result, config=config)
+    start_capture_with_aec(native, args.source, config["audio"], s.event)
     s.serve(native, args.socket)
 
 

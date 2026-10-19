@@ -184,3 +184,44 @@ def test_unavailable_endpoint_does_not_promise_end_phrase(monkeypatch, tmp_path,
     ack.start_wake_capture(cli)
     assert cache.call_args.args[0]['text'] == "Hi, I'm here."
     assert not ep._hint_played
+
+
+def test_cancelled_ack_never_acquires_quiet_lease(rig, monkeypatch):
+    cli,_,cache,play=rig
+    acquire=Mock();monkeypatch.setattr('tools.recording_quiet.begin',acquire)
+    release=Mock();monkeypatch.setattr('tools.recording_quiet.end',release)
+    def cancel(path):
+        cli._should_exit=True
+        return True
+    play.side_effect=cancel
+    ack.start_wake_capture(cli)
+    acquire.assert_not_called()
+    release.assert_not_called()
+    cli._voice_start_recording.assert_not_called()
+
+
+def test_quiet_limit_starts_after_ack_playback(monkeypatch, rig):
+    from tools import recording_quiet as quiet
+    cli, _, _, play = rig
+    events = []
+    monkeypatch.setattr(quiet, 'SOCKET', Mock(exists=lambda: True))
+    def request(action, token):
+        events.append(action)
+        return {'ok': True, 'active': True}
+    monkeypatch.setattr(quiet, 'request', request)
+    def playback(path):
+        assert events == []
+        events.append('ack_finished')
+        return True
+    play.side_effect = playback
+    @quiet.recording_start
+    def record(instance):
+        events.append('recording')
+        instance._voice_recording = True
+    cli._voice_start_recording = lambda: record(cli)
+    try:
+        ack.start_wake_capture(cli)
+        assert events == ['ack_finished', 'acquire', 'recording']
+    finally:
+        quiet.end(cli)
+    assert events[-1] == 'release'

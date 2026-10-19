@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import unicodedata
+from tools.media_stop_policy import is_media_stop_command
 
 SCHEMA = {
     'name': 'local_media',
@@ -178,12 +179,6 @@ def before_tool(*, session_id='', turn_id='', tool_name='', **kwargs):
 
 # Explicit stop policy stays inside the native model/tool loop. No selector LLM,
 # alternate workflow, prompt rewrite, or changes to the conversation's toolset.
-_STOP_COMMAND = re.compile(
-    r'(?:(?:can|could|would|will) you\s+)?(?:please\s+)?'
-    r'(?:stop|close|quit|turn off)\s+(?:playing\s+)?'
-    r'(?:(?:the|this|current|all)\s+)?'
-    r'(?:music|audio|video|videos|song|songs|media|playback|player)'
-    r'(?:\s+(?:now|again|please))*[.!?]*', re.I)
 _stop_turns = OrderedDict()
 _stop_current = OrderedDict()
 _log = logging.getLogger(__name__)
@@ -205,7 +200,7 @@ def require_stop_tool(*, request, platform='', session_id='', turn_id='', **kwar
         messages = request.get('messages') or []
         message = next((m for m in reversed(messages) if m.get('role') == 'user'), {})
         content = message.get('content')
-        if not isinstance(content, str) or not _STOP_COMMAND.fullmatch(content.strip()):
+        if not is_media_stop_command(content):
             return None
         _remember(_stop_turns, key, {})
         _remember(_stop_current, session_id, key)
