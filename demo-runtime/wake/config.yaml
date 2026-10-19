@@ -24,7 +24,7 @@ vad:
   block_rms_threshold: 0.35
 
 audio:
-  aec: os
+  aec: none
   aec_reference: default
 
 recording_quiet:

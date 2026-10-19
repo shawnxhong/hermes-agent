@@ -20,6 +20,10 @@ spec.loader.exec_module(service)
 EOS = 2
 
 
+def test_packaged_default_disables_aec():
+    assert service.load_config()['audio']['aec'] == 'none'
+
+
 def test_hotwords_keep_line_separated_sdk_format():
     context = service.asr_context()
     assert context.splitlines() == service.load_config()['asr']['hotwords']
