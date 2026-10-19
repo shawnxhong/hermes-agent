@@ -75,8 +75,6 @@ def start_wake_capture(cli):
                 or not cli._wake_word_active or cli.session_id != session
                 or cli._agent_running or not cli._pending_input.empty())
 
-    from tools.recording_quiet import begin, end
-    quiet_lease = begin(cli)
     try:
         config = settings()
         if config["enabled"] and cli._voice_tts and not cancelled():
@@ -117,8 +115,6 @@ def start_wake_capture(cli):
         if not cancelled():
             cli._voice_start_recording()
     finally:
-        if not getattr(cli, "_voice_recording", False):
-            end(cli, quiet_lease)
         with cli._voice_lock:
             cli._voice_processing = False
 

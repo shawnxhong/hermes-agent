@@ -5,8 +5,9 @@ The mounted wake YAML owns `recording_quiet`: enabled by default, fan control
 independent enabled flags. Only `asr.hotwords` biases ASR; wake aliases remain
 separate. Deployment preserves all existing ASR/language/VAD/audio overrides.
 
-The CLI acquires a host lease before wake acknowledgement or manual recording
-cues. Wake acknowledgement and recording share the same token. Native EOS is
+The CLI acquires a host lease after wake acknowledgement finishes, before the
+recording cue/capture, including manual recording. The greeting retains normal
+output volume. Native EOS is
 already recording-ID scoped: the wake phrase's EOS cannot release this lease.
 After recorder.stop(), release precedes the end cue, transcription and LLM/TTS.
 Startup errors, cancelled wake acknowledgements, voice off and scene changes
