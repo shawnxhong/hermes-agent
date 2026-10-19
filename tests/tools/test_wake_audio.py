@@ -94,10 +94,10 @@ def test_language_reaches_native_argument(tmp_path, monkeypatch, language):
     path = tmp_path/'config.yaml'
     path.write_text(yaml.safe_dump(config))
     lib = Mock()
-    lib.wake_create.return_value = 1
+    lib.wake_create_with_split.return_value = 1
     monkeypatch.setattr(service.C, 'CDLL', Mock(return_value=lib))
     service.Native('test', 'model', 'GPU', lambda *args: None, config=service.load_config(path))
-    assert lib.wake_create.call_args.args[3] == language.encode()
+    assert lib.wake_create_with_split.call_args.args[3] == language.encode()
 
 
 def test_bad_language_is_not_silently_converted(tmp_path):

@@ -23,6 +23,7 @@ from tools.recording_quiet import validate_config as validate_quiet
 
 
 DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
+SPLIT_SENSITIVITY = {"low": 0, "medium": 1, "high": 2}
 
 
 def load_config(path=DEFAULT_CONFIG):
@@ -53,9 +54,14 @@ def load_config(path=DEFAULT_CONFIG):
         raise ValueError("audio.aec_reference must be a nonempty string")
     validate_quiet(config['recording_quiet'])
     vad = config['vad']
-    if not isinstance(vad, dict) or set(vad) != {'threshold', 'block_rms_threshold'}:
-        raise ValueError("vad requires threshold and block_rms_threshold")
-    for key, value in vad.items():
+    required = {'threshold', 'block_rms_threshold'}
+    if not isinstance(vad, dict) or not required <= set(vad) or set(vad) - required - {'split_sensitivity'}:
+        raise ValueError("vad requires threshold and block_rms_threshold; split_sensitivity is optional")
+    sensitivity = vad.setdefault('split_sensitivity', 'medium')
+    if not isinstance(sensitivity, str) or sensitivity not in SPLIT_SENSITIVITY:
+        raise ValueError("vad.split_sensitivity must be low, medium or high")
+    for key in required:
+        value = vad[key]
         if (isinstance(value, bool) or not isinstance(value, (int, float))
                 or not math.isfinite(value) or not 0 <= value <= 1):
             raise ValueError(f"vad.{key} must be a finite number between 0 and 1")
@@ -121,12 +127,13 @@ class Native:
         context = asr_context(config)
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
-        self.lib.wake_create.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, C.c_char_p, C.c_float, C.c_float, type(self.cb)]
-        self.lib.wake_create.restype = C.c_void_p
+        self.lib.wake_create_with_split.argtypes = [C.c_char_p, C.c_char_p, C.c_char_p, C.c_char_p, C.c_float, C.c_float, C.c_int32, type(self.cb)]
+        self.lib.wake_create_with_split.restype = C.c_void_p
         self.lib.wake_feed.argtypes = [C.c_void_p, C.POINTER(C.c_float), C.c_size_t, C.c_int64]
         self.lib.wake_flush.argtypes = [C.c_void_p]
-        self.handle = self.lib.wake_create(model.encode(), device.encode(), context.encode(), config["asr"]["source_language"].encode(),
-                                            config["vad"]["threshold"], config["vad"]["block_rms_threshold"], self.cb)
+        self.handle = self.lib.wake_create_with_split(model.encode(), device.encode(), context.encode(), config["asr"]["source_language"].encode(),
+                                            config["vad"]["threshold"], config["vad"]["block_rms_threshold"],
+                                            SPLIT_SENSITIVITY[config["vad"].get("split_sensitivity", "medium")], self.cb)
         if not self.handle:
             raise RuntimeError("AISP live-asr initialization failed")
 

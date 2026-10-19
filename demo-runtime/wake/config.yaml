@@ -20,6 +20,7 @@ wake:
 
 # VAD frame probability threshold and block probability RMS gate (SDK private key).
 vad:
+  split_sensitivity: low
   threshold: 0.5
   block_rms_threshold: 0.35
 

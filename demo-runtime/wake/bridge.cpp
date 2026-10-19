@@ -16,8 +16,10 @@ struct Bridge {
 };
 extern "C" {
 uint32_t wake_eos_flag() { return AISP_FLAG_EOS; }
-void* wake_create(const char* model, const char* device, const char* context, const char* language, float vad_threshold, float block_rms_threshold, Callback cb) {
+void* wake_create_with_split(const char* model, const char* device, const char* context, const char* language, float vad_threshold, float block_rms_threshold, int32_t split_sensitivity, Callback cb) {
     try {
+        if (split_sensitivity < 0 || split_sensitivity > 2)
+            throw std::runtime_error("Invalid vad.split_sensitivity");
         auto b = std::make_unique<Bridge>();
         ov::AnyMap props;
         props["asr.model"] = std::string(model);
@@ -30,6 +32,7 @@ void* wake_create(const char* model, const char* device, const char* context, co
         props["vad.threshold"] = vad_threshold;
         // Private SDK 0.4.1 key: RMS of VAD frame probabilities, not PCM energy.
         props["vad.block_rms_threshold"] = block_rms_threshold;
+        props["vad.split_sensitivity"] = split_sensitivity;
         auto lang = aisp::language::try_parse_code(language);
         if (!lang) throw std::runtime_error("Invalid source_language");
         props["source_language"] = *lang;
@@ -46,6 +49,10 @@ void* wake_create(const char* model, const char* device, const char* context, co
                 throw std::runtime_error("SDK did not retain VAD initialization config");
         std::fprintf(stderr, "VAD init: threshold=%.3f block_rms_threshold=%.3f\n",
                      vad_threshold, block_rms_threshold);
+        if (b->pipeline->get_property(std::string("vad.split_sensitivity")).as<int32_t>() != split_sensitivity)
+            throw std::runtime_error("SDK did not retain vad.split_sensitivity");
+        std::fprintf(stderr, "VAD init: split_sensitivity=%s (%d)\n",
+                     split_sensitivity == 0 ? "low" : split_sensitivity == 1 ? "medium" : "high", split_sensitivity);
         b->callback = [cb](ov::AnyMap&& out) {
             // Final EOS can be a separate callback with no output_text key.
             if (aisp::keys::output_timestamp.exists_in(out) && aisp::keys::output_flag.exists_in(out)) {
@@ -59,6 +66,10 @@ void* wake_create(const char* model, const char* device, const char* context, co
         b->pipeline->set_callback(b->callback);
         return b.release();
     } catch(const std::exception& e) { std::fprintf(stderr,"wake_create: %s\n",e.what()); return nullptr; }
+}
+// Retain the old ABI for diagnostic clients; new Python requires the new symbol.
+void* wake_create(const char* model, const char* device, const char* context, const char* language, float vad_threshold, float block_rms_threshold, Callback cb) {
+    return wake_create_with_split(model, device, context, language, vad_threshold, block_rms_threshold, 1, cb);
 }
 int wake_feed(void* raw, const float* data, size_t n, int64_t timestamp) {
     try {
