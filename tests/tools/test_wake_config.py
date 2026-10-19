@@ -23,6 +23,35 @@ EOS = 2
 def test_packaged_default_enables_os_aec():
     assert service.load_config()['audio']['aec'] == 'os'
 
+@pytest.mark.parametrize('level,expected', [('low', 0), ('medium', 1), ('high', 2), (None, 1)])
+def test_split_level_reaches_native(tmp_path, monkeypatch, level, expected):
+    config = service.load_config()
+    config['vad'].pop('split_sensitivity', None)
+    if level is not None:
+        config['vad']['split_sensitivity'] = level
+    path = tmp_path/'config.yaml'
+    path.write_text(yaml.safe_dump(config))
+    parsed = service.load_config(path)
+    lib = Mock()
+    lib.wake_create_with_split.return_value = 1
+    monkeypatch.setattr(service.C, 'CDLL', Mock(return_value=lib))
+    native = service.Native('test', 'model', 'GPU', lambda *a: None, config=parsed)
+    assert lib.wake_create_with_split.call_args.args[6] == expected
+    assert lib.wake_create_with_split.argtypes[6] is service.C.c_int32
+    assert lib.wake_create_with_split.call_args.args[7] is native.cb
+
+
+@pytest.mark.parametrize('bad', [None, True, 0, 1, 'LOW', 'mid', '', [], {}])
+def test_invalid_split_level(tmp_path, bad):
+    config = service.load_config()
+    config['vad']['split_sensitivity'] = bad
+    path = tmp_path/'config.yaml'
+    path.write_text(yaml.safe_dump(config))
+    with pytest.raises(ValueError, match='split_sensitivity'):
+        service.load_config(path)
+
+
+
 
 def test_hotwords_keep_line_separated_sdk_format():
     context = service.asr_context()
@@ -37,10 +66,10 @@ def test_config_controls_context_and_matching_without_hidden_defaults(tmp_path, 
     path.write_text(yaml.safe_dump(custom))
     config = service.load_config(path)
     lib = Mock()
-    lib.wake_create.return_value = 1
+    lib.wake_create_with_split.return_value = 1
     monkeypatch.setattr(service.C, 'CDLL', Mock(return_value=lib))
     service.Native('/test/libwake.so', '/models/qwen3-asr', 'GPU', lambda *a: None, config=config)
-    assert lib.wake_create.call_args.args[2] == b'custom wake'
+    assert lib.wake_create_with_split.call_args.args[2] == b'custom wake'
     server = service.Server(logging.getLogger('config-wake'), config['wake']['aliases'], EOS)
     assert server.gate.match(1, 'Hello Intel')[0] == 'miss'
     assert server.gate.match(1, 'custom wake')[0] == 'trigger'
@@ -119,10 +148,10 @@ def test_vad_yaml_reaches_native_init(tmp_path, monkeypatch, threshold, rms):
     path = tmp_path/'config.yaml'
     path.write_text(yaml.safe_dump(config))
     lib = Mock()
-    lib.wake_create.return_value = 1
+    lib.wake_create_with_split.return_value = 1
     monkeypatch.setattr(service.C, 'CDLL', Mock(return_value=lib))
     service.Native('test', 'model', 'GPU', lambda *args: None, service.load_config(path))
-    assert lib.wake_create.call_args.args[4:6] == (threshold, rms)
+    assert lib.wake_create_with_split.call_args.args[4:6] == (threshold, rms)
 
 @pytest.mark.parametrize('text', [
     'stop playback', 'STOP MUSIC!', ' Stop video. ', 'Please close the video.',
