@@ -184,3 +184,33 @@ def test_unavailable_endpoint_does_not_promise_end_phrase(monkeypatch, tmp_path,
     ack.start_wake_capture(cli)
     assert cache.call_args.args[0]['text'] == "Hi, I'm here."
     assert not ep._hint_played
+
+
+def test_quiet_lease_precedes_ack_and_is_held_for_recording(rig, monkeypatch):
+    cli,_,cache,play=rig
+    events=[]
+    lease=object()
+    monkeypatch.setattr('tools.recording_quiet.begin',lambda c:events.append('limit') or lease)
+    release=Mock();monkeypatch.setattr('tools.recording_quiet.end',release)
+    play.side_effect=lambda path:events.append('ack') or True
+    def record():
+        cli._voice_recording=True
+        events.append('recording')
+    cli._voice_start_recording.side_effect=record
+    ack.start_wake_capture(cli)
+    assert events==['limit','ack','recording']
+    release.assert_not_called()
+
+
+def test_cancelled_ack_releases_its_own_lease(rig, monkeypatch):
+    cli,_,cache,play=rig
+    lease=object()
+    monkeypatch.setattr('tools.recording_quiet.begin',lambda c:lease)
+    release=Mock();monkeypatch.setattr('tools.recording_quiet.end',release)
+    def cancel(path):
+        cli._should_exit=True
+        return True
+    play.side_effect=cancel
+    ack.start_wake_capture(cli)
+    release.assert_called_once_with(cli,lease)
+    cli._voice_start_recording.assert_not_called()

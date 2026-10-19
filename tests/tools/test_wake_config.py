@@ -58,6 +58,7 @@ def test_invalid_config_fails_before_native_start(tmp_path, content):
     parsed = yaml.safe_load(content)
     if isinstance(parsed, dict):
         parsed['vad'] = service.load_config()['vad']
+        parsed['recording_quiet'] = service.load_config()['recording_quiet']
         parsed['audio'] = service.load_config()['audio']
         if isinstance(parsed.get('asr'), dict):
             parsed['asr']['source_language'] = 'auto'

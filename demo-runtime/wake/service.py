@@ -19,6 +19,7 @@ import uuid
 import yaml
 
 from tools.wake_audio import start_capture_with_aec
+from tools.recording_quiet import validate_config as validate_quiet
 
 
 DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
@@ -27,8 +28,8 @@ DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
 def load_config(path=DEFAULT_CONFIG):
     """Load the single wake-service vocabulary source; fail on invalid input."""
     config = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(config, dict) or set(config) != {"asr", "wake", "vad", "audio"}:
-        raise ValueError("Wake config requires exactly asr, wake, vad and audio sections")
+    if not isinstance(config, dict) or set(config) != {"asr", "wake", "vad", "audio", "recording_quiet"}:
+        raise ValueError("Wake config requires exactly asr, wake, vad, audio and recording_quiet sections")
     asr, wake = config["asr"], config["wake"]
     if not isinstance(asr, dict) or set(asr) != {"hotwords", "source_language"}:
         raise ValueError("asr requires hotwords and source_language")
@@ -50,6 +51,7 @@ def load_config(path=DEFAULT_CONFIG):
         raise ValueError("audio.aec must be os or none")
     if not isinstance(audio['aec_reference'], str) or not audio['aec_reference'].strip():
         raise ValueError("audio.aec_reference must be a nonempty string")
+    validate_quiet(config['recording_quiet'])
     vad = config['vad']
     if not isinstance(vad, dict) or set(vad) != {'threshold', 'block_rms_threshold'}:
         raise ValueError("vad requires threshold and block_rms_threshold")

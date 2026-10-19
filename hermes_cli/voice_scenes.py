@@ -235,6 +235,8 @@ class SceneController:
         cli._clear_active_overlays_for_interrupt()
         # Microphone cleanup may wait on a device driver; never delay the ack.
         def release_mic():
+            from tools.recording_quiet import end as end_quiet
+            end_quiet(cli)
             try:
                 if getattr(cli, "_wake_word_active", False):
                     from tools.wake_word import pause_listening

@@ -1,12 +1,9 @@
 # Restart aisp-wake after editing. No image rebuild is needed for mounted config.
 # ASR hints and wake aliases are independent. No local playback-stop shortcut.
 asr:
-  source_language: auto
+  source_language: en
   hotwords:
-    - Hello Intel
-    - Hi Intel
-    - Hey Intel
-    - Intel Intel
+    - Intel
 wake:
   aliases:
     - Hello Intel
@@ -29,3 +26,14 @@ vad:
 audio:
   aec: os
   aec_reference: default
+
+recording_quiet:
+  enabled: true
+  fan:
+    enabled: true
+    control_percent: 30
+    release_temperature_c: 80
+  output:
+    enabled: true
+    max_volume_percent: 20
+  max_duration_seconds: 120
