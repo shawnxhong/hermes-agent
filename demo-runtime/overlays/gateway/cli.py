@@ -15843,9 +15843,17 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 self._app.invalidate()
             self._voice_stop_and_transcribe()
 
-        # Audio cue: single beep BEFORE starting stream (avoid CoreAudio conflict)
+        # Prepare input before the cue, but keep frame collection disabled.
         from tools.voice_endpoint import prepare_recording_endpoint
         prepare_recording_endpoint(self._voice_recorder)
+        prepare = getattr(self._voice_recorder, "prepare_capture", None)
+        if callable(prepare):
+            try:
+                prepare()
+            except Exception:
+                with self._voice_lock:
+                    self._voice_recording = False
+                raise
         if self._voice_beeps_enabled():
             try:
                 from tools.voice_mode import play_beep
@@ -15853,11 +15861,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             except Exception:
                 pass
 
+        # Read the input clock immediately after synchronous cue completion.
+        clock = getattr(self._voice_recorder, "capture_clock", None)
         try:
+            boundary = clock() if callable(clock) else None
             if _scene_switching(self) or scene_generation != _scene_generation(self):
                 self._voice_recording = False
                 return
-            self._voice_recorder.start(on_silence_stop=_on_silence)
+            capture_options = {"capture_after": boundary} if boundary is not None else {}
+            self._voice_recorder.start(on_silence_stop=_on_silence, **capture_options)
         except Exception:
             with self._voice_lock:
                 self._voice_recording = False

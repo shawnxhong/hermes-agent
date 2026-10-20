@@ -18,6 +18,7 @@ def rig(monkeypatch,tmp_path):
         _voice_mode=True,_voice_tts=True,_wake_word_active=True,
         _pending_input=queue.Queue(),_voice_tts_done=threading.Event(),
         _voice_start_recording=Mock())
+    cli._voice_recorder=SimpleNamespace(prepare_capture=Mock(), prepare_endpoint=Mock(return_value=False))
     cfg={'enabled':True,'text':"Hi, I'm here.",'tts':{'provider':'local'}}
     monkeypatch.setattr(ack,'settings',lambda:cfg)
     cache=Mock(return_value=tmp_path/'ack.wav');monkeypatch.setattr(ack,'cached_audio',cache)

@@ -99,13 +99,24 @@ def start_wake_capture(cli):
                 path = cached_audio(config)
                 if cancelled():
                     return
+                # Open the persistent input stream before speaking, with frame
+                # collection disabled. Nothing heavy belongs between ack/cue.
+                recorder = getattr(cli, "_voice_recorder", None)
+                if recorder is None:
+                    recorder = voice_mode.create_audio_recorder()
+                    cli._voice_recorder = recorder
+                prepare = getattr(recorder, "prepare_capture", None)
+                if callable(prepare):
+                    prepare()
+                if cancelled():
+                    return
                 cli._voice_last_tts_text = config["text"]
                 if not voice_mode.play_audio_file(str(path)):
                     raise RuntimeError("Wake acknowledgement playback failed")
                 if combined_hint and not cancelled():
                     voice_endpoint.mark_hint_played()
-                # Allow the short speaker tail to settle before microphone open.
-                time.sleep(0.65 if combined_hint else 0.15)
+                # The cue marks readiness; keep only a short ack-to-cue gap.
+                time.sleep(0.65 if combined_hint else 0.05)
                 logger.info("Wake acknowledgement played before capture")
             except Exception:
                 # Keep the existing recording beep/capture usable on TTS failure.

@@ -15740,7 +15740,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
     from tools.recording_quiet import recording_start as _quiet_recording_start
 
-    @_quiet_recording_start
+    @_quiet_recording_start(after_cue=True)
     def _voice_start_recording(self):
         """Start capturing audio from the microphone."""
         scene_generation = _scene_generation(self)
@@ -15855,9 +15855,17 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 self._app.invalidate()
             self._voice_stop_and_transcribe()
 
-        # Audio cue: single beep BEFORE starting stream (avoid CoreAudio conflict)
+        # Prepare input before the cue, but keep frame collection disabled.
         from tools.voice_endpoint import prepare_recording_endpoint
         prepare_recording_endpoint(self._voice_recorder)
+        prepare = getattr(self._voice_recorder, "prepare_capture", None)
+        if callable(prepare):
+            try:
+                prepare()
+            except Exception:
+                with self._voice_lock:
+                    self._voice_recording = False
+                raise
         strict_cue = getattr(getattr(self._voice_recorder, "_end_phrase_detector", None), "service_capture", False) is True
         if self._voice_beeps_enabled():
             try:
@@ -15873,15 +15881,24 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     raise
                 pass
 
+        # Read the input clock immediately after synchronous cue completion.
+        clock = getattr(self._voice_recorder, "capture_clock", None)
         try:
+            boundary = clock() if callable(clock) else None
             if _scene_switching(self) or scene_generation != _scene_generation(self):
                 self._voice_recording = False
                 return
-            self._voice_recorder.start(on_silence_stop=_on_silence)
+            capture_options = {"capture_after": boundary} if boundary is not None else {}
+            self._voice_recorder.start(on_silence_stop=_on_silence, **capture_options)
         except Exception:
             with self._voice_lock:
                 self._voice_recording = False
             raise
+        # The stream already retains speech while the quiet lease is acquired.
+        # Never attenuate the readiness cue itself.
+        from tools.recording_quiet import begin as begin_quiet
+        if self._voice_recording:
+            begin_quiet(self)
         _label = self._voice_record_key_label()
         if getattr(self._voice_recorder, "supports_silence_autostop", True):
             _recording_hint = f"auto-stops on silence | {_label} to stop & exit continuous"
