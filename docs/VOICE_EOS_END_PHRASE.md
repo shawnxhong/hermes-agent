@@ -13,9 +13,10 @@ The first successful notification wins; repeated partials or a later EOS do
 not stop it twice. The phrase is recognized from live ASR partial text without
 waiting for the SDK EOS flag, so it remains available during continuous noise.
 Matching ignores case, normalizes whitespace/punctuation, requires a complete
-word-boundary phrase at the end of the currently recognized text, and uses the
-configured phrase rather than a second CLI setting. A phrase mentioned at the
-end of a partial is a control signal even if the speaker intended to continue.
+word-boundary phrase anywhere in the currently recognized text, and uses the
+configured phrase rather than a second CLI setting. This remains effective
+when other speech follows the phrase without a VAD pause. Mentioning the
+complete phrase during recording is itself a control signal.
 
 New YAML sections default to enabled thank you. Existing YAML without the
 section receives the same defaults. Set enabled to false to retain native EOS

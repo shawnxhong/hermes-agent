@@ -190,7 +190,7 @@ class Server:
         self.gate = WakeGate(aliases, continuous=True)
         self.eos_flag = eos_flag
         self.end_phrase = validate_end_phrase(end_phrase if end_phrase is not None else {"enabled": True, "phrase": "thank you"})
-        self.end_pattern = re.compile(r"(?<!\w)" + re.escape(normalize(self.end_phrase["phrase"])) + r"$")
+        self.end_pattern = re.compile(r"(?<!\w)" + re.escape(normalize(self.end_phrase["phrase"])) + r"(?!\w)")
         self.recording_speech = set()
         self.mode = "wake"
         self.recording_id = None
