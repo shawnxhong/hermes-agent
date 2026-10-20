@@ -109,11 +109,13 @@ def end(cli, expected=None):
     if lease is not None: lease.close()
 
 
-def recording_start(function):
+def recording_start(function=None, *, after_cue=False):
     """Share a wake-ack lease with manual/continuous recording, release failures."""
+    if function is None:
+        return functools.partial(recording_start, after_cue=after_cue)
     @functools.wraps(function)
     def wrapped(cli, *args, **kwargs):
-        lease = begin(cli)
+        lease = None if after_cue else begin(cli)
         try: return function(cli, *args, **kwargs)
         finally:
             if not getattr(cli, '_voice_recording', False): end(cli, lease)

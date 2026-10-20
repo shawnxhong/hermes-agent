@@ -947,13 +947,19 @@ class AudioRecorder:
             if not self._recording:
                 return
             # A persistent PortAudio stream can deliver queued pre-cue samples.
-            # Compare on its own clock, not Python's monotonic clock. Drop whole
-            # overlapping blocks conservatively rather than admit pre-beep audio.
+            # Compare on its own clock and trim overlapping blocks by sample,
+            # preserving the first post-cue syllable without admitting the cue.
             boundary = getattr(self, "_capture_after", None)
             if boundary is not None:
                 adc_time = getattr(time_info, "inputBufferAdcTime", None)
-                if not isinstance(adc_time, (int, float)) or adc_time < boundary:
+                if (not isinstance(adc_time, (int, float)) or isinstance(adc_time, bool)
+                        or not math.isfinite(adc_time)):
                     return
+                if adc_time < boundary:
+                    offset = math.ceil((boundary - adc_time) * self._sample_rate - 1e-8)
+                    if offset >= len(indata):
+                        return
+                    indata = indata[max(0, offset):]
             self._frames.append(indata.copy())
             if self._end_phrase_detector is not None:
                 self._end_phrase_detector.feed(indata)
@@ -1075,7 +1081,24 @@ class AudioRecorder:
             ) from e
         self._stream = stream
 
-    def start(self, on_silence_stop=None) -> None:
+    def prepare_capture(self) -> None:
+        """Warm input and endpoint without retaining audio or arming EOS."""
+        if self._recording:
+            return
+        if self._stream is None:
+            sd, _ = _import_audio()
+            self._sample_rate = _default_input_samplerate(sd)
+            self.prepare_endpoint()
+            self._ensure_stream()
+
+    def capture_clock(self):
+        """Read the prepared input stream clock at the cue completion boundary."""
+        value = self._stream.time if self._stream is not None else None
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
+            return value
+        raise RuntimeError("Audio stream did not provide a capture clock")
+
+    def start(self, on_silence_stop=None, *, capture_after=None) -> None:
         """Start capturing audio from the default input device.
 
         The underlying InputStream is created once and kept alive across
@@ -1130,7 +1153,8 @@ class AudioRecorder:
             self._current_rms = 0
             self._on_silence_stop = on_silence_stop
         # Ensure the persistent stream is alive (no-op after first call).
-        self._sample_rate = _default_input_samplerate(sd)
+        if self._stream is None:
+            self._sample_rate = _default_input_samplerate(sd)
         self.stop_reason = None
         endpoint_ready = on_silence_stop is not None and self.prepare_endpoint()
         try:
@@ -1143,13 +1167,9 @@ class AudioRecorder:
         with self._lock:
             # start() is called only after synchronous cue playback completes.
             # Enable the strict boundary for the independent ASR experiment.
-            self._capture_after = None
-            if getattr(self._end_phrase_detector, "service_capture", False) is True:
-                boundary = self._stream.time
-                if isinstance(boundary, (int, float)):
-                    self._capture_after = boundary
-                else:
-                    raise RuntimeError("Audio stream did not provide a capture clock")
+            self._capture_after = capture_after
+            if capture_after is None and getattr(self._end_phrase_detector, "service_capture", False) is True:
+                self._capture_after = self.capture_clock()
             self._recording = True
         # Arm only once the actual recorder is collecting audio (after the cue).
         if endpoint_ready:
