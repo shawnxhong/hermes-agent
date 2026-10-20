@@ -20,12 +20,19 @@ class ExternalWakeEngine:
         self.buffer = b""
         self.last_match = None
         self.lock = threading.RLock()
+        self.replay = None
+
+    def set_replay(self, replay):
+        self.replay = replay
 
     def subscription(self):
         aliases = self.cfg.get("sherpa", {}).get("aliases", [])
         if isinstance(aliases, str):
             aliases = [aliases]
-        return {"aliases": [self.cfg.get("phrase", "Hello Intel"), *aliases]}
+        request = {"aliases": [self.cfg.get("phrase", "Hello Intel"), *aliases]}
+        if self.replay is not None:
+            request["replay"] = self.replay
+        return request
 
     def ready(self, message):
         return message.get("event") == "ready"
@@ -43,7 +50,9 @@ class ExternalWakeEngine:
             s.settimeout(3)
             try:
                 s.connect(self.path)
-                s.sendall((json.dumps(self.subscription()) + "\n").encode())
+                request = self.subscription()
+                self.replay = None
+                s.sendall((json.dumps(request) + "\n").encode())
                 line = b""
                 while not line.endswith(b"\n") and len(line) < 4096:
                     part = s.recv(1)

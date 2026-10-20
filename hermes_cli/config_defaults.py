@@ -2023,6 +2023,7 @@ DEFAULT_CONFIG = {
         "startup_cue_file": None,  # Optional local audio replacing the first wake-ready beep.
         # Only interactive voice on a loopback /v3 OVMS route sends a request.
         "llm_warmup": {"enabled": True, "timeout_seconds": 90},
+        "wake_buffer_seconds": 1.0,  # Replay the final second of external-ASR TTS wake.
         "record_key": "ctrl+b",
         "submit_mode": "direct",       # TUI: direct submits immediately; draft leaves an editable transcript
         "max_recording_seconds": 120,

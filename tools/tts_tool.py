@@ -4289,6 +4289,7 @@ class _SyncSentencePipeline:
 
     def __init__(self, stop_event: threading.Event, *, lookahead: int = 2):
         self._stop = stop_event
+        self.last_playback_ms = None
         self._queue: "queue.Queue[object]" = queue.Queue(
             maxsize=max(1, lookahead)
         )
@@ -4408,6 +4409,8 @@ class _SyncSentencePipeline:
                     from tools.playback_control import output_guard
                     with output_guard(self._stop):
                         played = True if self._stop.is_set() else play_audio_file(tmp_path)
+                    if played and not self._stop.is_set():
+                        self.last_playback_ms = time.monotonic() * 1000
                     _tts_segment_state(on_state, 'cancelled' if self._stop.is_set() else 'played' if played else 'failed')
                 elif self._stop.is_set() or not is_current():
                     _tts_segment_state(on_state, 'cancelled')
@@ -4432,6 +4435,7 @@ def stream_tts_to_speaker(
     tts_done_event: threading.Event,
     display_callback: Optional[Callable[[str], None]] = None,
     provider: Optional[str] = None,
+    playback_finished_callback=None,
 ):
     """Consume text deltas from *text_queue*, buffer them into sentences, and
     speak each sentence the moment it's ready — the conversational path.
@@ -4881,6 +4885,12 @@ def stream_tts_to_speaker(
                 output_stream.close()
             except Exception:
                 pass
+        if (playback_finished_callback is not None and sync_pipeline is not None
+                and sync_pipeline.last_playback_ms is not None and not stop_event.is_set()):
+            try:
+                playback_finished_callback(sync_pipeline.last_playback_ms)
+            except Exception:
+                logger.debug("TTS playback completion callback failed", exc_info=True)
         tts_done_event.set()
 
 
