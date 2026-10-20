@@ -142,7 +142,7 @@ class ExternalEndPhraseDetector(ExternalWakeEngine):
                     if stopped.is_set() or self.sock is None:
                         return
                     if self.process(None):
-                        self.last_reason = self.reason
+                        self.last_reason = self.last_reason or self.reason
                         stopped.set()
                         callback()
                         return
@@ -166,7 +166,7 @@ class ExternalEndPhraseDetector(ExternalWakeEngine):
 
 
 class ExternalEOSDetector(ExternalEndPhraseDetector):
-    """Recording-scoped native AISP endpoint; no keyword or second capture."""
+    """Native EOS or sidecar-configured end phrase, scoped to one recording."""
     phrase = None
     reason = "aisp_eos"
 
@@ -174,7 +174,14 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
         return {**super().subscription(), "endpoint": "aisp-eos"}
 
     def ready(self, message):
-        return super().ready(message) and message.get("endpoint") == "aisp-eos"
+        if not (super().ready(message) and message.get("endpoint") == "aisp-eos"):
+            return False
+        cfg = message.get("end_phrase") or {}
+        self.phrase = cfg.get("phrase") if cfg.get("enabled") is True else None
+        return True
 
     def matched(self, message):
-        return super().matched(message) and message.get("reason") == "aisp_eos"
+        if super().matched(message) and message.get("reason") in ("aisp_eos", "end_phrase"):
+            self.last_reason = message["reason"]
+            return True
+        return False

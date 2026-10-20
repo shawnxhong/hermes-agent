@@ -26,11 +26,22 @@ DEFAULT_CONFIG = Path(__file__).with_name("config.yaml")
 SPLIT_SENSITIVITY = {"low": 0, "medium": 1, "high": 2}
 
 
+def validate_end_phrase(raw):
+    if (not isinstance(raw, dict) or set(raw) != {"enabled", "phrase"}
+            or type(raw["enabled"]) is not bool
+            or not isinstance(raw["phrase"], str) or not normalize(raw["phrase"])
+            or any(c in raw["phrase"] for c in "\r\n")):
+        raise ValueError("end_phrase requires boolean enabled and a nonempty single-line phrase")
+    return dict(raw)
+
+
 def load_config(path=DEFAULT_CONFIG):
     """Load the single wake-service vocabulary source; fail on invalid input."""
     config = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(config, dict) or set(config) != {"asr", "wake", "vad", "audio", "recording_quiet"}:
-        raise ValueError("Wake config requires exactly asr, wake, vad, audio and recording_quiet sections")
+    required = {"asr", "wake", "vad", "audio", "recording_quiet"}
+    if not isinstance(config, dict) or not required <= set(config) or set(config) - required - {"end_phrase"}:
+        raise ValueError("Wake config requires asr, wake, vad, audio, recording_quiet; optional end_phrase")
+    config["end_phrase"] = validate_end_phrase(config.get("end_phrase", {"enabled": True, "phrase": "thank you"}))
     asr, wake = config["asr"], config["wake"]
     if not isinstance(asr, dict) or set(asr) != {"hotwords", "source_language"}:
         raise ValueError("asr requires hotwords and source_language")
@@ -172,12 +183,14 @@ class Native:
 
 
 class Server:
-    def __init__(self, log, aliases, eos_flag):
+    def __init__(self, log, aliases, eos_flag, end_phrase=None):
         self.log = log
         self.lock = threading.Lock()
         self.instance = str(uuid.uuid4())
         self.gate = WakeGate(aliases, continuous=True)
         self.eos_flag = eos_flag
+        self.end_phrase = validate_end_phrase(end_phrase if end_phrase is not None else {"enabled": True, "phrase": "thank you"})
+        self.end_pattern = re.compile(r"(?<!\w)" + re.escape(normalize(self.end_phrase["phrase"])) + r"$")
         self.recording_speech = set()
         self.mode = "wake"
         self.recording_id = None
@@ -266,36 +279,46 @@ class Server:
                     return
                 eligible = text
                 if timestamp < self.armed_after:
-                    # Recording must never stop from a pre-beep segment. For wake,
-                    # only a newly appended phrase in an already observed segment
-                    # can cross the arming boundary; never replay its old prefix.
+                    # Native EOS still cannot finish a pre-cue segment. A wake
+                    # or explicit end phrase may use only its newly appended
+                    # suffix, never the text already observed when armed.
                     before = self.arm_text.get(timestamp)
-                    if self.mode != "wake" or before is None or not norm.startswith(before):
+                    if before is None or not norm.startswith(before):
                         self.event(event="ignored_old_segment", mode=self.mode, timestamp=timestamp)
                         return
                     eligible = norm[len(before):].lstrip()
-                if self.mode == "recording":
-                    if norm:
-                        self.recording_speech.add(timestamp)
-                    if not (flag & self.eos_flag) or timestamp not in self.recording_speech:
+                    if self.mode == "recording" and not (self.matches_end_phrase(eligible) and self.matches_end_phrase(norm)):
+                        self.event(event="ignored_old_segment", mode=self.mode, timestamp=timestamp)
                         return
-                    action, alias = "trigger", None
+                if self.mode == "recording":
+                    if self.matches_end_phrase(eligible):
+                        action, alias, reason = "trigger", self.end_phrase["phrase"], "end_phrase"
+                    else:
+                        if norm:
+                            self.recording_speech.add(timestamp)
+                        if not (flag & self.eos_flag) or timestamp not in self.recording_speech:
+                            return
+                        action, alias, reason = "trigger", None, "aisp_eos"
                 else:
                     action, alias = self.gate.match(timestamp, eligible)
+                    reason = "wake_phrase"
                 if action == "trigger":
                     try:
                         self.conn.sendall((json.dumps({"event": "end_recording" if self.mode == "recording" else "wake",
                             "alias": alias, "timestamp": timestamp, "recording_id": self.recording_id,
-                            "reason": "aisp_eos" if self.mode == "recording" else "wake_phrase"})+"\n").encode())
+                            "reason": reason})+"\n").encode())
                     except OSError:
                         self.event(event="delivery_failed")
                     else:
                         if self.mode == "wake":
                             self.gate.commit(timestamp)
                         self.delivered = True
-                        self.event(event="delivered", mode=self.mode, timestamp=timestamp, recording_id=self.recording_id)
+                        self.event(event="delivered", mode=self.mode, timestamp=timestamp, recording_id=self.recording_id, reason=reason)
         except Exception:
             self.log.exception("ASR callback failure")
+
+    def matches_end_phrase(self, text):
+        return self.end_phrase["enabled"] and bool(self.end_pattern.search(normalize(text)))
 
     def serve(self, native, path):
         path = Path(path)
@@ -337,7 +360,8 @@ class Server:
                     self.arm(conn, mode, recording_id, time.monotonic()*1000)
                     self.event(event="notifications_armed")
                     conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id,
-                        "endpoint": "aisp-eos" if mode == "recording" else None})+"\n").encode())
+                        "endpoint": "aisp-eos" if mode == "recording" else None,
+                        "end_phrase": self.end_phrase if mode == "recording" else None})+"\n").encode())
                     self.replay_wake(request.get("replay"))
                 while native.capture_alive():
                     try:
@@ -378,8 +402,9 @@ def main():
     handler = RotatingFileHandler(str(Path(args.log).with_name("events.log")), maxBytes=2*1024*1024, backupCount=2, encoding="utf-8")
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     status.addHandler(handler)
-    s = Server(log, config["wake"]["aliases"], Native.eos_flag(args.library))
+    s = Server(log, config["wake"]["aliases"], Native.eos_flag(args.library), config["end_phrase"])
     s.event(event="vad_config", **config["vad"])
+    s.event(event="end_phrase_config", enabled=config["end_phrase"]["enabled"])
     native = Native(args.library, args.model, args.device, s.result, config=config)
     start_capture_with_aec(native, args.source, config["audio"], s.event)
     s.serve(native, args.socket)
