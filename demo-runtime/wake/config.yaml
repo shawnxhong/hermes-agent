@@ -37,3 +37,8 @@ recording_quiet:
     enabled: true
     max_volume_percent: 20
   max_duration_seconds: 120
+
+# Recording can end on native EOS OR this phrase, without waiting for VAD.
+end_phrase:
+  enabled: true
+  phrase: thank you

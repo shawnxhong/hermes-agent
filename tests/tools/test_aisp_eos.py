@@ -162,7 +162,7 @@ def test_real_socket_eos_callback_once_and_next_recording(socket_service):
     try:
         detector.start(callback, 16000, 500)
         stamp = server.armed_after + 1
-        server.result(stamp, 0, b'Question containing thank you')
+        server.result(stamp, 0, b'Question containing thanks')
         callback.assert_not_called()
         server.result(stamp, EOS, b'')
         assert done.wait(5)
