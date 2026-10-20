@@ -187,6 +187,8 @@ class Server:
         self.delivered = False
         self.observed = {}
         self.arm_text = {}
+        self.wake_candidates = deque(maxlen=64)
+        self.candidate_seen = set()
 
     def arm(self, conn, mode, recording_id, boundary):
         """Called under lock after the client has finished its recording cue."""
@@ -201,6 +203,52 @@ class Server:
     def event(self, **data):
         logging.getLogger("wake-status").info("%s", " ".join(f"{k}={v}" for k, v in data.items()))
 
+    def cache_wake(self, timestamp, text):
+        now = time.monotonic() * 1000
+        while self.wake_candidates and now - self.wake_candidates[0]["received_ms"] > 5000:
+            self.wake_candidates.popleft()
+        action, alias = self.gate.match(timestamp, text)
+        if action != "trigger" or timestamp in self.candidate_seen:
+            return
+        self.candidate_seen.add(timestamp)
+        # Never refresh a keyword from an already observed sentence. Active
+        # recording/wake subscriptions keep their existing semantics.
+        if self.conn is None or self.delivered:
+            self.wake_candidates.append({"timestamp": timestamp, "alias": alias, "received_ms": now})
+            self.event(event="wake_candidate_cached", timestamp=timestamp)
+
+    def replay_wake(self, request):
+        """Under the lock, after ready; recording EOS never uses this path."""
+        if self.mode != "wake" or self.delivered or not isinstance(request, dict):
+            return
+        start, end = request.get("start_ms"), request.get("end_ms")
+        if (any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
+                for v in (start, end))
+                or not 0 < end - start <= 2000.001
+                or not end <= self.armed_after <= end + 5000):
+            return
+        echo = normalize(str(request.get("echo_text", ""))[-1024:])
+        for candidate in reversed(self.wake_candidates):
+            if not start <= candidate["received_ms"] <= end:
+                continue
+            timestamp, alias = candidate["timestamp"], candidate["alias"]
+            if self.gate.match(timestamp, alias)[0] != "trigger":
+                continue
+            if re.search(r"(?<!\w)" + re.escape(normalize(alias)) + r"(?!\w)", echo):
+                self.event(event="wake_buffer_echo_ignored", timestamp=timestamp)
+                continue
+            try:
+                self.conn.sendall((json.dumps({"event": "wake", "alias": alias,
+                    "timestamp": timestamp, "recording_id": None, "reason": "wake_phrase",
+                    "buffered": True, "turn": str(request.get("turn", ""))[:64]}) + "\n").encode())
+            except OSError:
+                self.event(event="delivery_failed")
+                return
+            self.gate.commit(timestamp)
+            self.delivered = True
+            self.event(event="delivered", mode="wake", timestamp=timestamp, buffered=True)
+            return
+
     def result(self, timestamp, flag, text):
         try:
             text = text.decode("utf-8", errors="replace")
@@ -209,8 +257,11 @@ class Server:
                 norm = normalize(text)
                 if norm:
                     self.observed[timestamp] = norm
+                self.cache_wake(timestamp, text)
                 if len(self.observed) > 1024:
-                    del self.observed[next(iter(self.observed))]
+                    oldest = next(iter(self.observed))
+                    del self.observed[oldest]
+                    self.candidate_seen.discard(oldest)
                 if self.conn is None or self.delivered:
                     return
                 eligible = text
@@ -287,6 +338,7 @@ class Server:
                     self.event(event="notifications_armed")
                     conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id,
                         "endpoint": "aisp-eos" if mode == "recording" else None})+"\n").encode())
+                    self.replay_wake(request.get("replay"))
                 while native.capture_alive():
                     try:
                         data = conn.recv(1)  # Subscription only; SDK owns capture.

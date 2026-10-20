@@ -16155,6 +16155,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             if not tts_text:
                 return
             self._voice_last_tts_text = tts_text
+            from hermes_cli.voice_wake_buffer import begin as _begin_wake_buffer
+            _buffer_stop = threading.Event()
+            _wake_buffer = _begin_wake_buffer(self, _buffer_stop)
+            if _wake_buffer is not None:
+                self._voice_tts_stop = _buffer_stop
+            _last_playback_ms = None
 
             # Use MP3 output for CLI playback (afplay doesn't handle OGG well).
             # The TTS tool may auto-convert MP3->OGG, but the original MP3 remains.
@@ -16179,7 +16185,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 if _scene_switching(self) or scene_generation != _scene_generation(self):
                     break
                 if os.path.isfile(play_path) and os.path.getsize(play_path) > 0:
-                    play_audio_file(play_path)
+                    if _buffer_stop.is_set():
+                        break
+                    if play_audio_file(play_path):
+                        _last_playback_ms = time.monotonic() * 1000
+            if _wake_buffer is not None and _last_playback_ms is not None:
+                _wake_buffer.complete(_last_playback_ms)
             # Clean up all generated files (play_paths + mp3_path + ogg variants)
             cleanup_paths = set(play_paths + [mp3_path, mp3_path.rsplit(".", 1)[0] + ".ogg"])
             for path in cleanup_paths:
@@ -16740,6 +16751,21 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         or not self._pending_input.empty()
                     )
                     if busy:
+                        idle_polls = 0
+                        continue
+                    # A completed TTS response is a stronger boundary than a
+                    # few idle polls. Subscribe now and replay its final second.
+                    from hermes_cli.voice_wake_buffer import take_replay
+                    replay = take_replay(self)
+                    if replay is not None:
+                        try:
+                            from tools.wake_word import resume_listening
+                            if resume_listening(owner=self, replay=replay):
+                                self._wake_suspended = False
+                            else:
+                                self._wake_word_active = False
+                        except Exception as e:
+                            logger.debug("buffered wake resume failed: %s", e)
                         idle_polls = 0
                         continue
                     # Require a few consecutive idle polls (~0.75s) so we don't
@@ -17946,6 +17972,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             if self._voice_mode and self._voice_continuous:
                 self._voice_last_tts_text = ""
 
+            # Invalidate replay state before every new agent turn.
+            self._voice_wake_buffer = None
+
             # --- Streaming TTS setup ---
             # Any working TTS provider streams sentence-by-sentence as the agent
             # generates tokens: PCM-streaming providers (ElevenLabs, OpenAI) play
@@ -18010,10 +18039,13 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                         _cprint(f"{_STREAM_PAD}{sentence.rstrip()}")
                     _tts_display_cb = display_callback
 
+                from hermes_cli.voice_wake_buffer import begin as _begin_wake_buffer
+                _wake_buffer = _begin_wake_buffer(self, stop_event)
                 tts_thread = threading.Thread(
                     target=stream_tts_to_speaker,
                     args=(text_queue, stop_event, self._voice_tts_done),
-                    kwargs={"display_callback": _tts_display_cb},
+                    kwargs={"display_callback": _tts_display_cb,
+                            "playback_finished_callback": _wake_buffer.complete if _wake_buffer else None},
                     daemon=True,
                 )
                 tts_thread.start()

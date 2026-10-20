@@ -1521,11 +1521,13 @@ def pause_listening(*, owner: object) -> bool:
         return True
 
 
-def resume_listening(*, owner: object) -> bool:
+def resume_listening(*, owner: object, replay=None) -> bool:
     """Re-open the microphone only when ``owner`` holds the lease."""
     with _detector_lock:
         if _detector is None or _detector_owner is not owner:
             return False
+        if replay is not None and hasattr(_detector.engine, "set_replay"):
+            _detector.engine.set_replay(replay)
         _detector.resume()
         return True
 
