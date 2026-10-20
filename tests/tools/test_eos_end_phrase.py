@@ -25,7 +25,7 @@ def make_server(config=None):
 def events(c):return [json.loads(x.args[0]) for x in c.sendall.call_args_list]
 
 
-@pytest.mark.parametrize("text",["thank you","THANK YOU!","Weather please, thank you.","thank   you", "Ｔｈａｎｋ ｙｏｕ"])
+@pytest.mark.parametrize("text",["thank you","THANK YOU!","Weather please, thank you.","thank you followed by background speech","Please explain thank you in French","thank   you", "Ｔｈａｎｋ ｙｏｕ"])
 def test_partial_phrase_ends_while_vad_remains_active_once(text):
     s,c=make_server()
     s.result(101,0,text.encode())
@@ -36,8 +36,8 @@ def test_partial_phrase_ends_while_vad_remains_active_once(text):
     assert e[0]["recording_id"]=="current" and e[0]["alias"]=="thank you"
 
 
-@pytest.mark.parametrize("text",["thank","you","thank yourself","nothank you","Please explain thank you in French","hello"," "])
-def test_requires_complete_terminal_phrase_on_word_boundary(text):
+@pytest.mark.parametrize("text",["thank","you","thank yourself","nothank you","hello"," "])
+def test_requires_complete_phrase_on_word_boundary(text):
     s,c=make_server();s.result(101,0,text.encode());c.sendall.assert_not_called()
 
 
@@ -79,7 +79,7 @@ def test_new_keyword_suffix_on_continuous_old_segment_can_end_recording():
     s.arm(c,"recording","next",100)
     s.result(99,EOS,b"Background conversation more speech")
     c.sendall.assert_not_called()
-    s.result(99,0,b"Background conversation more speech thank you")
+    s.result(99,0,b"Background conversation more speech thank you and background continues")
     assert events(c)[0]["reason"]=="end_phrase" and events(c)[0]["recording_id"]=="next"
 
 

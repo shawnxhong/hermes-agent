@@ -37,10 +37,10 @@ def test_final_speech_ends_on_eos_bits(flag):
         'timestamp': 101, 'recording_id': 'current', 'reason': 'aisp_eos'}]
 
 
-def test_keyword_in_partial_does_not_finish_and_empty_eos_does():
+def test_keyword_in_partial_finishes_before_empty_eos_and_only_once():
     server, conn = rig()
     server.result(101, 0, b'Please explain thank you in French')
-    conn.sendall.assert_not_called()
+    assert events(conn)[0]['reason'] == 'end_phrase'
     server.result(101, EOS, b'')
     server.result(101, EOS, b'')
     assert len(events(conn)) == 1
