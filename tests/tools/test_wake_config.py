@@ -48,8 +48,8 @@ def test_invalid_split_level(tmp_path, bad):
         service.load_config(path)
 
 
-def test_packaged_default_disables_aec():
-    assert service.load_config()['audio']['aec'] == 'none'
+def test_packaged_default_enables_os_aec():
+    assert service.load_config()['audio']['aec'] == 'os'
 
 
 def test_hotwords_keep_line_separated_sdk_format():

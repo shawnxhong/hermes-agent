@@ -16,7 +16,6 @@ wake:
     - Hey Intel
     - Hey Inter
     - Hey Indel
-    - Intel Intel
 
 # VAD frame probability threshold and block probability RMS gate (SDK private key).
 vad:
@@ -25,13 +24,14 @@ vad:
   block_rms_threshold: 0.35
 
 audio:
-  aec: none
+  aec: os
   aec_reference: default
 
 recording_quiet:
   enabled: true
+  # Fan control is opt-in; verify actual RPM on the target hardware first.
   fan:
-    enabled: true
+    enabled: false
     control_percent: 30
     release_temperature_c: 80
   output:
