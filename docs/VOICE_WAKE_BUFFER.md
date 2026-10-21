@@ -29,3 +29,15 @@ Tests exercise the actual TTS consumer, native Unix socket handshake and CLI
 watchdog with synthetic audio and controlled keyword callbacks. Human timing
 and acoustic acceptance are separate; ASR decode latency is not removed by a
 one-second keyword buffer.
+
+The handoff includes keyword recognition between actual playback completion and
+the next subscription. After ready, the same response scope accepts first-seen
+complete wake aliases for at most five seconds from playback completion, so
+decoding and a phrase split across rearm do not lose the wake. This is a bounded
+decode allowance, not extra waiting: delivery occurs on the first full partial.
+The configured one-second pre-completion lookback is unchanged. Recording
+subscriptions never use this handoff and retain their old-segment EOS guards.
+Echo filtering also covers late and repeated partials. Existing aliases cannot
+refresh their first recognition time or replay into another subscription.
+Status metadata wake_handoff_armed and delivered buffered=True identifies the
+actual handoff; the ready capability wake_replay_version=2 distinguishes it.

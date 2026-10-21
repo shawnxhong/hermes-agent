@@ -195,6 +195,7 @@ class Server:
         self.arm_text = {}
         self.wake_candidates = deque(maxlen=64)
         self.candidate_seen = set()
+        self.wake_handoff = None
 
     def arm(self, conn, mode, recording_id, boundary):
         """Called under lock after the client has finished its recording cue."""
@@ -204,6 +205,7 @@ class Server:
         self.arm_text = dict(self.observed)
         self.delivered = False
         self.recording_speech = set()
+        self.wake_handoff = None
         self.event(event="armed", mode=mode, boundary=boundary)
 
     def event(self, **data):
@@ -219,9 +221,11 @@ class Server:
         self.candidate_seen.add(timestamp)
         # Never refresh a keyword from an already observed sentence. Active
         # recording/wake subscriptions keep their existing semantics.
+        candidate = {"timestamp": timestamp, "alias": alias, "received_ms": now}
         if self.conn is None or self.delivered:
-            self.wake_candidates.append({"timestamp": timestamp, "alias": alias, "received_ms": now})
+            self.wake_candidates.append(candidate)
             self.event(event="wake_candidate_cached", timestamp=timestamp)
+        return candidate
 
     def replay_wake(self, request):
         """Under the lock, after ready; recording EOS never uses this path."""
@@ -233,27 +237,50 @@ class Server:
                 or not 0 < end - start <= 2000.001
                 or not end <= self.armed_after <= end + 5000):
             return
-        echo = normalize(str(request.get("echo_text", ""))[-1024:])
+        # The one-second lookback is unchanged. Include the entire post-playback
+        # subscription gap, then retain this reply scope for bounded ASR decode
+        # completion. A new partial may finish a phrase that began before rearm.
+        self.wake_handoff = {"start_ms": start, "end_ms": end,
+            "deadline_ms": end + 5000,
+            "echo": normalize(str(request.get("echo_text", ""))[-1024:]),
+            "turn": str(request.get("turn", ""))[:64]}
+        self.event(event="wake_handoff_armed", lookback_ms=end-start,
+                   gap_ms=self.armed_after-end, decode_deadline_ms=end+5000)
         for candidate in reversed(self.wake_candidates):
-            if not start <= candidate["received_ms"] <= end:
-                continue
-            timestamp, alias = candidate["timestamp"], candidate["alias"]
-            if self.gate.match(timestamp, alias)[0] != "trigger":
-                continue
-            if re.search(r"(?<!\w)" + re.escape(normalize(alias)) + r"(?!\w)", echo):
-                self.event(event="wake_buffer_echo_ignored", timestamp=timestamp)
-                continue
-            try:
-                self.conn.sendall((json.dumps({"event": "wake", "alias": alias,
-                    "timestamp": timestamp, "recording_id": None, "reason": "wake_phrase",
-                    "buffered": True, "turn": str(request.get("turn", ""))[:64]}) + "\n").encode())
-            except OSError:
-                self.event(event="delivery_failed")
-                return
-            self.gate.commit(timestamp)
-            self.delivered = True
-            self.event(event="delivered", mode="wake", timestamp=timestamp, buffered=True)
-            return
+            if start <= candidate["received_ms"] <= self.armed_after:
+                if self.deliver_handoff(candidate):
+                    return
+
+    def handoff_active(self, received_ms):
+        state = self.wake_handoff
+        return (self.mode == "wake" and state is not None
+                and state["start_ms"] <= received_ms <= state["deadline_ms"])
+
+    def handoff_echo(self, alias):
+        return bool(re.search(r"(?<!\w)" + re.escape(normalize(alias)) + r"(?!\w)",
+                              self.wake_handoff["echo"]))
+
+    def deliver_handoff(self, candidate):
+        """Only a first-observed full keyword can cross the SDK segment guard."""
+        timestamp, alias = candidate["timestamp"], candidate["alias"]
+        if (not self.handoff_active(candidate["received_ms"])
+                or self.gate.match(timestamp, alias)[0] != "trigger"):
+            return False
+        if self.handoff_echo(alias):
+            self.event(event="wake_buffer_echo_ignored", timestamp=timestamp)
+            return False
+        try:
+            self.conn.sendall((json.dumps({"event": "wake", "alias": alias,
+                "timestamp": timestamp, "recording_id": None, "reason": "wake_phrase",
+                "buffered": True, "turn": self.wake_handoff["turn"]}) + "\n").encode())
+        except OSError:
+            self.event(event="delivery_failed")
+            return False
+        self.gate.commit(timestamp)
+        self.delivered = True
+        self.event(event="delivered", mode="wake", timestamp=timestamp, buffered=True,
+                   decode_after_tts_ms=candidate["received_ms"]-self.wake_handoff["end_ms"])
+        return True
 
     def result(self, timestamp, flag, text):
         try:
@@ -263,12 +290,17 @@ class Server:
                 norm = normalize(text)
                 if norm:
                     self.observed[timestamp] = norm
-                self.cache_wake(timestamp, text)
+                candidate = self.cache_wake(timestamp, text)
                 if len(self.observed) > 1024:
                     oldest = next(iter(self.observed))
                     del self.observed[oldest]
                     self.candidate_seen.discard(oldest)
                 if self.conn is None or self.delivered:
+                    return
+                # Wake-only handoff handles first recognition across rearm; native
+                # recording EOS/end-phrase segmentation below stays unchanged.
+                if candidate is not None and self.handoff_active(candidate["received_ms"]):
+                    self.deliver_handoff(candidate)
                     return
                 eligible = text
                 if timestamp < self.armed_after:
@@ -294,6 +326,10 @@ class Server:
                         action, alias, reason = "trigger", None, "aisp_eos"
                 else:
                     action, alias = self.gate.match(timestamp, eligible)
+                    if (action == "trigger" and self.handoff_active(time.monotonic()*1000)
+                            and self.handoff_echo(alias)):
+                        self.event(event="wake_buffer_echo_ignored", timestamp=timestamp)
+                        return
                     reason = "wake_phrase"
                 if action == "trigger":
                     try:
@@ -353,6 +389,7 @@ class Server:
                     self.arm(conn, mode, recording_id, time.monotonic()*1000)
                     self.event(event="notifications_armed")
                     conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id,
+                        "wake_replay_version": 2,
                         "endpoint": "aisp-eos" if mode == "recording" else None,
                         "end_phrase": self.end_phrase if mode == "recording" else None})+"\n").encode())
                     self.replay_wake(request.get("replay"))

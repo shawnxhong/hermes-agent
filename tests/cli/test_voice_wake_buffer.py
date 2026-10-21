@@ -262,3 +262,130 @@ def test_watchdog_replays_on_first_idle_poll_after_completed_tts(cli, monkeypatc
     while cli._wake_watchdog_started and time.monotonic() < deadline: time.sleep(.01)
     assert not cli._wake_watchdog_started and not cli._wake_suspended
     mock.assert_called_once()
+
+
+@pytest.mark.parametrize("received", [10.001, 10.025, 10.05])
+def test_complete_keyword_in_post_tts_subscription_gap_is_delivered(rig, received):
+    s, now = rig
+    now[0] = received
+    s.result(9950, 0, b"Hello Intel")
+    conn = arm_replay(s)
+    msg = json.loads(conn.sendall.call_args.args[0])
+    assert msg["buffered"] and msg["reason"] == "wake_phrase"
+    assert s.delivered
+
+
+@pytest.mark.parametrize("before", [None, b"Hello", b"Old wording"])
+def test_first_complete_keyword_after_rearm_can_finish_old_segment(rig, before):
+    s, now = rig
+    if before is not None:
+        now[0] = 9.95
+        s.result(9950, 0, before)
+    conn = arm_replay(s)
+    assert not conn.sendall.called
+    now[0] = 10.2
+    # This non-EOS partial may span the arm boundary or revise its prefix.
+    s.result(9950, 0, b"Hello Intel")
+    assert json.loads(conn.sendall.call_args.args[0])["buffered"]
+    s.result(9950, 2, b"Hello Intel")
+    assert conn.sendall.call_count == 1
+
+
+def test_old_segment_without_valid_reply_handoff_is_still_rejected(rig):
+    s, now = rig
+    conn = Mock()
+    s.arm(conn, "wake", None, 10050)
+    now[0] = 10.2
+    s.result(9950, 0, b"Hello Intel")
+    conn.sendall.assert_not_called()
+
+
+def test_decode_allowance_expires_without_extending_first_recognition(rig):
+    s, now = rig
+    conn = arm_replay(s)
+    now[0] = 15.001
+    s.result(9950, 0, b"Hello Intel")
+    conn.sendall.assert_not_called()
+    now[0] = 15.2
+    s.result(9950, 0, b"Hello Intel again")
+    conn.sendall.assert_not_called()
+    # Ordinary new segments remain live; no wait is added to recognition.
+    s.result(15100, 0, b"Hello Intel")
+    assert conn.sendall.call_count == 1
+    assert not json.loads(conn.sendall.call_args.args[0]).get("buffered")
+
+
+def test_late_echo_and_repeated_partials_never_self_wake(rig):
+    s, now = rig
+    conn = arm_replay(s, echo_text="Say Hello Intel after my reply.")
+    now[0] = 10.2
+    s.result(10100, 0, b"Hello Intel")
+    now[0] = 10.5
+    s.result(10100, 0, b"Hello Intel again")
+    conn.sendall.assert_not_called()
+
+
+def test_expired_cached_keyword_cannot_refresh_after_rearm(rig):
+    s, now = rig
+    now[0] = 8.9
+    s.result(1, 0, b"Hello Intel")
+    conn = arm_replay(s)
+    now[0] = 10.2
+    s.result(1, 0, b"Hello Intel again")
+    conn.sendall.assert_not_called()
+
+
+def test_reply_handoff_does_not_loosen_recording_eos_or_end_phrase(rig):
+    s, now = rig
+    arm_replay(s)
+    conn = Mock()
+    s.arm(conn, "recording", "next", 10100)
+    assert s.wake_handoff is None
+    now[0] = 10.2
+    s.result(9950, 2, b"Hello Intel thank you")
+    conn.sendall.assert_not_called()
+
+
+@pytest.mark.parametrize("prefix", [None, b"Hello"])
+def test_real_socket_late_full_partial_after_ready_is_delivered_once(cli, tmp_path, prefix):
+    s = service.Server(logging.getLogger("wake-handoff-socket"), ["Hello Intel"], 2)
+    running = threading.Event(); running.set()
+    path = tmp_path / "handoff.sock"
+    def serve():
+        try:
+            s.serve(NS(capture_alive=running.is_set), path)
+        except RuntimeError:
+            assert not running.is_set()
+    worker = threading.Thread(target=serve, daemon=True); worker.start()
+    deadline = time.monotonic() + 3
+    while not path.exists() and time.monotonic() < deadline:
+        time.sleep(.01)
+    engine = ExternalWakeEngine({"external": {"socket": str(path)}})
+    try:
+        state = buffer.begin(cli, threading.Event())
+        if prefix is not None:
+            s.result(1, 0, prefix)
+        state.complete(time.monotonic() * 1000)
+        cli._voice_tts_done.set()
+        engine.set_replay(buffer.take_replay(cli))
+        engine.reset()
+        # Ready arrives before the server's locked replay setup; synchronize
+        # on that setup, not a fixed sleep that races a loaded test machine.
+        deadline = time.monotonic() + 3
+        while s.wake_handoff is None and time.monotonic() < deadline:
+            time.sleep(.01)
+        assert s.wake_handoff is not None
+        s.result(1, 0, b"Hello Intel")
+        deadline = time.monotonic() + 3
+        matched = False
+        while not matched and time.monotonic() < deadline:
+            matched = engine.process(None)
+            if not matched:
+                time.sleep(.01)
+        assert matched and engine.last_match[0] == "Hello Intel"
+        assert s.delivered and not state.stop.is_set()
+        s.result(1, 2, b"Hello Intel")
+        assert not engine.process(None)
+    finally:
+        engine.close(); running.clear(); worker.join(4)
+    assert not worker.is_alive()
