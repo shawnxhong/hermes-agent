@@ -267,6 +267,9 @@ class Server:
                 or self.gate.match(timestamp, alias)[0] != "trigger"):
             return False
         if self.handoff_echo(alias):
+            # Keep this rejected echo segment suppressed after the handoff
+            # expires; a genuinely new SDK segment can still wake normally.
+            self.gate.commit(timestamp)
             self.event(event="wake_buffer_echo_ignored", timestamp=timestamp)
             return False
         try:
@@ -328,6 +331,7 @@ class Server:
                     action, alias = self.gate.match(timestamp, eligible)
                     if (action == "trigger" and self.handoff_active(time.monotonic()*1000)
                             and self.handoff_echo(alias)):
+                        self.gate.commit(timestamp)
                         self.event(event="wake_buffer_echo_ignored", timestamp=timestamp)
                         return
                     reason = "wake_phrase"

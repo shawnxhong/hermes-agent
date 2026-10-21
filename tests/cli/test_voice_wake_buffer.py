@@ -322,7 +322,12 @@ def test_late_echo_and_repeated_partials_never_self_wake(rig):
     s.result(10100, 0, b"Hello Intel")
     now[0] = 10.5
     s.result(10100, 0, b"Hello Intel again")
+    now[0] = 15.5
+    s.result(10100, 0, b"Hello Intel again")
     conn.sendall.assert_not_called()
+    # A new utterance is not globally disabled by the rejected segment.
+    s.result(15501, 0, b"Hello Intel")
+    assert conn.sendall.call_count == 1
 
 
 def test_expired_cached_keyword_cannot_refresh_after_rearm(rig):
