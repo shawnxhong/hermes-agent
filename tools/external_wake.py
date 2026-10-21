@@ -5,6 +5,7 @@ import socket
 import threading
 import logging
 import uuid
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,9 @@ class ExternalEndPhraseDetector(ExternalWakeEngine):
 
     def start(self, callback, sample_rate, threshold):
         self.stop()
+        self._start_subscription(callback)
+
+    def _start_subscription(self, callback):
         with self.lock:
             self.recording_id = uuid.uuid4().hex
             self.last_reason = None
@@ -166,22 +170,142 @@ class ExternalEndPhraseDetector(ExternalWakeEngine):
 
 
 class ExternalEOSDetector(ExternalEndPhraseDetector):
-    """Native EOS or sidecar-configured end phrase, scoped to one recording."""
+    """Native EOS plus a fresh keyword stream fed only post-cue recorder PCM."""
     phrase = None
     reason = "aisp_eos"
 
+    def __init__(self, cfg):
+        super().__init__(cfg)
+        self.endpoint_cfg = cfg
+        self._keyword = None
+        self._keyword_config = None
+        self._prepared = None
+        self._audio_scope = None
+        self._audio_callback = None
+
+    def _clear_keyword(self):
+        self._prepared = None
+        self.stop()
+        if self._keyword is not None:
+            self._keyword.close()
+        self._keyword = self._keyword_config = None
+
+    def prepare(self):
+        try:
+            return self._prepare()
+        except Exception:
+            self._clear_keyword()
+            raise
+
+    def _prepare(self):
+        metadata = Path(self.path).with_name("endpoint-config.json")
+        if not metadata.exists():
+            if self._prepared is not None:
+                self._clear_keyword()
+            return False  # Compatibility with an old sidecar, native path only.
+        value = json.loads(metadata.read_text())
+        cfg = value.get("end_phrase")
+        if (value.get("recording_end_phrase_version") != 2
+                or not isinstance(value.get("instance"), str)
+                or not isinstance(cfg, dict) or type(cfg.get("enabled")) is not bool
+                or not isinstance(cfg.get("phrase"), str) or not cfg["phrase"].strip()):
+            raise ValueError("Invalid recording endpoint metadata")
+        signature = (cfg["enabled"], cfg["phrase"], self.endpoint_cfg.get("model_dir"))
+        if signature != self._keyword_config:
+            self._prepared = None
+            self.stop()
+            if self._keyword is not None:
+                self._keyword.close()
+                self._keyword = None
+            if cfg["enabled"]:
+                from tools.voice_endpoint import EndPhraseDetector
+                self._keyword = EndPhraseDetector({**self.endpoint_cfg, "phrase": cfg["phrase"]})
+            self._keyword_config = signature
+        if self._prepared is None or self._prepared["instance"] != value["instance"]:
+            logger.info("recording_keyword_prepared source=recorder_pcm enabled=%s instance=%s", cfg["enabled"], value["instance"])
+        self._prepared = value
+        self.phrase = cfg["phrase"] if cfg["enabled"] else None
+        return True
+
     def subscription(self):
-        return {**super().subscription(), "endpoint": "aisp-eos"}
+        request = {**super().subscription(), "endpoint": "aisp-eos"}
+        if self._prepared is not None:
+            request.update(end_phrase_source="recorder", instance=self._prepared["instance"])
+        return request
 
     def ready(self, message):
         if not (super().ready(message) and message.get("endpoint") == "aisp-eos"):
             return False
         cfg = message.get("end_phrase") or {}
+        if self._prepared is not None:
+            if (message.get("instance") != self._prepared["instance"]
+                    or message.get("recording_end_phrase_version") != 2
+                    or message.get("end_phrase_source") != "recorder"
+                    or cfg != self._prepared["end_phrase"]):
+                return False
         self.phrase = cfg.get("phrase") if cfg.get("enabled") is True else None
         return True
 
     def matched(self, message):
-        if super().matched(message) and message.get("reason") in ("aisp_eos", "end_phrase"):
+        reasons = ("aisp_eos",) if self._prepared is not None else ("aisp_eos", "end_phrase")
+        if super().matched(message) and message.get("reason") in reasons:
             self.last_reason = message["reason"]
             return True
         return False
+
+    def arm_audio(self, callback, sample_rate, threshold):
+        """Called before recorder collection is enabled, with a fresh stream."""
+        self.stop()
+        completed = threading.Event()
+        self._audio_scope = completed
+        self._audio_callback = callback
+        self.last_reason = None
+        if self._keyword is not None:
+            try:
+                self._keyword.start(lambda: self._finish(completed, "end_phrase"), sample_rate, threshold)
+            except Exception:
+                self._keyword.close()
+                self._keyword = self._keyword_config = self._prepared = None
+                logger.warning("Recording keyword stream unavailable; native endpoint remains available", exc_info=True)
+
+    def _finish(self, scope, reason):
+        with self.lock:
+            if scope is not self._audio_scope or scope.is_set():
+                return
+            scope.set()
+            self.last_reason = reason
+            self._stop.set()
+            if self._keyword is not None:
+                self._keyword.request_stop()
+            callback = self._audio_callback
+        logger.info("recording_endpoint delivered reason=%s source=%s recording_id=%s",
+                    reason, "recorder_pcm" if reason == "end_phrase" else "native_asr", self.recording_id)
+        callback()
+
+    def start(self, callback, sample_rate, threshold):
+        if self._audio_scope is None:
+            self.arm_audio(callback, sample_rate, threshold)
+        scope = self._audio_scope
+        if scope.is_set():
+            return
+        try:
+            self._start_subscription(lambda: self._finish(scope, self.last_reason or "aisp_eos"))
+        except Exception:
+            # A temporary native socket failure must not disable the independent
+            # recorder keyword worker. The next recording retries the socket.
+            super().stop()
+            raise
+
+    def feed(self, pcm):
+        scope = self._audio_scope
+        if self._keyword is not None and scope is not None and not scope.is_set():
+            self._keyword.feed(pcm)
+
+    def stop(self):
+        scope = self._audio_scope
+        if scope is not None:
+            scope.set()
+        self._audio_scope = None
+        if self._keyword is not None:
+            self._keyword.stop()
+        super().stop()

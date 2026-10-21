@@ -876,10 +876,7 @@ class _SherpaKwsEngine(_Engine):
     def reset(self) -> None:
         # Fresh stream drops all buffered audio/decoder state (pause → resume
         # must not re-fire on stale audio).
-        try:
-            self._stream = self._spotter.create_stream()
-        except Exception:
-            pass
+        self._stream = self._spotter.create_stream()
 
     def close(self) -> None:
         try:

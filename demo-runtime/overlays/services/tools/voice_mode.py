@@ -883,6 +883,13 @@ class AudioRecorder:
             except Exception:
                 self._end_phrase_unavailable = True
                 logger.warning('Recording endpoint unavailable; using silence fallback', exc_info=True)
+        if self._end_phrase_detector is not None:
+            prepare = getattr(self._end_phrase_detector, "prepare", None)
+            if callable(prepare):
+                try:
+                    prepare()
+                except Exception:
+                    logger.warning("Recording keyword preparation failed; native EOS remains available", exc_info=True)
         return self._end_phrase_detector is not None
 
     def _endpoint_stop(self):
@@ -1164,6 +1171,10 @@ class AudioRecorder:
                 self._end_phrase_detector.stop()
             raise
 
+        if endpoint_ready:
+            arm_audio = getattr(self._end_phrase_detector, "arm_audio", None)
+            if callable(arm_audio):
+                arm_audio(self._endpoint_stop, self._sample_rate, self._silence_threshold)
         with self._lock:
             # start() is called only after synchronous cue playback completes.
             # Enable the strict boundary for the independent ASR experiment.

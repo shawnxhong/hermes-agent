@@ -187,6 +187,7 @@ class Server:
         self.recording_speech = set()
         self.mode = "wake"
         self.recording_id = None
+        self.end_phrase_source = "asr"
         self.conn = None
         self.epoch = None
         self.armed_after = float('inf')
@@ -197,16 +198,17 @@ class Server:
         self.candidate_seen = set()
         self.wake_handoff = None
 
-    def arm(self, conn, mode, recording_id, boundary):
+    def arm(self, conn, mode, recording_id, boundary, end_phrase_source="asr"):
         """Called under lock after the client has finished its recording cue."""
         self.mode, self.recording_id = mode, recording_id
+        self.end_phrase_source = end_phrase_source
         self.conn, self.epoch = conn, str(uuid.uuid4())
         self.armed_after = boundary
         self.arm_text = dict(self.observed)
         self.delivered = False
         self.recording_speech = set()
         self.wake_handoff = None
-        self.event(event="armed", mode=mode, boundary=boundary)
+        self.event(event="armed", mode=mode, boundary=boundary, end_phrase_source=end_phrase_source)
 
     def event(self, **data):
         logging.getLogger("wake-status").info("%s", " ".join(f"{k}={v}" for k, v in data.items()))
@@ -294,6 +296,10 @@ class Server:
                 if norm:
                     self.observed[timestamp] = norm
                 candidate = self.cache_wake(timestamp, text)
+                if self.mode == "recording" and self.matches_end_phrase(norm):
+                    self.event(event="end_phrase_partial", timestamp=timestamp,
+                               recording_id=self.recording_id, source=self.end_phrase_source,
+                               old_segment=timestamp < self.armed_after)
                 if len(self.observed) > 1024:
                     oldest = next(iter(self.observed))
                     del self.observed[oldest]
@@ -315,11 +321,11 @@ class Server:
                         self.event(event="ignored_old_segment", mode=self.mode, timestamp=timestamp)
                         return
                     eligible = norm[len(before):].lstrip()
-                    if self.mode == "recording" and not (self.matches_end_phrase(eligible) and self.matches_end_phrase(norm)):
+                    if self.mode == "recording" and not (self.end_phrase_source == "asr" and self.matches_end_phrase(eligible) and self.matches_end_phrase(norm)):
                         self.event(event="ignored_old_segment", mode=self.mode, timestamp=timestamp)
                         return
                 if self.mode == "recording":
-                    if self.matches_end_phrase(eligible):
+                    if self.end_phrase_source == "asr" and self.matches_end_phrase(eligible):
                         action, alias, reason = "trigger", self.end_phrase["phrase"], "end_phrase"
                     else:
                         if norm:
@@ -363,6 +369,14 @@ class Server:
         os.chmod(path, 0o600)
         listener.listen(1)
         listener.settimeout(1)
+        # Derived public metadata, not another configuration source. It lets
+        # the recorder warm its already-bundled keyword model before the cue.
+        metadata = path.with_name("endpoint-config.json")
+        pending = path.with_name(".endpoint-config-" + self.instance)
+        pending.write_text(json.dumps({"instance": self.instance,
+            "recording_end_phrase_version": 2, "end_phrase": self.end_phrase}) + "\n")
+        pending.chmod(0o600)
+        pending.replace(metadata)
         self.event(event="ready")
         while True:
             if not native.capture_alive():
@@ -388,12 +402,19 @@ class Server:
                     raise ValueError("Recording subscription requires identity")
                 if mode == "recording" and request.get("endpoint") != "aisp-eos":
                     raise ValueError("Recording requires aisp-eos endpoint support")
+                end_phrase_source = request.get("end_phrase_source", "asr")
+                if end_phrase_source not in ("asr", "recorder"):
+                    raise ValueError("Unknown end phrase source")
+                if (mode == "recording" and end_phrase_source == "recorder"
+                        and request.get("instance") != self.instance):
+                    raise ValueError("Recording endpoint metadata is stale")
                 with self.lock:
                     # The service configuration owns aliases; legacy client lists cannot override it.
-                    self.arm(conn, mode, recording_id, time.monotonic()*1000)
+                    self.arm(conn, mode, recording_id, time.monotonic()*1000, end_phrase_source)
                     self.event(event="notifications_armed")
                     conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id,
-                        "wake_replay_version": 2,
+                        "wake_replay_version": 2, "instance": self.instance,
+                        "recording_end_phrase_version": 2, "end_phrase_source": end_phrase_source,
                         "endpoint": "aisp-eos" if mode == "recording" else None,
                         "end_phrase": self.end_phrase if mode == "recording" else None})+"\n").encode())
                     self.replay_wake(request.get("replay"))

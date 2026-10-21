@@ -22221,6 +22221,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # prompt; best-effort, so deps/mic/key gaps are surfaced, never fatal.
         def _wake_startup():
             try:
+                try:
+                    from tools.voice_endpoint import warm_for_cli
+                    warm_for_cli(self)
+                except Exception:
+                    logger.warning("Recording keyword warmup unavailable", exc_info=True)
                 self._maybe_start_wake_word()
                 from hermes_cli.voice_scenes import start_for_cli
                 start_for_cli(self)

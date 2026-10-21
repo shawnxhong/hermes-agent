@@ -22,7 +22,8 @@ def settings():
             logger.warning('Unsupported voice endpoint provider; using silence fallback')
             return None
         wake = cfg.get('wake_word') or {}
-        return {**endpoint, 'socket': (wake.get('external') or {}).get('socket', '/ipc/wake/service.sock')}
+        return {**endpoint, 'socket': (wake.get('external') or {}).get('socket', '/ipc/wake/service.sock'),
+                'model_dir': (wake.get('sherpa') or {}).get('model_dir')}
     raw = voice.get('end_phrase') if isinstance(voice, dict) else None
     if not isinstance(raw, dict) or raw.get('enabled') is not True:
         return None
@@ -100,7 +101,8 @@ class EndPhraseDetector:
         self.phrase = str(cfg.get('phrase') or "That's all")
         if engine is None:
             from tools.wake_word import _SherpaKwsEngine
-            folder = Path(cfg.get('model_dir') or '')
+            from tools.wake_word import _sherpa_model_root, _SHERPA_KWS_MODEL_DIR
+            folder = Path(cfg['model_dir']) if cfg.get('model_dir') else _sherpa_model_root() / _SHERPA_KWS_MODEL_DIR
             if not (folder / 'tokens.txt').is_file():
                 raise RuntimeError('Local Sherpa model missing; no automatic download')
             engine = _SherpaKwsEngine({
@@ -173,8 +175,11 @@ class EndPhraseDetector:
             self._stop.set()
             logger.warning('Recording-end detector failed; using silence/time-limit fallback', exc_info=True)
 
-    def stop(self):
+    def request_stop(self):
         self._stop.set()
+
+    def stop(self):
+        self.request_stop()
         if self._thread and self._thread is not threading.current_thread():
             self._thread.join(timeout=1)
 
@@ -182,3 +187,16 @@ class EndPhraseDetector:
         self.stop()
         if not self._thread or not self._thread.is_alive():
             self.engine.close()
+
+
+def warm_for_cli(cli):
+    """Warm the recorder endpoint before wake listening, without opening a mic."""
+    from hermes_cli.config import load_config
+    wake = load_config().get("wake_word") or {}
+    cfg = settings()
+    if not wake.get("enabled") or not cfg or cfg.get("provider") != "aisp-eos":
+        return
+    if getattr(cli, "_voice_recorder", None) is None:
+        from tools.voice_mode import create_audio_recorder
+        cli._voice_recorder = create_audio_recorder()
+    cli._voice_recorder.prepare_endpoint()
