@@ -165,6 +165,7 @@ def test_prepare_confirmation_precedes_cue_and_failure_never_beeps(recorder,monk
         events.append('prepare_done')
         if failure:raise RuntimeError('flush pending')
     detector.wait_recording_prepare=wait
+    detector.resume_recording_capture=lambda:events.append('resume')
     detector.discard_recording_prepare=Mock()
     monkeypatch.setattr(audio,'play_beep',lambda **kwargs:events.append('beep'))
     monkeypatch.setattr(quiet,'begin',lambda cli:None)
@@ -175,6 +176,6 @@ def test_prepare_confirmation_precedes_cue_and_failure_never_beeps(recorder,monk
         detector.start.assert_not_called()
     else:
         HermesCLI._voice_start_recording(cli)
-        assert events==['prepare_done','beep']
+        assert events==['prepare_done','beep','resume']
         detector.start.assert_called_once()
         cli._voice_recording=False;r.cancel()

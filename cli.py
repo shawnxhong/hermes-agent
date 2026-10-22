@@ -15903,6 +15903,9 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             if _scene_switching(self) or scene_generation != _scene_generation(self):
                 self._voice_recording = False
                 return
+            resume_capture = getattr(endpoint, "resume_recording_capture", None)
+            if callable(resume_capture):
+                resume_capture()
             capture_options = {"capture_after": boundary} if boundary is not None else {}
             self._voice_recorder.start(on_silence_stop=_on_silence, **capture_options)
         except Exception:

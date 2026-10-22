@@ -167,8 +167,18 @@ class Native:
         if self.lib.wake_start_capture(self.handle, source.encode(), aec.encode(), reference.encode()):
             raise RuntimeError("AISP microphone capture failed")
 
-    def resume_capture(self):
+    def initialize_capture(self):
         return start_capture_with_aec(self, self.capture_source, self.capture_audio, self.capture_event)
+
+    def pause_capture(self):
+        self.lib.wake_pause_capture.argtypes = [C.c_void_p]
+        if self.lib.wake_pause_capture(self.handle):
+            raise RuntimeError("AISP capture pause failed")
+
+    def resume_capture(self):
+        self.lib.wake_resume_capture.argtypes = [C.c_void_p]
+        if self.lib.wake_resume_capture(self.handle):
+            raise RuntimeError("AISP capture resume failed")
 
     def stop_capture(self):
         self.lib.wake_stop_capture.argtypes = [C.c_void_p]
@@ -250,21 +260,19 @@ class Server:
             try:
                 if request["reason"] == "recording_prepare":
                     self.capture_paused = True
-                    native.stop_capture()
-                    self.event(event="recording_capture_stopped", request_id=key)
+                    native.pause_capture()
+                    self.event(event="recording_capture_paused", request_id=key)
                 native.flush()
                 with self.lock:
                     rows = task["events"]
                     closed = {ts for ts, flag, _ in rows if flag & self.eos_flag}
-                    if request["reason"] != "recording_prepare" and task["open"] - closed:
+                    if task["open"] - closed:
                         raise RuntimeError("Flush did not close the active ASR segment")
                     last_eos = max((i for i, row in enumerate(rows)
                                     if row[1] & self.eos_flag), default=-1)
                     old = task["old"] | {row[0] for row in rows[:last_eos+1]}
                     if request["reason"] == "recording_prepare":
-                        # Session destruction detaches its callback. With capture
-                        # stopped and pipeline.wait complete, old input is drained
-                        # even when no final callback was forwarded to Python.
+                        # pause is a submission barrier; wait drained all old input.
                         old.update(self.observed)
                         old.update(self.open_segments)
                         self.open_segments.clear()
@@ -289,7 +297,7 @@ class Server:
             if not native.capture_alive():
                 raise RuntimeError("Capture failed to resume")
             self.capture_paused = False
-            self.event(event="recording_capture_restarted", seconds=round(time.monotonic()-started, 3))
+            self.event(event="recording_capture_resumed", seconds=round(time.monotonic()-started, 3))
 
     def wait_segment(self, task):
         if task is None:
@@ -522,12 +530,12 @@ class Server:
         metadata = path.with_name("endpoint-config.json")
         pending = path.with_name(".endpoint-config-" + self.instance)
         pending.write_text(json.dumps({"instance": self.instance,
-            "recording_end_phrase_version": 2, "force_segment_version": 1, "recording_prepare_version": 2, "end_phrase": self.end_phrase}) + "\n")
+            "recording_end_phrase_version": 2, "force_segment_version": 1, "recording_prepare_version": 3, "end_phrase": self.end_phrase}) + "\n")
         pending.chmod(0o600)
         pending.replace(metadata)
         self.event(event="ready")
         while True:
-            if not native.capture_alive() and not self.capture_paused:
+            if not native.capture_alive():
                 raise RuntimeError("Continuous audio source stopped")
             try:
                 conn, _ = listener.accept()
@@ -589,7 +597,7 @@ class Server:
                 if mode == "wake":
                     self.resume_recording_capture(native)
                 elif self.capture_paused:
-                    raise RuntimeError("Capture must resume before the recording cue")
+                    raise RuntimeError("Capture must resume after the cue and before recording")
                 split = request.get("force_segment")
                 task = None
                 if split is not None:
@@ -698,7 +706,7 @@ def main():
     native = Native(args.library, args.model, args.device, s.result, config=config)
     native.capture_source = args.source
     native.capture_event = s.event
-    native.resume_capture()
+    native.initialize_capture()
     s.serve(native, args.socket)
 
 

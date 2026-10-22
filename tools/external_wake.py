@@ -206,7 +206,7 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
         """Start one control-only flush while the wake acknowledgement plays."""
         if self._segment_job is not None:
             return
-        if self._prepared is None or self._prepared.get("recording_prepare_version") != 2:
+        if self._prepared is None or self._prepared.get("recording_prepare_version") != 3:
             raise RuntimeError("Wake service lacks recording preparation support")
         job = {"done": threading.Event(), "request_id": uuid.uuid4().hex,
                "instance": self._prepared["instance"], "error": None}
@@ -239,6 +239,12 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
             raise RuntimeError("Recording preparation is still pending; no recording cue")
         if job["error"] is not None:
             raise RuntimeError("Recording preparation failed; no recording cue") from job["error"]
+        logger.info("recording_prepare confirmed before cue request_id=%s", job["request_id"])
+
+    def resume_recording_capture(self):
+        job = self._segment_job
+        if job is None or not job["done"].is_set() or job["error"] is not None:
+            raise RuntimeError("Recording preparation is not ready")
         if not job.get("capture_resumed"):
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
                 conn.settimeout(5.5)
@@ -249,9 +255,9 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
                     reply = json.loads(stream.readline(4096))
                 if reply != {"event": "recording_capture_ready", "instance": job["instance"],
                              "request_id": job["request_id"]}:
-                    raise RuntimeError("Recording capture failed to restart before cue")
+                    raise RuntimeError("Recording capture failed to resume after cue")
             job["capture_resumed"] = True
-        logger.info("recording_prepare confirmed before cue request_id=%s", job["request_id"])
+        logger.info("recording_capture resumed after cue request_id=%s", job["request_id"])
 
     def discard_recording_prepare(self):
         # Does not cancel an SDK operation; the server serializes subsequent work.

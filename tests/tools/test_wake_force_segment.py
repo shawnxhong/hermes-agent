@@ -128,7 +128,7 @@ def socket_service(tmp_path):
     import time
     from types import SimpleNamespace
     s=server();running=threading.Event();running.set()
-    native=SimpleNamespace(capture_alive=running.is_set,flush=Mock(),stop_capture=Mock(),resume_capture=Mock())
+    native=SimpleNamespace(capture_alive=running.is_set,flush=Mock(),pause_capture=Mock(),resume_capture=Mock())
     path=tmp_path/'service.sock'
     def run():
         try:s.serve(native,path)
@@ -215,7 +215,7 @@ def test_recording_prepare_waits_then_accepts_pre_cue_new_segment(socket_service
         assert entered.wait(2)
         assert not d._segment_job['done'].is_set()
         release.set()
-        d.wait_recording_prepare()
+        d.wait_recording_prepare(); d.resume_recording_capture()
         # A new segment can start before the cue without being old audio.
         s.result(200, 1, b'question')
         d._start_subscription(Mock())
@@ -234,7 +234,7 @@ def test_prepare_discards_segments_completed_before_recording(socket_service):
     s, n, path = socket_service
     d = prepared_detector(s, path)
     try:
-        d.begin_recording_prepare(); d.wait_recording_prepare()
+        d.begin_recording_prepare(); d.wait_recording_prepare(); d.resume_recording_capture()
         s.result(200, 2, b'ack')
         d._start_subscription(Mock())
         s.result(200, 2, b'ack')
@@ -251,7 +251,7 @@ def test_prepare_failure_never_becomes_ready(socket_service):
     d = prepared_detector(s, path)
     d.begin_recording_prepare()
     with pytest.raises(RuntimeError, match='preparation failed'):
-        d.wait_recording_prepare()
+        d.wait_recording_prepare(); d.resume_recording_capture()
     d.discard_recording_prepare()
     assert d._segment_job is None
 
@@ -320,13 +320,16 @@ def test_socket_guard_keeps_recording_subscription_alive(socket_service):
     finally:d.stop()
 
 
-def test_capture_is_stopped_during_ack_and_resumed_before_recording(socket_service):
+def test_capture_pauses_through_prepare_until_explicit_post_cue_resume(socket_service):
     s,n,path=socket_service;d=prepared_detector(s,path)
     try:
         d.begin_recording_prepare();assert d._segment_job['done'].wait(3)
         assert s.capture_paused
-        n.stop_capture.assert_called_once();n.resume_capture.assert_not_called()
+        n.pause_capture.assert_called_once();n.resume_capture.assert_not_called()
         d.wait_recording_prepare()
+        assert s.capture_paused
+        n.resume_capture.assert_not_called()
+        d.resume_recording_capture()
         assert not s.capture_paused
         n.resume_capture.assert_called_once()
         d._start_subscription(Mock())
@@ -347,13 +350,13 @@ def test_cancelled_preparation_resumes_capture_on_next_wake(socket_service):
     finally:engine.close()
 
 
-def test_capture_restart_failure_prevents_ready_and_can_recover_to_wake(socket_service):
+def test_capture_resume_failure_prevents_ready_and_can_recover_to_wake(socket_service):
     from tools.external_wake import ExternalWakeEngine
     s,n,path=socket_service;d=prepared_detector(s,path)
     d.begin_recording_prepare();assert d._segment_job['done'].wait(3)
     n.resume_capture.side_effect=RuntimeError('device unavailable')
     with pytest.raises((RuntimeError,ValueError)):
-        d.wait_recording_prepare()
+        d.wait_recording_prepare(); d.resume_recording_capture()
     assert s.capture_paused
     n.resume_capture.side_effect=None
     engine=ExternalWakeEngine({'external':{'socket':str(path)}})

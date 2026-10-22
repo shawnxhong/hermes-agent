@@ -123,3 +123,20 @@ int wake_enumerate_playback(void (*cb)(int32_t, const char*)) {
 int wake_capture_alive(void* raw) { return static_cast<Bridge*>(raw)->capture_alive ? 1 : 0; }
 void wake_destroy(void* raw) { delete static_cast<Bridge*>(raw); }
 }
+
+extern "C" int wake_pause_capture(void* raw) {
+    try {
+        auto b = static_cast<Bridge*>(raw);
+        if (!b->session || !b->capture_alive) return -1;
+        b->session->pause();
+        return 0;
+    } catch (...) { return -1; }
+}
+extern "C" int wake_resume_capture(void* raw) {
+    try {
+        auto b = static_cast<Bridge*>(raw);
+        if (!b->session || !b->capture_alive) return -1;
+        b->session->resume();
+        return 0;
+    } catch (...) { return -1; }
+}
