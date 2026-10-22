@@ -135,6 +135,9 @@ class Native:
 
     def __init__(self, library, model, device, callback, config=None):
         config = load_config() if config is None else config
+        self.capture_source = "CAPTURE_DEVICE"
+        self.capture_audio = config["audio"]
+        self.capture_event = lambda **kw: None
         context = asr_context(config)
         self.lib = C.CDLL(library)
         self.cb = C.CFUNCTYPE(None, C.c_int64, C.c_uint32, C.c_char_p)(callback)
@@ -163,6 +166,9 @@ class Native:
         self.lib.wake_capture_alive.argtypes = [C.c_void_p]
         if self.lib.wake_start_capture(self.handle, source.encode(), aec.encode(), reference.encode()):
             raise RuntimeError("AISP microphone capture failed")
+
+    def resume_capture(self):
+        return start_capture_with_aec(self, self.capture_source, self.capture_audio, self.capture_event)
 
     def stop_capture(self):
         self.lib.wake_stop_capture.argtypes = [C.c_void_p]
@@ -208,6 +214,7 @@ class Server:
         self.wake_handoff = None
         self.split_task = None
         self.split_requests = {}
+        self.capture_paused = False
         self.last_closed_segment = -1
         self.open_segments = set()
         self.segment_floor = None
@@ -241,15 +248,26 @@ class Server:
             started = time.monotonic()
             self.event(event="force_segment_started", reason=request["reason"], request_id=key)
             try:
+                if request["reason"] == "recording_prepare":
+                    self.capture_paused = True
+                    native.stop_capture()
+                    self.event(event="recording_capture_stopped", request_id=key)
                 native.flush()
                 with self.lock:
                     rows = task["events"]
                     closed = {ts for ts, flag, _ in rows if flag & self.eos_flag}
-                    if task["open"] - closed:
+                    if request["reason"] != "recording_prepare" and task["open"] - closed:
                         raise RuntimeError("Flush did not close the active ASR segment")
                     last_eos = max((i for i, row in enumerate(rows)
                                     if row[1] & self.eos_flag), default=-1)
                     old = task["old"] | {row[0] for row in rows[:last_eos+1]}
+                    if request["reason"] == "recording_prepare":
+                        # Session destruction detaches its callback. With capture
+                        # stopped and pipeline.wait complete, old input is drained
+                        # even when no final callback was forwarded to Python.
+                        old.update(self.observed)
+                        old.update(self.open_segments)
+                        self.open_segments.clear()
                     task["floor"] = max(old, default=-1)
                     task["fresh"] = rows[last_eos+1:]
                     task["awaiting_arm"] = request["reason"] == "scene_ready"
@@ -263,6 +281,15 @@ class Server:
                            seconds=round(time.monotonic()-started, 3), success=task["error"] is None)
         threading.Thread(target=run, daemon=True, name="wake-force-segment").start()
         return task
+
+    def resume_recording_capture(self, native):
+        if self.capture_paused:
+            started = time.monotonic()
+            native.resume_capture()
+            if not native.capture_alive():
+                raise RuntimeError("Capture failed to resume")
+            self.capture_paused = False
+            self.event(event="recording_capture_restarted", seconds=round(time.monotonic()-started, 3))
 
     def wait_segment(self, task):
         if task is None:
@@ -495,12 +522,12 @@ class Server:
         metadata = path.with_name("endpoint-config.json")
         pending = path.with_name(".endpoint-config-" + self.instance)
         pending.write_text(json.dumps({"instance": self.instance,
-            "recording_end_phrase_version": 2, "force_segment_version": 1, "recording_prepare_version": 1, "end_phrase": self.end_phrase}) + "\n")
+            "recording_end_phrase_version": 2, "force_segment_version": 1, "recording_prepare_version": 2, "end_phrase": self.end_phrase}) + "\n")
         pending.chmod(0o600)
         pending.replace(metadata)
         self.event(event="ready")
         while True:
-            if not native.capture_alive():
+            if not native.capture_alive() and not self.capture_paused:
                 raise RuntimeError("Continuous audio source stopped")
             try:
                 conn, _ = listener.accept()
@@ -516,6 +543,18 @@ class Server:
                     line += part
                 request = json.loads(line)
                 mode = request.get("mode", "wake")
+                if mode == "resume_recording":
+                    task = self.split_requests.get(request.get("request_id"))
+                    if (request.get("instance") != self.instance or task is None
+                            or task is not self.split_task or task.get("consumed")
+                            or task["request"]["reason"] != "recording_prepare"):
+                        raise ValueError("Expired capture preparation")
+                    self.wait_segment(task)
+                    self.resume_recording_capture(native)
+                    task["capture_resumed"] = True
+                    conn.sendall((json.dumps({"event": "recording_capture_ready",
+                        "instance": self.instance, "request_id": request["request_id"]}) + "\n").encode())
+                    continue
                 if mode == "prepare_recording":
                     self.wait_segment(self.split_task)
                     split = request["force_segment"]
@@ -540,7 +579,17 @@ class Server:
                 if (mode == "recording" and end_phrase_source == "recorder"
                         and request.get("instance") != self.instance):
                     raise ValueError("Recording endpoint metadata is stale")
+                if (mode == "wake" and self.split_task is not None
+                        and self.split_task["done"].is_set() and self.split_task.get("error")
+                        and self.split_task["request"]["reason"] == "recording_prepare"):
+                    self.resume_recording_capture(native)
+                    self.event(event="recording_prepare_abandoned", reason=self.split_task["error"])
+                    self.split_task = None
                 self.wait_segment(self.split_task)
+                if mode == "wake":
+                    self.resume_recording_capture(native)
+                elif self.capture_paused:
+                    raise RuntimeError("Capture must resume before the recording cue")
                 split = request.get("force_segment")
                 task = None
                 if split is not None:
@@ -554,7 +603,8 @@ class Server:
                         raise ValueError("Invalid recording preparation identity")
                     task = self.split_requests.get(prepared)
                     if (task is None or task is not self.split_task or task.get("consumed")
-                            or task["request"]["reason"] != "recording_prepare"):
+                            or task["request"]["reason"] != "recording_prepare"
+                            or not task.get("capture_resumed")):
                         raise ValueError("Recording preparation expired")
                     self.wait_segment(task)
                 guard_until = 0.0
@@ -646,7 +696,9 @@ def main():
     s.event(event="vad_config", **config["vad"])
     s.event(event="end_phrase_config", enabled=config["end_phrase"]["enabled"])
     native = Native(args.library, args.model, args.device, s.result, config=config)
-    start_capture_with_aec(native, args.source, config["audio"], s.event)
+    native.capture_source = args.source
+    native.capture_event = s.event
+    native.resume_capture()
     s.serve(native, args.socket)
 
 

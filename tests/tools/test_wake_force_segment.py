@@ -128,7 +128,7 @@ def socket_service(tmp_path):
     import time
     from types import SimpleNamespace
     s=server();running=threading.Event();running.set()
-    native=SimpleNamespace(capture_alive=running.is_set,flush=Mock())
+    native=SimpleNamespace(capture_alive=running.is_set,flush=Mock(),stop_capture=Mock(),resume_capture=Mock())
     path=tmp_path/'service.sock'
     def run():
         try:s.serve(native,path)
@@ -140,7 +140,7 @@ def socket_service(tmp_path):
         assert time.monotonic()<deadline
         time.sleep(.01)
     yield s,native,path
-    running.clear();worker.join(4);assert not worker.is_alive()
+    s.capture_paused=False;running.clear();worker.join(4);assert not worker.is_alive()
 
 
 def test_scene_socket_handshake_flushes_and_delivers_fresh_segment(socket_service):
@@ -318,3 +318,45 @@ def test_socket_guard_keeps_recording_subscription_alive(socket_service):
         s.result(ts+1,2,b'actual question')
         assert done.wait(2)
     finally:d.stop()
+
+
+def test_capture_is_stopped_during_ack_and_resumed_before_recording(socket_service):
+    s,n,path=socket_service;d=prepared_detector(s,path)
+    try:
+        d.begin_recording_prepare();assert d._segment_job['done'].wait(3)
+        assert s.capture_paused
+        n.stop_capture.assert_called_once();n.resume_capture.assert_not_called()
+        d.wait_recording_prepare()
+        assert not s.capture_paused
+        n.resume_capture.assert_called_once()
+        d._start_subscription(Mock())
+        assert s.mode=='recording'
+    finally:d.stop()
+
+
+def test_cancelled_preparation_resumes_capture_on_next_wake(socket_service):
+    from tools.external_wake import ExternalWakeEngine
+    s,n,path=socket_service;d=prepared_detector(s,path)
+    d.begin_recording_prepare();assert d._segment_job['done'].wait(3)
+    d.discard_recording_prepare();assert s.capture_paused
+    engine=ExternalWakeEngine({'external':{'socket':str(path)}})
+    try:
+        engine.reset()
+        assert not s.capture_paused
+        n.resume_capture.assert_called_once()
+    finally:engine.close()
+
+
+def test_capture_restart_failure_prevents_ready_and_can_recover_to_wake(socket_service):
+    from tools.external_wake import ExternalWakeEngine
+    s,n,path=socket_service;d=prepared_detector(s,path)
+    d.begin_recording_prepare();assert d._segment_job['done'].wait(3)
+    n.resume_capture.side_effect=RuntimeError('device unavailable')
+    with pytest.raises((RuntimeError,ValueError)):
+        d.wait_recording_prepare()
+    assert s.capture_paused
+    n.resume_capture.side_effect=None
+    engine=ExternalWakeEngine({'external':{'socket':str(path)}})
+    try:
+        engine.reset();assert not s.capture_paused
+    finally:engine.close()

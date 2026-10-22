@@ -206,7 +206,7 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
         """Start one control-only flush while the wake acknowledgement plays."""
         if self._segment_job is not None:
             return
-        if self._prepared is None or self._prepared.get("recording_prepare_version") != 1:
+        if self._prepared is None or self._prepared.get("recording_prepare_version") != 2:
             raise RuntimeError("Wake service lacks recording preparation support")
         job = {"done": threading.Event(), "request_id": uuid.uuid4().hex,
                "instance": self._prepared["instance"], "error": None}
@@ -239,6 +239,18 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
             raise RuntimeError("Recording preparation is still pending; no recording cue")
         if job["error"] is not None:
             raise RuntimeError("Recording preparation failed; no recording cue") from job["error"]
+        if not job.get("capture_resumed"):
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+                conn.settimeout(5.5)
+                conn.connect(self.path)
+                conn.sendall((json.dumps({"mode": "resume_recording", "instance": job["instance"],
+                    "request_id": job["request_id"]}) + "\n").encode())
+                with conn.makefile("rb") as stream:
+                    reply = json.loads(stream.readline(4096))
+                if reply != {"event": "recording_capture_ready", "instance": job["instance"],
+                             "request_id": job["request_id"]}:
+                    raise RuntimeError("Recording capture failed to restart before cue")
+            job["capture_resumed"] = True
         logger.info("recording_prepare confirmed before cue request_id=%s", job["request_id"])
 
     def discard_recording_prepare(self):
@@ -300,7 +312,7 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
             request.update(end_phrase_source="recorder", instance=self._prepared["instance"])
         if self._segment_job is not None:
             job = self._segment_job
-            if not job["done"].is_set() or job["error"] is not None:
+            if not job["done"].is_set() or job["error"] is not None or not job.get("capture_resumed"):
                 raise RuntimeError("Recording started without confirmed preparation")
             request.update(recording_prepare=job["request_id"], instance=job["instance"])
         return request
