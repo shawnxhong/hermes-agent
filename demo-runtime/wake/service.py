@@ -206,6 +206,7 @@ class Server:
         self.wake_handoff = None
         self.split_task = None
         self.split_requests = {}
+        self.last_closed_segment = -1
         self.open_segments = set()
         self.segment_floor = None
 
@@ -375,6 +376,7 @@ class Server:
             with self.lock:
                 self.log.info("%s", text)
                 if flag & self.eos_flag:
+                    self.last_closed_segment = max(self.last_closed_segment, timestamp)
                     self.open_segments.discard(timestamp)
                 elif text.strip():
                     self.open_segments.add(timestamp)
@@ -414,7 +416,7 @@ class Server:
                     self.deliver_handoff(candidate)
                     return
                 eligible = text
-                if self.mode == "wake" and self.segment_floor is not None:
+                if self.segment_floor is not None:
                     if timestamp <= self.segment_floor:
                         self.event(event="ignored_pre_split_segment", timestamp=timestamp)
                         return
@@ -480,7 +482,7 @@ class Server:
         metadata = path.with_name("endpoint-config.json")
         pending = path.with_name(".endpoint-config-" + self.instance)
         pending.write_text(json.dumps({"instance": self.instance,
-            "recording_end_phrase_version": 2, "force_segment_version": 1, "end_phrase": self.end_phrase}) + "\n")
+            "recording_end_phrase_version": 2, "force_segment_version": 1, "recording_prepare_version": 1, "end_phrase": self.end_phrase}) + "\n")
         pending.chmod(0o600)
         pending.replace(metadata)
         self.event(event="ready")
@@ -501,6 +503,17 @@ class Server:
                     line += part
                 request = json.loads(line)
                 mode = request.get("mode", "wake")
+                if mode == "prepare_recording":
+                    self.wait_segment(self.split_task)
+                    split = request["force_segment"]
+                    if split.get("reason") != "recording_prepare":
+                        raise ValueError("Invalid recording preparation")
+                    task = self.force_segment(native, split)
+                    self.wait_segment(task)
+                    conn.sendall((json.dumps({"event": "recording_prepared",
+                        "instance": self.instance, "request_id": split["request_id"]}) + "\n").encode())
+                    self.event(event="recording_prepared", request_id=split["request_id"])
+                    continue
                 if mode not in ("wake", "recording"):
                     raise ValueError("Unknown subscription mode")
                 recording_id = request.get("recording_id")
@@ -522,6 +535,15 @@ class Server:
                         raise ValueError("Invalid scene force segment")
                     task = self.force_segment(native, split)
                     self.wait_segment(task)
+                prepared = request.get("recording_prepare")
+                if prepared is not None:
+                    if mode != "recording" or request.get("instance") != self.instance:
+                        raise ValueError("Invalid recording preparation identity")
+                    task = self.split_requests.get(prepared)
+                    if (task is None or task is not self.split_task or task.get("consumed")
+                            or task["request"]["reason"] != "recording_prepare"):
+                        raise ValueError("Recording preparation expired")
+                    self.wait_segment(task)
                 with self.lock:
                     # The service configuration owns aliases; legacy client lists cannot override it.
                     self.arm(conn, mode, recording_id, time.monotonic()*1000, end_phrase_source)
@@ -529,16 +551,22 @@ class Server:
                         self.split_task["awaiting_arm"] = False
                     if task is not None:
                         self.segment_floor = task["floor"]
+                        if prepared is not None:
+                            self.segment_floor = max(self.segment_floor, self.last_closed_segment)
+                            task["consumed"] = True
+                            self.event(event="recording_boundary_committed", request_id=prepared,
+                                       recording_id=recording_id, floor=self.segment_floor)
                         task["awaiting_arm"] = False
                     self.event(event="notifications_armed")
                     conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id,
                         "wake_replay_version": 2, "force_segment_version": 1, "instance": self.instance,
+                        "recording_prepare": prepared,
                         "recording_end_phrase_version": 2, "end_phrase_source": end_phrase_source,
                         "endpoint": "aisp-eos" if mode == "recording" else None,
                         "end_phrase": self.end_phrase if mode == "recording" else None})+"\n").encode())
                     if task is None:
                         self.replay_wake(request.get("replay"))
-                if task is not None:
+                if task is not None and mode == "wake":
                     for timestamp, flag, text in task.get("fresh", []):
                         self.result(timestamp, flag, text.encode())
                 command = bytearray()

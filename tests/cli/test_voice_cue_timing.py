@@ -151,3 +151,30 @@ def test_deferred_quiet_cleanup_releases_failed_recording(monkeypatch):
     with pytest.raises(RuntimeError):recording(cli)
     lease.close.assert_called_once()
     assert cli._recording_quiet is None
+
+
+@pytest.mark.parametrize('failure',[False,True])
+def test_prepare_confirmation_precedes_cue_and_failure_never_beeps(recorder,monkeypatch,failure):
+    from cli import HermesCLI
+    r,stream,cb,detector=recorder;cli=cli_for(r);events=[]
+    monkeypatch.setattr(audio,'check_voice_requirements',lambda:{'audio_available':True,'stt_available':True})
+    monkeypatch.setattr('tools.voice_endpoint.prepare_recording_endpoint',lambda r:None)
+    monkeypatch.setattr('hermes_cli.config.load_config',lambda:{'voice':{}})
+    def wait():
+        assert not r.is_recording
+        events.append('prepare_done')
+        if failure:raise RuntimeError('flush pending')
+    detector.wait_recording_prepare=wait
+    detector.discard_recording_prepare=Mock()
+    monkeypatch.setattr(audio,'play_beep',lambda **kwargs:events.append('beep'))
+    monkeypatch.setattr(quiet,'begin',lambda cli:None)
+    if failure:
+        with pytest.raises(RuntimeError,match='flush pending'):
+            HermesCLI._voice_start_recording(cli)
+        assert events==['prepare_done'] and not cli._voice_recording
+        detector.start.assert_not_called()
+    else:
+        HermesCLI._voice_start_recording(cli)
+        assert events==['prepare_done','beep']
+        detector.start.assert_called_once()
+        cli._voice_recording=False;r.cancel()

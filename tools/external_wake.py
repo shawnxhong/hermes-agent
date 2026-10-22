@@ -197,6 +197,50 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
         self._prepared = None
         self._audio_scope = None
         self._audio_callback = None
+        self._segment_job = None
+
+    def begin_recording_prepare(self):
+        """Start one control-only flush while the wake acknowledgement plays."""
+        if self._segment_job is not None:
+            return
+        if self._prepared is None or self._prepared.get("recording_prepare_version") != 1:
+            raise RuntimeError("Wake service lacks recording preparation support")
+        job = {"done": threading.Event(), "request_id": uuid.uuid4().hex,
+               "instance": self._prepared["instance"], "error": None}
+        self._segment_job = job
+        def run():
+            try:
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+                    conn.settimeout(5.5)
+                    conn.connect(self.path)
+                    req = {"mode": "prepare_recording", "force_segment": {
+                        "instance": job["instance"], "request_id": job["request_id"],
+                        "reason": "recording_prepare"}}
+                    conn.sendall((json.dumps(req) + "\n").encode())
+                    with conn.makefile("rb") as stream:
+                        reply = json.loads(stream.readline(4096))
+                    if reply != {"event": "recording_prepared", "instance": job["instance"],
+                                 "request_id": job["request_id"]}:
+                        raise RuntimeError("Invalid recording preparation response")
+                logger.info("recording_prepare ready request_id=%s", job["request_id"])
+            except Exception as exc:
+                job["error"] = exc
+            finally:
+                job["done"].set()
+        threading.Thread(target=run, daemon=True, name="recording-prepare").start()
+
+    def wait_recording_prepare(self):
+        self.begin_recording_prepare()
+        job = self._segment_job
+        if not job["done"].wait(6):
+            raise RuntimeError("Recording preparation is still pending; no recording cue")
+        if job["error"] is not None:
+            raise RuntimeError("Recording preparation failed; no recording cue") from job["error"]
+        logger.info("recording_prepare confirmed before cue request_id=%s", job["request_id"])
+
+    def discard_recording_prepare(self):
+        # Does not cancel an SDK operation; the server serializes subsequent work.
+        self._segment_job = None
 
     def _clear_keyword(self):
         self._prepared = None
@@ -246,6 +290,11 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
         request = {**super().subscription(), "endpoint": "aisp-eos"}
         if self._prepared is not None:
             request.update(end_phrase_source="recorder", instance=self._prepared["instance"])
+        if self._segment_job is not None:
+            job = self._segment_job
+            if not job["done"].is_set() or job["error"] is not None:
+                raise RuntimeError("Recording started without confirmed preparation")
+            request.update(recording_prepare=job["request_id"], instance=job["instance"])
         return request
 
     def ready(self, message):
@@ -258,6 +307,10 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
                     or message.get("end_phrase_source") != "recorder"
                     or cfg != self._prepared["end_phrase"]):
                 return False
+        if self._segment_job is not None:
+            if message.get("recording_prepare") != self._segment_job["request_id"]:
+                return False
+            self.discard_recording_prepare()
         self.phrase = cfg.get("phrase") if cfg.get("enabled") is True else None
         return True
 

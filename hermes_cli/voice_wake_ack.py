@@ -110,9 +110,18 @@ def start_wake_capture(cli):
                     prepare()
                 if cancelled():
                     return
+                prepare_endpoint = getattr(recorder, "prepare_endpoint", None)
+                if not combined_hint and callable(prepare_endpoint):
+                    prepare_endpoint()
+                endpoint = getattr(recorder, "_end_phrase_detector", None)
+                begin = getattr(endpoint, "begin_recording_prepare", None)
+                if callable(begin):
+                    begin()
                 cli._voice_last_tts_text = config["text"]
+                logger.info("wake_ack playback_started")
                 if not voice_mode.play_audio_file(str(path)):
                     raise RuntimeError("Wake acknowledgement playback failed")
+                logger.info("wake_ack playback_finished")
                 if combined_hint and not cancelled():
                     voice_endpoint.mark_hint_played()
                 # The cue marks readiness; keep only a short ack-to-cue gap.
@@ -126,6 +135,10 @@ def start_wake_capture(cli):
         if not cancelled():
             cli._voice_start_recording()
     finally:
+        endpoint = getattr(getattr(cli, "_voice_recorder", None), "_end_phrase_detector", None)
+        discard = getattr(endpoint, "discard_recording_prepare", None)
+        if callable(discard):
+            discard()
         with cli._voice_lock:
             cli._voice_processing = False
 

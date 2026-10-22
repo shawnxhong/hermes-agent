@@ -226,3 +226,15 @@ def test_quiet_limit_starts_after_ack_playback(monkeypatch, rig):
     finally:
         quiet.end(cli)
     assert events[-1] == 'release'
+
+
+def test_recording_flush_begins_before_ack_playback_and_is_discarded_afterward(rig):
+    cli, _, _, play = rig
+    events = []
+    endpoint = SimpleNamespace(begin_recording_prepare=lambda: events.append('flush'),
+        discard_recording_prepare=lambda: events.append('discard'))
+    cli._voice_recorder._end_phrase_detector = endpoint
+    play.side_effect = lambda path: events.append('ack') or True
+    cli._voice_start_recording.side_effect = lambda: events.append('record')
+    ack.start_wake_capture(cli)
+    assert events == ['flush', 'ack', 'record', 'discard']

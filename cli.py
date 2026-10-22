@@ -15866,6 +15866,21 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 with self._voice_lock:
                     self._voice_recording = False
                 raise
+        endpoint = getattr(self._voice_recorder, "_end_phrase_detector", None)
+        wait_prepare = getattr(endpoint, "wait_recording_prepare", None)
+        if callable(wait_prepare):
+            try:
+                wait_prepare()
+                if _scene_switching(self) or scene_generation != _scene_generation(self):
+                    endpoint.discard_recording_prepare()
+                    with self._voice_lock:
+                        self._voice_recording = False
+                    return
+            except Exception:
+                endpoint.discard_recording_prepare()
+                with self._voice_lock:
+                    self._voice_recording = False
+                raise
         strict_cue = getattr(getattr(self._voice_recorder, "_end_phrase_detector", None), "service_capture", False) is True
         if self._voice_beeps_enabled():
             try:

@@ -191,3 +191,75 @@ def test_timeout_does_not_cancel_or_duplicate_flush():
     task['done'].wait.return_value=False
     with pytest.raises(RuntimeError,match='pending'):s.wait_segment(task)
     task['done'].set.assert_not_called()
+
+
+def prepared_detector(s, path):
+    from tools.external_wake import ExternalEOSDetector
+    d = ExternalEOSDetector({'socket': str(path)})
+    d._prepared = json.loads(path.with_name('endpoint-config.json').read_text())
+    return d
+
+
+def test_recording_prepare_waits_then_accepts_pre_cue_new_segment(socket_service):
+    s, n, path = socket_service
+    s.result(100, 0, b'old acknowledgement')
+    entered, release = threading.Event(), threading.Event()
+    def flush():
+        entered.set()
+        assert release.wait(3)
+        s.result(100, 2, b'old acknowledgement')
+    n.flush.side_effect = flush
+    d = prepared_detector(s, path)
+    try:
+        d.begin_recording_prepare()
+        assert entered.wait(2)
+        assert not d._segment_job['done'].is_set()
+        release.set()
+        d.wait_recording_prepare()
+        # A new segment can start before the cue without being old audio.
+        s.result(200, 1, b'question')
+        d._start_subscription(Mock())
+        assert s.segment_floor == 100
+        s.result(100, 2, b'old acknowledgement')
+        assert not s.delivered
+        s.result(200, 2, b'question')
+        assert s.delivered
+        assert n.flush.call_count == 1
+    finally:
+        release.set()
+        d.stop()
+
+
+def test_prepare_discards_segments_completed_before_recording(socket_service):
+    s, n, path = socket_service
+    d = prepared_detector(s, path)
+    try:
+        d.begin_recording_prepare(); d.wait_recording_prepare()
+        s.result(200, 2, b'ack')
+        d._start_subscription(Mock())
+        s.result(200, 2, b'ack')
+        assert not s.delivered
+        s.result(300, 2, b'new short question')
+        assert s.delivered
+    finally:
+        d.stop()
+
+
+def test_prepare_failure_never_becomes_ready(socket_service):
+    s, n, path = socket_service
+    n.flush.side_effect = RuntimeError('SDK failure')
+    d = prepared_detector(s, path)
+    d.begin_recording_prepare()
+    with pytest.raises(RuntimeError, match='preparation failed'):
+        d.wait_recording_prepare()
+    d.discard_recording_prepare()
+    assert d._segment_job is None
+
+
+def test_canceled_prepare_finishes_without_starting_recording(socket_service):
+    s, n, path = socket_service
+    d = prepared_detector(s, path)
+    d.begin_recording_prepare(); job = d._segment_job
+    d.discard_recording_prepare()
+    assert job['done'].wait(3)
+    assert d._segment_job is None and d.sock is None
