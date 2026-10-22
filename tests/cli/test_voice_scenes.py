@@ -402,3 +402,13 @@ def test_force_segment_is_requested_only_after_final_scene_audio(rig):
     assert cli._wake_force_segment.startswith('scene-')
     assert events[-1]=='Home assistant ready.'
     assert cli._wake_suspended and not cli._scene_switching
+
+
+def test_new_panel_request_invalidates_previous_pending_split(rig):
+    cli,controller,events=rig
+    controller.request('home');controller.apply_pending()
+    old=cli._wake_force_segment
+    controller.request('travel')
+    assert cli._wake_force_segment is None
+    controller.apply_pending()
+    assert cli._wake_force_segment and cli._wake_force_segment!=old

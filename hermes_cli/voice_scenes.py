@@ -222,6 +222,7 @@ class SceneController:
         from tools import voice_mode
         cli = self.cli
         cancel_followup(cli)
+        cli._wake_force_segment = None  # Invalidate any older scene resume.
         cli._voice_continuous = False
         cli._voice_recording = False
         stop = getattr(cli, "_voice_tts_stop", None)
@@ -335,7 +336,9 @@ class SceneController:
                     return True
                 self.active = name
             self._speak(self.scenes[name]["announcement"] if name is not None else EXIT_ACK)
-            cli._wake_force_segment = "scene-" + uuid.uuid4().hex
+            with self.lock:
+                if version == generation(cli):
+                    cli._wake_force_segment = "scene-" + uuid.uuid4().hex
             time.sleep(.25)
             log.info("voice_scene ready scene=%s generation=%s", name, version)
         except Exception as exc:
