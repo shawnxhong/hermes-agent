@@ -16770,6 +16770,21 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     if busy:
                         idle_polls = 0
                         continue
+                    split = getattr(self, "_wake_force_segment", None)
+                    if split:
+                        try:
+                            from tools.wake_word import resume_listening, pause_listening
+                            if resume_listening(owner=self, replay={"force_segment": split}):
+                                # A newer panel request may arrive while flush waits.
+                                if _scene_switching(self) or split != getattr(self, "_wake_force_segment", None):
+                                    pause_listening(owner=self)
+                                else:
+                                    self._wake_force_segment = None
+                                    self._wake_suspended = False
+                                    logger.info("Scene wake listener re-armed after force segment")
+                        except Exception:
+                            logger.warning("Scene wake force segment pending or failed", exc_info=True)
+                        continue
                     # A completed TTS response is a stronger boundary than a
                     # few idle polls. Subscribe now and replay its final second.
                     from hermes_cli.voice_wake_buffer import take_replay

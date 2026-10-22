@@ -204,6 +204,80 @@ class Server:
         self.wake_candidates = deque(maxlen=64)
         self.candidate_seen = set()
         self.wake_handoff = None
+        self.split_task = None
+        self.split_requests = {}
+        self.open_segments = set()
+        self.segment_floor = None
+
+    def force_segment(self, native, request):
+        """One SDK flush at a time; never wait under the callback lock."""
+        key = request.get("request_id")
+        if (request.get("instance") != self.instance or not isinstance(key, str)
+                or not 1 <= len(key) <= 128):
+            raise ValueError("Invalid force-segment identity")
+        with self.lock:
+            task = self.split_requests.get(key)
+            if task is not None:
+                if task["request"] != request:
+                    raise ValueError("Force-segment request ID reused")
+                return task
+            if self.split_task and not self.split_task["done"].is_set():
+                raise RuntimeError("Previous force segment still pending")
+            task = {"request": dict(request), "done": threading.Event(),
+                    "events": [], "old": set(self.observed),
+                    "open": set(self.open_segments), "error": None,
+                    "floor": None}
+            self.split_task = task
+            self.split_requests[key] = task
+            # Bound dedup history, retaining the currently running task.
+            if len(self.split_requests) > 256:
+                del self.split_requests[next(iter(self.split_requests))]
+            self.wake_handoff = None
+            self.wake_candidates.clear()
+        def run():
+            started = time.monotonic()
+            self.event(event="force_segment_started", reason=request["reason"], request_id=key)
+            try:
+                native.flush()
+                with self.lock:
+                    rows = task["events"]
+                    closed = {ts for ts, flag, _ in rows if flag & self.eos_flag}
+                    if task["open"] - closed:
+                        raise RuntimeError("Flush did not close the active ASR segment")
+                    last_eos = max((i for i, row in enumerate(rows)
+                                    if row[1] & self.eos_flag), default=-1)
+                    old = task["old"] | {row[0] for row in rows[:last_eos+1]}
+                    task["floor"] = max(old, default=-1)
+                    task["fresh"] = rows[last_eos+1:]
+                    task["awaiting_arm"] = request["reason"] == "scene_ready"
+            except Exception as exc:
+                task["error"] = str(exc)
+                self.event(event="force_segment_failed", request_id=key)
+            finally:
+                with self.lock:
+                    task["done"].set()
+                self.event(event="force_segment_finished", request_id=key,
+                           seconds=round(time.monotonic()-started, 3), success=task["error"] is None)
+        threading.Thread(target=run, daemon=True, name="wake-force-segment").start()
+        return task
+
+    def wait_segment(self, task):
+        if task is None:
+            return
+        if not task["done"].wait(5):
+            self.event(event="force_segment_pending", request_id=task["request"]["request_id"])
+            raise RuntimeError("Force segment still pending")
+        if task["error"]:
+            raise RuntimeError(task["error"])
+
+    def recording_segment(self, native, request):
+        with self.lock:
+            if (request.get("reason") != "end_phrase" or not self.end_phrase["enabled"]
+                    or self.mode != "recording" or request.get("recording_id") != self.recording_id
+                    or self.delivered):
+                raise ValueError("Stale or disabled recording force segment")
+            self.delivered = True  # The recorder has already finished locally.
+        return self.force_segment(native, request)
 
     def arm(self, conn, mode, recording_id, boundary, end_phrase_source="asr"):
         """Called under lock after the client has finished its recording cue."""
@@ -211,6 +285,7 @@ class Server:
         self.end_phrase_source = end_phrase_source
         self.conn, self.epoch = conn, str(uuid.uuid4())
         self.armed_after = boundary
+        self.segment_floor = None
         self.arm_text = dict(self.observed)
         self.delivered = False
         self.recording_speech = set()
@@ -299,6 +374,26 @@ class Server:
             text = text.decode("utf-8", errors="replace")
             with self.lock:
                 self.log.info("%s", text)
+                if flag & self.eos_flag:
+                    self.open_segments.discard(timestamp)
+                elif text.strip():
+                    self.open_segments.add(timestamp)
+                task = self.split_task
+                if task is not None and task.get("awaiting_arm") and task["done"].is_set():
+                    if len(task["fresh"]) < 2048:
+                        task["fresh"].append((timestamp, flag, text))
+                    else:
+                        task["error"] = "Too many callbacks awaiting rearm"
+                    return
+                if task is not None and not task["done"].is_set():
+                    if len(task["events"]) >= 2048:
+                        task["error"] = "Too many callbacks during force segment"
+                    else:
+                        task["events"].append((timestamp, flag, text))
+                    # Keep observations for the next arm, but send no endpoint/wake.
+                    if text.strip():
+                        self.observed[timestamp] = normalize(text)
+                    return
                 norm = normalize(text)
                 if norm:
                     self.observed[timestamp] = norm
@@ -319,7 +414,11 @@ class Server:
                     self.deliver_handoff(candidate)
                     return
                 eligible = text
-                if timestamp < self.armed_after:
+                if self.mode == "wake" and self.segment_floor is not None:
+                    if timestamp <= self.segment_floor:
+                        self.event(event="ignored_pre_split_segment", timestamp=timestamp)
+                        return
+                elif timestamp < self.armed_after:
                     # Native EOS still cannot finish a pre-cue segment. A wake
                     # or explicit end phrase may use only its newly appended
                     # suffix, never the text already observed when armed.
@@ -381,7 +480,7 @@ class Server:
         metadata = path.with_name("endpoint-config.json")
         pending = path.with_name(".endpoint-config-" + self.instance)
         pending.write_text(json.dumps({"instance": self.instance,
-            "recording_end_phrase_version": 2, "end_phrase": self.end_phrase}) + "\n")
+            "recording_end_phrase_version": 2, "force_segment_version": 1, "end_phrase": self.end_phrase}) + "\n")
         pending.chmod(0o600)
         pending.replace(metadata)
         self.event(event="ready")
@@ -415,24 +514,50 @@ class Server:
                 if (mode == "recording" and end_phrase_source == "recorder"
                         and request.get("instance") != self.instance):
                     raise ValueError("Recording endpoint metadata is stale")
+                self.wait_segment(self.split_task)
+                split = request.get("force_segment")
+                task = None
+                if split is not None:
+                    if mode != "wake" or split.get("reason") != "scene_ready":
+                        raise ValueError("Invalid scene force segment")
+                    task = self.force_segment(native, split)
+                    self.wait_segment(task)
                 with self.lock:
                     # The service configuration owns aliases; legacy client lists cannot override it.
                     self.arm(conn, mode, recording_id, time.monotonic()*1000, end_phrase_source)
+                    if self.split_task is not None:
+                        self.split_task["awaiting_arm"] = False
+                    if task is not None:
+                        self.segment_floor = task["floor"]
+                        task["awaiting_arm"] = False
                     self.event(event="notifications_armed")
                     conn.sendall((json.dumps({"event":"ready", "mode":mode, "recording_id":recording_id,
-                        "wake_replay_version": 2, "instance": self.instance,
+                        "wake_replay_version": 2, "force_segment_version": 1, "instance": self.instance,
                         "recording_end_phrase_version": 2, "end_phrase_source": end_phrase_source,
                         "endpoint": "aisp-eos" if mode == "recording" else None,
                         "end_phrase": self.end_phrase if mode == "recording" else None})+"\n").encode())
-                    self.replay_wake(request.get("replay"))
+                    if task is None:
+                        self.replay_wake(request.get("replay"))
+                if task is not None:
+                    for timestamp, flag, text in task.get("fresh", []):
+                        self.result(timestamp, flag, text.encode())
+                command = bytearray()
                 while native.capture_alive():
                     try:
-                        data = conn.recv(1)  # Subscription only; SDK owns capture.
+                        data = conn.recv(4096)  # Subscription only; SDK owns capture.
                     except socket.timeout:
                         continue
                     if not data:
                         break
-                    raise ValueError("Wake subscription does not accept audio")
+                    command.extend(data)
+                    if len(command) > 4096:
+                        raise ValueError("Control request too large")
+                    if b"\n" in command:
+                        message = json.loads(command)
+                        if message.get("command") != "force_segment":
+                            raise ValueError("Unknown subscription command")
+                        self.recording_segment(native, message)
+                        command.clear()
             except (OSError, ValueError, KeyError, RuntimeError):
                 self.event(event="connection_end")
             finally:

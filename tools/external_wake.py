@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class ExternalWakeEngine:
     service_capture = True
+    startup_timeout = 6.0
     frame_length = 1280  # Keep existing 80ms capture/polling; service batches ASR.
 
     def __init__(self, cfg):
@@ -22,6 +23,8 @@ class ExternalWakeEngine:
         self.last_match = None
         self.lock = threading.RLock()
         self.replay = None
+        self.force_segment_version = 0
+        self.service_instance = None
 
     def set_replay(self, replay):
         self.replay = replay
@@ -32,7 +35,16 @@ class ExternalWakeEngine:
             aliases = [aliases]
         request = {"aliases": [self.cfg.get("phrase", "Hello Intel"), *aliases]}
         if self.replay is not None:
-            request["replay"] = self.replay
+            if "force_segment" in self.replay:
+                metadata = Path(self.path).with_name("endpoint-config.json")
+                value = json.loads(metadata.read_text()) if metadata.exists() else {}
+                if value.get("force_segment_version") == 1:
+                    request["force_segment"] = {"instance": value["instance"],
+                        "reason": "scene_ready", "request_id": self.replay["force_segment"]}
+                else:
+                    logger.warning("Wake service has no force-segment support; using legacy scene resume")
+            else:
+                request["replay"] = self.replay
         return request
 
     def ready(self, message):
@@ -48,7 +60,7 @@ class ExternalWakeEngine:
         with self.lock:
             self.close()
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            s.settimeout(3)
+            s.settimeout(5.5)
             try:
                 s.connect(self.path)
                 request = self.subscription()
@@ -60,7 +72,10 @@ class ExternalWakeEngine:
                     if not part:
                         raise RuntimeError("Wake service disconnected during handshake")
                     line += part
-                if not self.ready(json.loads(line)):
+                message = json.loads(line)
+                self.force_segment_version = message.get("force_segment_version", 0)
+                self.service_instance = message.get("instance")
+                if not self.ready(message):
                     raise RuntimeError("Wake service is not ready")
             except Exception:
                 s.close()
@@ -278,6 +293,19 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
             if self._keyword is not None:
                 self._keyword.request_stop()
             callback = self._audio_callback
+            if reason == "end_phrase" and self.force_segment_version == 1 and self.sock is not None:
+                # A tiny nonblocking control write precedes recorder teardown,
+                # which closes this subscription. SDK flush runs on the service.
+                request = {"command": "force_segment", "reason": "end_phrase",
+                    "instance": self.service_instance, "recording_id": self.recording_id,
+                    "request_id": "end-" + str(self.recording_id)}
+                payload = (json.dumps(request) + "\n").encode()
+                try:
+                    sent = self.sock.send(payload, socket.MSG_DONTWAIT)
+                    if sent != len(payload):
+                        raise OSError("Incomplete force-segment request")
+                except OSError:
+                    logger.warning("Recording force-segment request was not delivered", exc_info=True)
         logger.info("recording_endpoint delivered reason=%s source=%s recording_id=%s",
                     reason, "recorder_pcm" if reason == "end_phrase" else "native_asr", self.recording_id)
         callback()

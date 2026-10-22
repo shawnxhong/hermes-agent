@@ -389,3 +389,16 @@ def test_queued_mail_cancel_does_not_affect_other_session(monkeypatch, tmp_path)
     sender = Mock(return_value={'success': True})
     voice_outbox.drain(sender)
     sender.assert_called_once_with('a@example.com', 'im')
+
+
+def test_force_segment_is_requested_only_after_final_scene_audio(rig):
+    cli,controller,events=rig
+    prior=controller.play
+    def play(text):
+        assert not getattr(cli,'_wake_force_segment',None)
+        return prior(text)
+    controller.play=play
+    controller.request('home');controller.apply_pending()
+    assert cli._wake_force_segment.startswith('scene-')
+    assert events[-1]=='Home assistant ready.'
+    assert cli._wake_suspended and not cli._scene_switching

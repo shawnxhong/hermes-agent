@@ -10,6 +10,7 @@ import queue
 import socket
 import threading
 import time
+import uuid
 
 from hermes_constants import get_hermes_home
 
@@ -154,7 +155,7 @@ class SceneController:
         if getattr(cli, '_agent_running', False):
             return False
         try:
-            self.mic_thread.join(timeout=3)
+            self.mic_thread.join(timeout=7)
             if self.mic_thread.is_alive():
                 raise RuntimeError('Microphone is still releasing')
             if self.ack_thread:
@@ -291,7 +292,7 @@ class SceneController:
         if name in (CLEAR_CONTEXT, CLEAR_CLARIFY):
             return self._apply_clear(version, clarify=name == CLEAR_CLARIFY)
         try:
-            self.mic_thread.join(timeout=3)
+            self.mic_thread.join(timeout=7)
             if self.mic_thread.is_alive():
                 raise RuntimeError("Microphone is still releasing")
             cli.finalize_preloaded_skills()
@@ -334,6 +335,7 @@ class SceneController:
                     return True
                 self.active = name
             self._speak(self.scenes[name]["announcement"] if name is not None else EXIT_ACK)
+            cli._wake_force_segment = "scene-" + uuid.uuid4().hex
             time.sleep(.25)
             log.info("voice_scene ready scene=%s generation=%s", name, version)
         except Exception as exc:

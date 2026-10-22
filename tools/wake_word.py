@@ -1199,7 +1199,7 @@ class WakeWordDetector:
                 name="wake-word",
             )
             self._thread.start()
-        if not ready.wait(_START_TIMEOUT_SECONDS):
+        if not ready.wait(getattr(self.engine, "startup_timeout", _START_TIMEOUT_SECONDS)):
             self._halt_thread()
             raise TimeoutError("Timed out while opening the wake-word microphone.")
         if startup_errors:
