@@ -263,3 +263,58 @@ def test_canceled_prepare_finishes_without_starting_recording(socket_service):
     d.discard_recording_prepare()
     assert job['done'].wait(3)
     assert d._segment_job is None and d.sock is None
+
+
+def test_guard_drops_early_eos_without_consuming_subscription(monkeypatch):
+    s=server();c=Mock();s.arm(c,'recording','rec',0)
+    s.recording_eos_guard_until=101.0
+    monkeypatch.setattr(service.time,'monotonic',lambda:100.9)
+    s.result(10,2,b'old wake tail')
+    assert not s.delivered and c.sendall.call_count==0
+    monkeypatch.setattr(service.time,'monotonic',lambda:101.0)
+    s.result(10,2,b'old wake tail')  # Never defer/replay the discarded EOS.
+    assert not s.delivered
+    s.result(20,2,b'new question')
+    assert s.delivered and c.sendall.call_count==1
+
+
+def test_guard_never_suppresses_end_phrase(monkeypatch):
+    s=server();c=Mock();s.arm(c,'recording','rec',0)
+    s.recording_eos_guard_until=101.0
+    monkeypatch.setattr(service.time,'monotonic',lambda:100.1)
+    s.result(10,0,b'thank you')
+    assert json.loads(c.sendall.call_args.args[0])['reason']=='end_phrase'
+
+
+def test_guard_subscription_uses_recorder_start_not_handshake(monkeypatch):
+    from tools.external_wake import ExternalEOSDetector
+    d=ExternalEOSDetector({'eos_guard_seconds':1.0})
+    monkeypatch.setattr(service.time,'monotonic',lambda:100.0)
+    d.mark_recording_started()
+    monkeypatch.setattr(service.time,'monotonic',lambda:100.7)
+    req=d.subscription()
+    assert req['recording_started_at']==100.0 and req['eos_guard_seconds']==1.0
+    d.stop();assert d._recording_started_at is None
+
+
+def test_zero_guard_accepts_eos():
+    s=server();c=Mock();s.arm(c,'recording','rec',0)
+    s.result(10,2,b'question')
+    assert s.delivered
+
+
+def test_socket_guard_keeps_recording_subscription_alive(socket_service):
+    import time
+    s,n,path=socket_service
+    d=prepared_detector(s,path);d.endpoint_cfg['eos_guard_seconds']=10.0
+    d.mark_recording_started();done=threading.Event()
+    try:
+        d._start_subscription(done.set)
+        assert s.recording_eos_guard_until == d._recording_started_at+10.0
+        ts=int(time.monotonic()*1000)+1
+        s.result(ts,2,b'wake tail')
+        assert not s.delivered and ts in s.ignored_recording_eos
+        with s.lock:s.recording_eos_guard_until=0.0
+        s.result(ts+1,2,b'actual question')
+        assert done.wait(2)
+    finally:d.stop()

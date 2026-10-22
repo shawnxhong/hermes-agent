@@ -4,6 +4,8 @@ import select
 import socket
 import threading
 import logging
+import math
+import time
 import uuid
 from pathlib import Path
 
@@ -198,6 +200,7 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
         self._audio_scope = None
         self._audio_callback = None
         self._segment_job = None
+        self._recording_started_at = None
 
     def begin_recording_prepare(self):
         """Start one control-only flush while the wake acknowledgement plays."""
@@ -288,6 +291,11 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
 
     def subscription(self):
         request = {**super().subscription(), "endpoint": "aisp-eos"}
+        if self._recording_started_at is not None:
+            seconds = self.endpoint_cfg.get("eos_guard_seconds", 1.0)
+            if (type(seconds) not in (int, float) or not math.isfinite(seconds) or seconds < 0):
+                raise ValueError("voice.endpoint.eos_guard_seconds must be a finite nonnegative number")
+            request.update(recording_started_at=self._recording_started_at, eos_guard_seconds=seconds)
         if self._prepared is not None:
             request.update(end_phrase_source="recorder", instance=self._prepared["instance"])
         if self._segment_job is not None:
@@ -320,6 +328,9 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
             self.last_reason = message["reason"]
             return True
         return False
+
+    def mark_recording_started(self):
+        self._recording_started_at = time.monotonic()
 
     def arm_audio(self, callback, sample_rate, threshold):
         """Called before recorder collection is enabled, with a fresh stream."""
@@ -387,6 +398,7 @@ class ExternalEOSDetector(ExternalEndPhraseDetector):
         if scope is not None:
             scope.set()
         self._audio_scope = None
+        self._recording_started_at = None
         if self._keyword is not None:
             self._keyword.stop()
         super().stop()

@@ -1181,6 +1181,9 @@ class AudioRecorder:
             self._capture_after = capture_after
             if capture_after is None and getattr(self._end_phrase_detector, "service_capture", False) is True:
                 self._capture_after = self.capture_clock()
+            mark_started = getattr(self._end_phrase_detector, "mark_recording_started", None)
+            if endpoint_ready and callable(mark_started):
+                mark_started()
             self._recording = True
         # Arm only once the actual recorder is collecting audio (after the cue).
         if endpoint_ready:

@@ -192,6 +192,8 @@ class Server:
         self.end_phrase = validate_end_phrase(end_phrase if end_phrase is not None else {"enabled": True, "phrase": "thank you"})
         self.end_pattern = re.compile(r"(?<!\w)" + re.escape(normalize(self.end_phrase["phrase"])) + r"(?!\w)")
         self.recording_speech = set()
+        self.recording_eos_guard_until = 0.0
+        self.ignored_recording_eos = set()
         self.mode = "wake"
         self.recording_id = None
         self.end_phrase_source = "asr"
@@ -290,6 +292,8 @@ class Server:
         self.arm_text = dict(self.observed)
         self.delivered = False
         self.recording_speech = set()
+        self.recording_eos_guard_until = 0.0
+        self.ignored_recording_eos = set()
         self.wake_handoff = None
         self.event(event="armed", mode=mode, boundary=boundary, end_phrase_source=end_phrase_source)
 
@@ -371,6 +375,7 @@ class Server:
         return True
 
     def result(self, timestamp, flag, text):
+        received_at = time.monotonic()
         try:
             text = text.decode("utf-8", errors="replace")
             with self.lock:
@@ -439,6 +444,14 @@ class Server:
                         if norm:
                             self.recording_speech.add(timestamp)
                         if not (flag & self.eos_flag) or timestamp not in self.recording_speech:
+                            return
+                        if timestamp in self.ignored_recording_eos:
+                            return
+                        if received_at < self.recording_eos_guard_until:
+                            self.ignored_recording_eos.add(timestamp)
+                            self.event(event="recording_eos_guard_ignored", recording_id=self.recording_id,
+                                       timestamp=timestamp,
+                                       remaining_seconds=round(self.recording_eos_guard_until-received_at, 3))
                             return
                         action, alias, reason = "trigger", None, "aisp_eos"
                 else:
@@ -544,9 +557,21 @@ class Server:
                             or task["request"]["reason"] != "recording_prepare"):
                         raise ValueError("Recording preparation expired")
                     self.wait_segment(task)
+                guard_until = 0.0
+                if mode == "recording" and "recording_started_at" in request:
+                    started = request["recording_started_at"]
+                    seconds = request.get("eos_guard_seconds", 1.0)
+                    if any(type(v) not in (int, float) or not math.isfinite(v) or v < 0
+                           for v in (started, seconds)):
+                        raise ValueError("Invalid recording EOS guard")
+                    guard_until = started + seconds
                 with self.lock:
                     # The service configuration owns aliases; legacy client lists cannot override it.
                     self.arm(conn, mode, recording_id, time.monotonic()*1000, end_phrase_source)
+                    self.recording_eos_guard_until = guard_until
+                    if guard_until:
+                        self.event(event="recording_eos_guard_armed", recording_id=recording_id,
+                                   seconds=seconds, remaining_seconds=round(guard_until-time.monotonic(), 3))
                     if self.split_task is not None:
                         self.split_task["awaiting_arm"] = False
                     if task is not None:
