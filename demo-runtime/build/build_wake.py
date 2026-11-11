@@ -33,7 +33,7 @@ def build(a):
     (ctx/'config.h').write_text('#define PACKAGE_VERSION "1.6.2"\n#define _GNU_SOURCE 1\n')
     shutil.copytree(a.native_build/'install/runtime',ctx/'runtime',symlinks=True)
     wake=ctx/'wake';wake.mkdir();shutil.copy2(a.native_build/'libwake.so',wake/'libwake.so')
-    for name in ('service.py','config.yaml','check_wake.py','check_eos.py'):shutil.copy2(ROOT/'wake'/name,wake/name)
+    for name in ('service.py','config.yaml','check_wake.py','check_eos.py','check_startup.py'):shutil.copy2(ROOT/'wake'/name,wake/name)
     (wake/'tools').mkdir()
     for name in ('wake_audio.py','recording_quiet.py'):shutil.copy2(ROOT.parent/'tools'/name,wake/'tools'/name)
     shutil.copy2(ROOT/'host/recording-quiet/server.py',wake/'quiet_server.py')
