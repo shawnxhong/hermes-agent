@@ -7,10 +7,11 @@ voice/IM product. It starts at tag `20261023.1`, application commit
 
 ## Status
 
-This branch preserves the accepted application sources. A standalone Ubuntu
-source-build workflow is **not yet complete**. The root Dockerfile alone does
-not reproduce the full fleet deployment. Creating this branch does not install,
-restart or switch any service and does not establish a new production baseline.
+This developer source release preserves the accepted product behavior and adds
+explicit offline build recipes plus fresh-host provisioning. Start with
+[the fresh-host guide](build/FRESH_HOST.md). It requires authorized external
+assets; it is not a download-everything installer or an automatic production
+upgrade. Desktop audio, GPU drivers and panel software remain host prerequisites.
 
 Current product sources:
 
@@ -26,32 +27,31 @@ Configuration templates now live in [profiles](profiles/README.md), with a
 standalone renderer in `build/render_profile.py`. Role assembly, reference Compose, host sources and asset locks are now captured
 in [assembly](assembly/README.md). Offline native/dependency and role-image build recipes are now in
 [build/SOURCE_BUILD.md](build/SOURCE_BUILD.md). An explicit candidate runtime/switch flow is documented in
-[build/CANDIDATE_RUNTIME.md](build/CANDIDATE_RUNTIME.md). Live acceptance and
-a general fresh-host installer remain pending. Their provenance comes from `shawnxhong/hermes-demo-ops`
+[build/CANDIDATE_RUNTIME.md](build/CANDIDATE_RUNTIME.md). The initial candidate passed user acceptance on 2026-11-11. Fresh-host
+provisioning is now available; unattended boot installation is outside this release. Their provenance comes from `shawnxhong/hermes-demo-ops`
 and the accepted images. The inventory is
 `docs/MAIN_CONVERGENCE_INVENTORY_20261111.md` at ops commit `94e2853`;
 its classifications remain applicable, with this release branch replacing main
 as the initial integration destination. Its file/field inventories are in
 `docs/main-convergence/` in that repository.
 
-## Build closure work, in order
+## Release evidence and boundaries
 
-1. Consolidate sanitized voice/IM profiles and their schemas. Preserve channel
-   differences. Fold in the three accepted voice values: wake buffer 1.0 s,
-   beep volume 0.3, endpoint EOS guard 1.0 s. Keep private values out of Git.
-2. Declare final role assembly, SOUL/skills/plugin sources, native-library and
-   model locks. Audit services separately. Do not use historical source-lock
-   snapshots as proof that all later changes are captured.
-3. Parameterize reusable build, Compose and host entrypoints. Remove dependency
-   on a pre-existing production runtime or historical product-image chain.
-   Discover hardware bindings at startup; fixed hwmon indices are not portable.
-4. Build in an isolated directory from this checkout plus declared external
-   assets. Third-party OVMS/system dependencies may use pinned binary inputs;
-   owned native components need explicit source recipes and provenance.
-5. Compare effective configuration and role contents; smoke test then manually
-   accept voice/IM, wake/recording/end phrase, media stop, delivery, scene switch,
-   network fallback and reboot behavior. Preserve a production rollback path.
-6. Only then publish a new immutable tag and matching release/asset manifests.
+The 2026-11-11 candidate was manually accepted, then rolled back successfully.
+Subsequent changes fix shared fan socket permissions, check background container
+health, and allow private-file provisioning without a reference runtime. Product
+prompts, tools and model selection were not changed.
+
+The final full build chain and its validation are recorded in
+[results/20261111-release.json](build/results/20261111-release.json).
+This is a source release, not a claim of identical image hashes across rebuilds.
+SDK/bridge and editable package build artifacts can differ while locked inputs
+and package inventories are verified. The earlier manually accepted image set
+remains separately identified. The final rebuilt images require target-hardware
+acceptance before becoming a fleet production baseline.
+
+No running production selectors are changed by publication. Runtime start/stop
+is explicit. Existing device autostart and panel integrations are not replaced.
 
 Models, restricted SDK distributions, service credentials, recipient lists,
 recordings, queues and session databases must not be committed here. Supply

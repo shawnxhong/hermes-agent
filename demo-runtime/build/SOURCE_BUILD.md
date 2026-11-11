@@ -87,9 +87,9 @@ role import-smoke receipts, wake bridge/AEC loading, and optional ASR GPU device
 enumeration. It does not load LLM weights, send mail/IM, capture audio or play TTS.
 Import and package checks do not establish end-to-end product equivalence.
 
-A separate next stage must generate the runtime, wire host units and hardware
-bindings, provision private settings, load candidates and perform voice/IM/media/
-mail acceptance with an independently verified rollback path. Do not overwrite
+Use [FRESH_HOST.md](FRESH_HOST.md) to provision a runtime from private bindings
+and [CANDIDATE_RUNTIME.md](CANDIDATE_RUNTIME.md) for replacing a reference runtime
+during acceptance. Do not overwrite
 active selectors or declare a new production baseline from build success alone.
 
 Tests: `python3 -m unittest discover -s demo-runtime/build/tests -v`.
@@ -110,3 +110,11 @@ on those new OS image IDs. This distinction matters when auditing reproducibilit
 Initial Python bootstrap/role build failures were fixed by explicit pip-wheel
 handling; failed/superseded local artifacts are not the images in this receipt.
 No production selector, runtime configuration or container was changed.
+
+## Final source release follow-up
+
+The historical results above remain unchanged. The final release reruns the
+Python, SDK/bridge, application-role and wake builds using the OS images built
+in this consolidation. See `results/20261111-release.json` for that distinct
+chain and its tests. User acceptance applies to the earlier candidate, not an
+unperformed live test of the final rebuilt image set.

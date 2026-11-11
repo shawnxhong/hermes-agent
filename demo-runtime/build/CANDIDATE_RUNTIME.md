@@ -93,7 +93,7 @@ checks packaging and handshake behavior, not actual ASR readiness/quality.
 
 ## Preparation evidence
 
-- 19 unit tests pass, including config drift refusal, non-mutating queue reads,
+- 20 unit tests pass, including config drift refusal, non-mutating queue reads,
   partial-activation rollback and original-container identity mismatch.
 - Docker Compose and user-unit definitions pass static validation.
 - Voice/IM init ran in disposable, no-dependency candidate containers; profile
@@ -101,3 +101,13 @@ checks packaging and handshake behavior, not actual ASR readiness/quality.
 - Production containers kept their original identities and uptime.
 - Real activation, rollback, microphone, TTS, live IM and delivery acceptance
   have NOT been performed in this preparation phase.
+
+## Post-acceptance fixes
+
+The user accepted the initial candidate and restored production on 2026-11-11.
+Review found the fan helper had exited: root without capabilities could not
+access the owner-only IPC directory. Preparation now grants host-group access
+(mode 2770), verified with the actual capability-dropped helper container and a
+socket request. Activation now checks every required background container and
+its Docker health state, rejecting an exited component instead of accepting
+stale socket paths. Fresh-host provisioning is documented in FRESH_HOST.md.

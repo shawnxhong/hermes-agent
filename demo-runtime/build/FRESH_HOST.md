@@ -8,7 +8,10 @@ The OS packages inside images are pinned independently of the host OS.
 ## Host prerequisites
 
 Install Docker Engine with Compose v2 using your organization's supported Ubuntu
-procedure. The desktop user must be able to run `docker info` without sudo; log
+procedure. Use the containerd image store: these locks identify OCI manifests/
+indexes, which differ from legacy Docker config IDs. After `docker load`, verify
+every locked ID with `docker image inspect`; stop if any is unavailable rather
+than substituting another image. The desktop user must be able to run `docker info` without sudo; log
 out/in after changing groups. Install Git, Python 3.11+ (tar extraction filters),
 python3-yaml, dpkg, patch, ffmpeg (ffplay), and pulseaudio-utils (pactl).
 Run from that user's desktop session, with `systemctl --user`, `/dev/dri`,
@@ -44,7 +47,8 @@ Models and restricted SDK distributions are not uploaded to public GitHub.
 ## Build
 
 Clone `release/ubuntu-demo`, then check out the immutable release tag specified
-by the maintainer. Follow all commands in [SOURCE_BUILD.md](SOURCE_BUILD.md),
+by the maintainer (this release: `ubuntu-demo-20261111.1`). Keep the checkout
+clean while building. Follow all commands in [SOURCE_BUILD.md](SOURCE_BUILD.md),
 including explicit `--os-build` / `--toolchain-build` arguments. Keep outputs in
 a new directory outside the checkout. All image build steps are offline after
 materials have been provisioned. The final `check_candidates.py` receipt and
@@ -60,8 +64,12 @@ is defined by source templates. Optionally supply `/private/state/.env` and
 `/private/gateway-state/.env` with authorized SMTP, Brave and IM credentials.
 Do not copy historical sessions, mail queues, databases or pairing caches.
 Service availability requires the corresponding credentials; no credential is
-invented by the installer. Mail recipient policy must be provisioned in the
-mail-worker settings as well as legacy profile bindings.
+invented by the installer. The mail worker reads `platforms.email.home_channel.chat_id` from the voice
+profile (the first private binding); `EMAIL_HOME_ADDRESS` in the existing
+provider environment can override it. Keep those consistent with the legacy
+recipient bindings. Existing provider environment keys are documented by
+`plugins/platforms/email/adapter.py` and `gateway/config.py`; this release does
+not add new behavior environment variables.
 
 ```sh
 python3 demo-runtime/build/prepare_runtime.py \

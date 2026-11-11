@@ -1,0 +1,280 @@
+{
+  "release": "ubuntu-demo-20261111.1",
+  "product_reference": "docker-20261023.1",
+  "build_code_commit": "f5cfac3c5c7ca759026e6c358f5a2cf045e3041c",
+  "status": "full-source-chain-built-and-smoke-tested; production-not-switched",
+  "prior_candidate_user_acceptance": {
+    "date": "2026-11-11",
+    "source_commit": "a27dc3973999585c63c907524e4c343af643fe76",
+    "runtime": "laptop-ubuntu-demo-20261111.rc1",
+    "rollback_journal": "restored",
+    "scope": "User reported pass; not claimed as a fresh live acceptance of final rebuilt images"
+  },
+  "os": {
+    "cli": {
+      "target": "cli",
+      "network": "none",
+      "returncode": 0,
+      "lock_sha256": "005f1f67548f3a740bdfd130ba66491088613b8787650caea637e8691201c87e",
+      "passed": true,
+      "image": "sha256:274c443cd1ba415d0eb168d6c2f74ed07203e6e2f931b9ba319718bd59953ad4",
+      "missing": [],
+      "unexpected": []
+    },
+    "wake": {
+      "target": "wake",
+      "network": "none",
+      "returncode": 0,
+      "lock_sha256": "005f1f67548f3a740bdfd130ba66491088613b8787650caea637e8691201c87e",
+      "passed": true,
+      "image": "sha256:d9c021b4f841c8703eb7302182d1903485c9457c631370d922e029135d465444",
+      "missing": [],
+      "unexpected": []
+    },
+    "sdk-toolchain": {
+      "target": "sdk-toolchain",
+      "network": "none",
+      "returncode": 0,
+      "lock_sha256": "005f1f67548f3a740bdfd130ba66491088613b8787650caea637e8691201c87e",
+      "passed": true,
+      "image": "sha256:1aa3a7ed51efdef83a5ac064056ece2d396f2adddf1427874c314e49cc698e8b",
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  "python": {
+    "network": "none",
+    "returncode": 0,
+    "os_image": "sha256:274c443cd1ba415d0eb168d6c2f74ed07203e6e2f931b9ba319718bd59953ad4",
+    "lock_sha256": "efb98fa9ea21dd512ae5692c68b2a2f55ba1b4a34d7ca0926adfebfee67096b2",
+    "recipe_sha256": "4bbf7f0f999acb52bea773d0bc6e6f27f4dbd3986966cdf8354168955364689f",
+    "environment_package_counts": {
+      "core-env": 138,
+      "asr-env": 30,
+      "tts-env": 26
+    },
+    "deployed": false,
+    "image": "sha256:56725ec8377adc99264709e33b977b138f94bbdf51212bbaae27170de09cf659"
+  },
+  "roles": {
+    "deployed": false,
+    "network": "none",
+    "python_image": "sha256:56725ec8377adc99264709e33b977b138f94bbdf51212bbaae27170de09cf659",
+    "roles": {
+      "cli": {
+        "returncode": 0,
+        "recipe_sha256": "f0f3282cd3dbdcadd318f6d71a9534c3437c3c14914f7ca3aadd0cf92543e4e3",
+        "image": "sha256:2e0e0f18fb3a39cc94cc97cf884053c8b4e8e8c4e075e97accc652dbf6d17832",
+        "import_smoke_returncode": 0
+      },
+      "gateway": {
+        "returncode": 0,
+        "recipe_sha256": "f0f3282cd3dbdcadd318f6d71a9534c3437c3c14914f7ca3aadd0cf92543e4e3",
+        "image": "sha256:342b6f145215c00061d850054b0c139c4945b10cb94457e76d95fae793ddfcd8",
+        "import_smoke_returncode": 0
+      },
+      "services": {
+        "returncode": 0,
+        "recipe_sha256": "f0f3282cd3dbdcadd318f6d71a9534c3437c3c14914f7ca3aadd0cf92543e4e3",
+        "image": "sha256:be7c8bc9374b029ab5e9866604cac631fcf907af4187c6a30746a97d29ba0c76",
+        "import_smoke_returncode": 0
+      },
+      "mail": {
+        "returncode": 0,
+        "recipe_sha256": "f0f3282cd3dbdcadd318f6d71a9534c3437c3c14914f7ca3aadd0cf92543e4e3",
+        "image": "sha256:355456abc830cd7e886ffab9be7f4bcc3ca17d8838983487639f971b900d10d7",
+        "import_smoke_returncode": 0
+      }
+    }
+  },
+  "wake": {
+    "deployed": false,
+    "network": "none",
+    "returncode": 0,
+    "native": {
+      "network": "none",
+      "toolchain_image": "sha256:1aa3a7ed51efdef83a5ac064056ece2d396f2adddf1427874c314e49cc698e8b",
+      "sdk_source_sha256": "d955dc5e242cc0fd7ec05f1d518c52191b0d827e14b0ce1883d83bb370d0795b",
+      "bridge_source_sha256": "9647adea9734248e2c6e6c34209d21b4de7b2be02f3bc3db40defb62455da992",
+      "lock_sha256": "e986a82156250bb1323e01da26bb75cc440c8b513db3b6e0859a80ac40129945",
+      "deployed": false,
+      "stages": [
+        {
+          "command": [
+            "cmake",
+            "-S",
+            "/work/source",
+            "-B",
+            "/work/build",
+            "-G",
+            "Ninja",
+            "-DCMAKE_BUILD_TYPE=Release",
+            "-DBUILD_SAMPLES=OFF",
+            "-DBUILD_TESTING=OFF",
+            "-DBUILD_PYTHON_BINDINGS=OFF",
+            "-DFETCHCONTENT_FULLY_DISCONNECTED=ON",
+            "-DFETCHCONTENT_UPDATES_DISCONNECTED=ON",
+            "-DCMAKE_INSTALL_PREFIX=/work/install",
+            "-DFETCHCONTENT_SOURCE_DIR_CPP_HTTPLIB=/work/dependencies/cpp_httplib",
+            "-DFETCHCONTENT_SOURCE_DIR_CPPINYIN=/work/dependencies/cppinyin",
+            "-DFETCHCONTENT_SOURCE_DIR_CPPJIEBA=/work/dependencies/cppjieba",
+            "-DFETCHCONTENT_SOURCE_DIR_DARTS=/work/dependencies/darts",
+            "-DFETCHCONTENT_SOURCE_DIR_KALDI_NATIVE_FBANK=/work/dependencies/kaldi_native_fbank",
+            "-DFETCHCONTENT_SOURCE_DIR_LIMONP=/work/dependencies/limonp",
+            "-DFETCHCONTENT_SOURCE_DIR_NLOHMANN_JSON=/work/dependencies/nlohmann_json",
+            "-DFETCHCONTENT_SOURCE_DIR_OPENVINO=/work/dependencies/openvino",
+            "-DFETCHCONTENT_SOURCE_DIR_SHERPA_NCNN=/work/dependencies/sherpa_ncnn",
+            "-DFETCHCONTENT_SOURCE_DIR_YAML=/work/dependencies/yaml",
+            "-DFETCHCONTENT_SOURCE_DIR_ZLIB=/work/dependencies/zlib",
+            "-DFETCHCONTENT_SOURCE_DIR_LIBPNG=/work/dependencies/libpng"
+          ],
+          "returncode": 0
+        },
+        {
+          "command": [
+            "cmake",
+            "--build",
+            "/work/build",
+            "--parallel",
+            "2"
+          ],
+          "returncode": 0
+        },
+        {
+          "command": [
+            "cmake",
+            "--install",
+            "/work/build"
+          ],
+          "returncode": 0
+        },
+        {
+          "command": [
+            "g++",
+            "-std=c++20",
+            "-O2",
+            "-fPIC",
+            "-shared",
+            "/work/bridge.cpp",
+            "-I/work/install/runtime/include",
+            "-I/work/install/runtime/3rdparty/openvino/include",
+            "-L/work/install/runtime/bin/intel64/Release",
+            "-L/work/install/runtime/3rdparty/openvino/lib",
+            "-laisp_runtime",
+            "-lopenvino",
+            "-o",
+            "/work/libwake.so"
+          ],
+          "returncode": 0
+        }
+      ],
+      "sdk_output_sha256": "85e5b835cb2a597bf2db547dfc8a89426ecfc1e2e4d193a05ee0e6a352ffc6a4",
+      "bridge_output_sha256": "c605f1d839a8dfbab35a041f938e248b8d9e01fb238fe4c695307e9874e3610a",
+      "completed": true
+    },
+    "wake_os_image": "sha256:d9c021b4f841c8703eb7302182d1903485c9457c631370d922e029135d465444",
+    "recipe_sha256": "d3bdae41aa303df6bec483f5444d55cb5e5b554d8ea1c91f5dfde9343b6056f9",
+    "aec_patch_sha256": "2df59b41394e2f665200e9f88fd865e27445fa733d8b87f0a31e9b7974465f3d",
+    "image": "sha256:5c3224f4bc20cafc3ccf46aa4d72dce4bfc677be3f636f2b23a82bea33520e37",
+    "smoke_returncode": 0
+  },
+  "aec_sha256": "7ab3fde10685dd0422295a4576c0ca04ffbbb527128017b150078622431c7819",
+  "checks": {
+    "deployed": false,
+    "microphone_used": false,
+    "model_inference": false,
+    "roles": {
+      "cli": {
+        "image": "sha256:2e0e0f18fb3a39cc94cc97cf884053c8b4e8e8c4e075e97accc652dbf6d17832",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      },
+      "gateway": {
+        "image": "sha256:342b6f145215c00061d850054b0c139c4945b10cb94457e76d95fae793ddfcd8",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      },
+      "services": {
+        "image": "sha256:be7c8bc9374b029ab5e9866604cac631fcf907af4187c6a30746a97d29ba0c76",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      },
+      "mail": {
+        "image": "sha256:355456abc830cd7e886ffab9be7f4bcc3ca17d8838983487639f971b900d10d7",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      }
+    },
+    "asr_devices": [
+      "CPU",
+      "GPU"
+    ],
+    "wake": {
+      "image": "sha256:5c3224f4bc20cafc3ccf46aa4d72dce4bfc677be3f636f2b23a82bea33520e37",
+      "bridge_and_aec_load": true
+    }
+  },
+  "additional_validation": [
+    "20 tests passed through scripts/run_tests.sh",
+    "fresh private provisioning without reference runtime; CLI/Gateway init and config/SOUL parity",
+    "actual cap-drop ALL fan helper: socket startup and valid no-op release RPC; no sysfs mounted",
+    "fresh activation occupied-port refusal without changing running container IDs",
+    "full hashes of LLM/question-ASR/wake-ASR/TTS/lifecycle resources verified",
+    "external image archive OCI index identities verified"
+  ],
+  "limitations": [
+    "authorized external assets and credentials required",
+    "containerd image store required for locked OCI IDs",
+    "host audio/GPU/TFN1 fan prerequisites",
+    "manual lifecycle; no boot/panel installation",
+    "final rebuilt images not deployed to production"
+  ]
+}
