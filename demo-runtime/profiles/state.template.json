@@ -1,0 +1,536 @@
+{
+  "_config_version": 39,
+  "agent": {
+    "disabled_toolsets": [
+      "feishu_doc",
+      "feishu_drive",
+      "kanban",
+      "voice_delivery",
+      "memory",
+      "session_search",
+      "tts",
+      "cronjob"
+    ],
+    "max_turns": 10,
+    "personalities": {},
+    "reasoning_effort": "medium",
+    "system_prompt": "Respond only in English.",
+    "verbose": false
+  },
+  "auxiliary": {
+    "background_review": {
+      "enabled": false
+    },
+    "title_generation": {
+      "enabled": false
+    }
+  },
+  "browser": {
+    "extension_control": {
+      "enabled": false
+    },
+    "inactivity_timeout": 120
+  },
+  "code_execution": {
+    "max_tool_calls": 50,
+    "timeout": 300
+  },
+  "compression": {
+    "checkpoint_required": false,
+    "codex_app_server_auto": "native",
+    "codex_gpt55_autoraise": true,
+    "codex_responses_native": false,
+    "enabled": true,
+    "idle_compact_after_seconds": 0,
+    "max_attempts": 3,
+    "min_tail_user_messages": 1,
+    "proactive_prune_min_reclaim_tokens": 4096,
+    "proactive_prune_min_result_chars": 8000,
+    "proactive_prune_tokens": 0,
+    "progress_notices": false,
+    "protect_first_n": 3,
+    "protect_last_n": 20,
+    "target_ratio": 0.2,
+    "threshold": 0.8,
+    "threshold_tokens": 49152
+  },
+  "custom_providers": [
+    {
+      "base_url": "http://localhost:8000/v3",
+      "model": "qwen3.6-35b-a3b",
+      "models": {
+        "qwen3.6-35b-a3b": {
+          "context_length": 65536
+        }
+      },
+      "models_discovered": true,
+      "name": "Local (127.0.0.1:8000)"
+    }
+  ],
+  "database": {
+    "journal_mode": "wal"
+  },
+  "delegation": {
+    "max_iterations": 120
+  },
+  "display": {
+    "background_process_notifications": "concise",
+    "bell_on_complete": false,
+    "busy_ack_detail": true,
+    "busy_input_mode": "interrupt",
+    "cleanup_progress": false,
+    "compact": false,
+    "interim_assistant_messages": true,
+    "language": "en",
+    "long_running_notifications": true,
+    "show_reasoning": false,
+    "skin": "default",
+    "streaming": true,
+    "tool_progress": "all"
+  },
+  "group_sessions_per_user": true,
+  "kanban": {
+    "review_dispatch": true
+  },
+  "memory": {
+    "memory_char_limit": 2200,
+    "memory_enabled": false,
+    "nudge_interval": 10,
+    "provider": "",
+    "user_char_limit": 1375,
+    "user_profile_enabled": false
+  },
+  "model": {
+    "base_url": "http://localhost:8000/v3",
+    "context_length": 65536,
+    "default": "qwen3.6-35b-a3b",
+    "max_tokens": 2048,
+    "provider": "custom"
+  },
+  "onboarding": {
+    "seen": {
+      "tool_progress_prompt": true
+    }
+  },
+  "platform_toolsets": {
+    "cli": [
+      "web",
+      "file",
+      "skills",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "discord": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "feishu": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "google_chat": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "homeassistant": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "qqbot": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "signal": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "slack": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "teams": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "telegram": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "wechat": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "weixin": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "whatsapp": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ],
+    "yuanbao": [
+      "web",
+      "file",
+      "skills",
+      "cronjob",
+      "email_queue",
+      "demo_home",
+      "local_media"
+    ]
+  },
+  "platforms": {
+    "email": {
+      "home_channel": {
+        "chat_id": {
+          "$binding": "state.platforms.email.home_channel.chat_id"
+        },
+        "name": "Default email recipients",
+        "platform": "email"
+      }
+    }
+  },
+  "plugins": {
+    "enabled": [
+      "demo-home",
+      "demo-media",
+      "email-queue",
+      "general-voice",
+      "local-igpu-asr"
+    ]
+  },
+  "prompt_caching": {
+    "cache_ttl": "5m"
+  },
+  "providers": {
+    "custom": {
+      "api_key": {
+        "$binding": "state.providers.custom.api_key"
+      },
+      "base_url": "http://localhost:8000/v3",
+      "default_model": "qwen3.6-35b-a3b",
+      "request_timeout_seconds": 90,
+      "stale_timeout_seconds": 90
+    }
+  },
+  "runtime": {
+    "nofile_soft_limit": 4096
+  },
+  "session_reset": {
+    "at_hour": 4,
+    "idle_minutes": 1440,
+    "mode": "none"
+  },
+  "skills": {
+    "creation_nudge_interval": 15,
+    "disabled": [
+      "airtable",
+      "architecture-diagram",
+      "arxiv",
+      "ascii-video",
+      "baoyu-infographic",
+      "blocked-page-recovery",
+      "box",
+      "claude-code",
+      "claude-design",
+      "codebase-inspection",
+      "codex",
+      "competitor-news-monitor",
+      "computer-use",
+      "design-md",
+      "dogfood",
+      "email-inbox-triage",
+      "gif-search",
+      "github",
+      "google-workspace",
+      "grounded-citations",
+      "hermes-agent",
+      "hermes-agent-skill-authoring",
+      "himalaya",
+      "humanizer",
+      "inspecting-hermes-desktop-dom",
+      "llm-wiki",
+      "manim-video",
+      "maps",
+      "node-inspect-debugger",
+      "notion",
+      "obsidian",
+      "opencode",
+      "p5js",
+      "popular-web-designs",
+      "powerpoint",
+      "product-price-monitor",
+      "python-debugpy",
+      "requesting-code-review",
+      "simplify-code",
+      "songsee",
+      "songwriting-and-ai-music",
+      "spike",
+      "systematic-debugging",
+      "teams-meeting-pipeline",
+      "test-driven-development",
+      "xurl",
+      "youtube-content"
+    ]
+  },
+  "streaming": {
+    "enabled": false
+  },
+  "stt": {
+    "enabled": true,
+    "language": "en",
+    "local": {
+      "language": "en",
+      "logprob_threshold": -1.0,
+      "model": "large-v3-turbo",
+      "no_speech_prob_threshold": 0.6,
+      "prewarm": true,
+      "unload_after_idle_seconds": 0,
+      "vad": true,
+      "vad_min_silence_ms": 500
+    },
+    "openai": {
+      "language": "",
+      "model": "whisper-1"
+    },
+    "openvino_igpu": {
+      "socket": "/ipc/asr/asr.sock",
+      "timeout": 30
+    },
+    "provider": "openvino_igpu"
+  },
+  "telemetry": {
+    "shared_metrics": {
+      "enabled": false
+    }
+  },
+  "terminal": {
+    "backend": "local",
+    "container_cpu": 1,
+    "container_disk": 51200,
+    "container_memory": 5120,
+    "container_persistent": true,
+    "cwd": ".",
+    "docker_mount_cwd_to_workspace": false,
+    "home_mode": "auto",
+    "lifetime_seconds": 300,
+    "timeout": 180
+  },
+  "tool_loop_guardrails": {
+    "hard_stop_after": {
+      "exact_failure": 2,
+      "idempotent_no_progress": 2,
+      "same_tool_failure": 2
+    },
+    "hard_stop_enabled": true,
+    "warn_after": {
+      "exact_failure": 1,
+      "idempotent_no_progress": 1,
+      "same_tool_failure": 1
+    },
+    "warnings_enabled": true
+  },
+  "tools": {
+    "tool_search": {
+      "enabled": "off"
+    }
+  },
+  "travel_voice": {
+    "default_recipient": {
+      "$binding": "state.travel_voice.default_recipient"
+    },
+    "enabled": false
+  },
+  "tts": {
+    "piper": {
+      "voice": "zh_CN-huayan-medium",
+      "voices_dir": {
+        "$binding": "state.tts.piper.voices_dir"
+      }
+    },
+    "provider": "kokoro-zh",
+    "providers": {
+      "kokoro-zh": {
+        "command": "/opt/hermes/core-env/bin/python /opt/hermes/app/scripts/local-ovms/kokoro_client.py --socket /ipc/tts/tts.sock --input {input_path} --output {output_path} --english-voice af_maple --speed {speed}",
+        "max_text_length": 500,
+        "output_format": "wav",
+        "speed": 1.0,
+        "type": "command"
+      }
+    }
+  },
+  "updates": {
+    "backup_keep": 5,
+    "non_interactive_local_changes": "stash",
+    "pre_update_backup": false
+  },
+  "voice": {
+    "auto_tts": true,
+    "barge_in": true,
+    "beep_enabled": true,
+    "clarify": {
+      "enabled": true,
+      "followup_timeout_seconds": 30,
+      "playback_timeout_seconds": 120
+    },
+    "end_phrase": {
+      "enabled": false
+    },
+    "followup": {
+      "enabled": false,
+      "playback_timeout_seconds": 120,
+      "resume_seconds": 120,
+      "timeout_seconds": 30
+    },
+    "max_recording_seconds": 120,
+    "ready_cue": {
+      "enabled": true,
+      "intro_enabled": true,
+      "intro_text": "After the tone, you can answer directly.",
+      "pre_gap_seconds": 0.65
+    },
+    "record_key": "ctrl+b",
+    "scenes": {
+      "enabled": true
+    },
+    "sentence_pipeline": {
+      "enabled": true
+    },
+    "silence_duration": 4.0,
+    "silence_threshold": 500,
+    "startup_cue_file": "/opt/hermes/resources/box-voice/standby.wav",
+    "stop_phrases": [
+      "stop"
+    ],
+    "submit_mode": "direct",
+    "thinking_sound": false,
+    "tool_ack": {
+      "cache_audio": true,
+      "enabled": true,
+      "phrases": {
+        "en": [
+          "One moment, please let me check."
+        ]
+      },
+      "timing": "turn_start"
+    },
+    "wake_ack": {
+      "enabled": true,
+      "text": "Hi, I'm here."
+    },
+    "endpoint": {
+      "enabled": true,
+      "provider": "aisp-eos",
+      "eos_guard_seconds": 1.0
+    },
+    "wake_buffer_seconds": 1.0,
+    "beep_volume": 0.3
+  },
+  "voice_delivery": {
+    "continuity": {
+      "enabled": false
+    },
+    "default_recipient": {
+      "$binding": "state.voice_delivery.default_recipient"
+    },
+    "enabled": false
+  },
+  "wake_word": {
+    "capture": "local",
+    "confirmation_frames": 2,
+    "enabled": true,
+    "external": {
+      "socket": "/ipc/wake/service.sock"
+    },
+    "input_device": "pipewire",
+    "openwakeword": {
+      "inference_framework": "onnx",
+      "model": "/opt/hermes/resources/wakewords/oww-hi-intel/hi_intel_smoke.onnx"
+    },
+    "phrase": "Hello Intel",
+    "profile_routing": false,
+    "provider": "external-asr",
+    "sensitivity": 0.3,
+    "sherpa": {
+      "aliases": [
+        "Hi Intel",
+        "Hi Indel",
+        "High Intel",
+        "Hi Inter",
+        "Hello Inter",
+        "Hello Indel",
+        "Hey Intel",
+        "Hey Inter",
+        "Hey Indel"
+      ],
+      "keywords_threshold": 0.03,
+      "max_active_paths": 16,
+      "model_dir": "/opt/hermes/resources/wakewords/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"
+    },
+    "start_new_session": false,
+    "surface": "cli"
+  },
+  "web": {
+    "search_backend": "brave-free"
+  }
+}

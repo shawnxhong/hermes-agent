@@ -1,0 +1,7 @@
+{
+  "gateway-state.platforms.email.home_channel.chat_id": "REPLACE_ME",
+  "gateway-state.providers.custom.api_key": "REPLACE_ME",
+  "gateway-state.travel_voice.default_recipient": "REPLACE_ME",
+  "gateway-state.tts.piper.voices_dir": "REPLACE_ME",
+  "gateway-state.voice_delivery.default_recipient": "REPLACE_ME"
+}

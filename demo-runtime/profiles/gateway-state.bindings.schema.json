@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "gateway-state.platforms.email.home_channel.chat_id",
+    "gateway-state.providers.custom.api_key",
+    "gateway-state.travel_voice.default_recipient",
+    "gateway-state.tts.piper.voices_dir",
+    "gateway-state.voice_delivery.default_recipient"
+  ],
+  "properties": {
+    "gateway-state.platforms.email.home_channel.chat_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gateway-state.providers.custom.api_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gateway-state.travel_voice.default_recipient": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gateway-state.tts.piper.voices_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gateway-state.voice_delivery.default_recipient": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

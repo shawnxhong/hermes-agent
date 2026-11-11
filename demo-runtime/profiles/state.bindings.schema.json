@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "state.platforms.email.home_channel.chat_id",
+    "state.providers.custom.api_key",
+    "state.travel_voice.default_recipient",
+    "state.tts.piper.voices_dir",
+    "state.voice_delivery.default_recipient"
+  ],
+  "properties": {
+    "state.platforms.email.home_channel.chat_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state.providers.custom.api_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state.travel_voice.default_recipient": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state.tts.piper.voices_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state.voice_delivery.default_recipient": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
