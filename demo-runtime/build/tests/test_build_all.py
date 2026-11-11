@@ -1,4 +1,8 @@
 import json
+import os
+import signal
+import subprocess
+import time
 from pathlib import Path
 import sys
 import tempfile
@@ -38,6 +42,28 @@ class BuildAllTests(unittest.TestCase):
             log=Path(d)/'stage.log'
             with self.assertRaises(RuntimeError):b.execute([sys.executable,'-c','print("failure evidence"); raise SystemExit(9)'],log)
             self.assertIn('failure evidence',log.read_text())
+
+    def test_interrupted_child_is_stopped_and_log_retained(self):
+        with tempfile.TemporaryDirectory() as d:
+            log=Path(d)/'interrupted.log'
+            child="import os,time; print(os.getpid(),flush=True); time.sleep(30)"
+            helper="import sys; sys.path.insert(0,sys.argv[1]); from build_all import execute; from pathlib import Path; execute([sys.executable,'-c',sys.argv[3]],Path(sys.argv[2]))"
+            proc=subprocess.Popen([sys.executable,'-c',helper,str(Path(b.__file__).parent),str(log),child],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            worker=None
+            try:
+                deadline=time.monotonic()+10
+                while time.monotonic()<deadline:
+                    if log.exists() and log.read_text().strip():worker=int(log.read_text().strip());break
+                    time.sleep(.05)
+                self.assertIsNotNone(worker)
+                proc.send_signal(signal.SIGINT);proc.wait(timeout=10)
+                self.assertTrue(log.exists())
+                with self.assertRaises(ProcessLookupError):os.kill(worker,0)
+            finally:
+                if proc.poll() is None:proc.kill();proc.wait()
+                if worker:
+                    try:os.kill(worker,signal.SIGKILL)
+                    except ProcessLookupError:pass
 
     def test_missing_materials_reported_together(self):
         with tempfile.TemporaryDirectory() as d:
