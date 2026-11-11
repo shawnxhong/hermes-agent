@@ -1,0 +1,5 @@
+{
+  "wake_os_image": "sha256:ff9c3be3c3cdfc5e02525258868bd58ef5fd55a9436452ee1711c22c23b4ded9",
+  "scope": "Ubuntu 26.04 OS packages rebuilt offline; no Hermes product source or SDK runtime inherited",
+  "ovms": "Use accepted-images.json; OVMS 2026.2.1 remains an external pinned binary"
+}

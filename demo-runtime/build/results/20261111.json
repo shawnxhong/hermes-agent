@@ -1,0 +1,122 @@
+{
+  "status": "build-and-smoke-passed-not-deployed",
+  "baseline_reference": "docker-20261023.1",
+  "source_assembly_parent": "e622bd8cd59ff7a2fc7740af5d49df43f6bae7cb",
+  "checks": {
+    "deployed": false,
+    "microphone_used": false,
+    "model_inference": false,
+    "roles": {
+      "cli": {
+        "image": "sha256:31cea7ebfc7747429431802efa661b06f8860c7b17b006a3e0bbbe3cbf8fdc7f",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      },
+      "gateway": {
+        "image": "sha256:783ab456bc6be796c202e46be0e35ed861e8a38732d1d2eac9358e6137022824",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      },
+      "services": {
+        "image": "sha256:7110dad48385fe52df82fefb11600ee8e21c7a0c7a22437de8be0f5613d94ff1",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      },
+      "mail": {
+        "image": "sha256:84c51f58ba17c08eb92150e601f0211130064445541d8dd776361ed78af039a2",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      }
+    },
+    "asr_devices": [
+      "CPU",
+      "GPU"
+    ],
+    "wake": {
+      "image": "sha256:2e0f247a7f729f229912429075d68dab4c1392518916f1b7b925b62c141bb0e2",
+      "bridge_and_aec_load": true
+    }
+  },
+  "native_outputs": {
+    "sdk_source_sha256": "d955dc5e242cc0fd7ec05f1d518c52191b0d827e14b0ce1883d83bb370d0795b",
+    "bridge_source_sha256": "9647adea9734248e2c6e6c34209d21b4de7b2be02f3bc3db40defb62455da992",
+    "sdk_output_sha256": "85e5b835cb2a597bf2db547dfc8a89426ecfc1e2e4d193a05ee0e6a352ffc6a4",
+    "bridge_output_sha256": "c605f1d839a8dfbab35a041f938e248b8d9e01fb238fe4c695307e9874e3610a"
+  },
+  "aec_output_sha256": "7ab3fde10685dd0422295a4576c0ca04ffbbb527128017b150078622431c7819",
+  "os_package_parity": {
+    "cli": {
+      "image": "sha256:274c443cd1ba415d0eb168d6c2f74ed07203e6e2f931b9ba319718bd59953ad4",
+      "passed": true,
+      "missing": [],
+      "unexpected": []
+    },
+    "wake": {
+      "image": "sha256:d9c021b4f841c8703eb7302182d1903485c9457c631370d922e029135d465444",
+      "passed": true,
+      "missing": [],
+      "unexpected": []
+    },
+    "sdk-toolchain": {
+      "image": "sha256:1aa3a7ed51efdef83a5ac064056ece2d396f2adddf1427874c314e49cc698e8b",
+      "passed": true,
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  "limitations": [
+    "No microphone, LLM inference, TTS playback, IM or mail delivery acceptance",
+    "Patched PortAudio remains a locked binary input",
+    "Candidate application/wake builds used the pinned previously rebuilt OS layers; new OS layers independently passed package parity, but the entire build was not rerun on those new image IDs",
+    "SDK/bridge rebuilt hashes differ from accepted binary; live voice acceptance remains required",
+    "Private provisioning and host install integration are not yet implemented"
+  ]
+}

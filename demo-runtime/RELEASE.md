@@ -24,8 +24,9 @@ Current product sources:
 
 Configuration templates now live in [profiles](profiles/README.md), with a
 standalone renderer in `build/render_profile.py`. Role assembly, reference Compose, host sources and asset locks are now captured
-in [assembly](assembly/README.md). Full native/dependency builds and host install
-integration remain pending. Their provenance comes from `shawnxhong/hermes-demo-ops`
+in [assembly](assembly/README.md). Offline native/dependency and role-image build recipes are now in
+[build/SOURCE_BUILD.md](build/SOURCE_BUILD.md). Host install integration and
+end-to-end acceptance remain pending. Their provenance comes from `shawnxhong/hermes-demo-ops`
 and the accepted images. The inventory is
 `docs/MAIN_CONVERGENCE_INVENTORY_20261111.md` at ops commit `94e2853`;
 its classifications remain applicable, with this release branch replacing main
