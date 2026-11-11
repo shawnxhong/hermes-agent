@@ -1,0 +1,839 @@
+{
+  "baseline": "docker-20261023.1",
+  "baseline_app_commit": "8174860c9fcabb7c88e3a235fb3914fda8e46670",
+  "roles": {
+    "cli": {
+      "accepted_image_id": "sha256:aaf104ee25ed248639c3ef749792b0f7dfd4d4a6ae19f1da90868d713976a193",
+      "core_overrides": {
+        "README.md": {
+          "sha256": "1d733df90c2836c1b9cd8d7307d2d222023456b7b55b5036c2fbb54fd8bcfdf4",
+          "source": "demo-runtime/assembly/overlays/cli/README.md"
+        },
+        "scripts/local-ovms/skills/local-media-player/SKILL.md": {
+          "sha256": "78b19ee71ad1a8f4e691558411e83a317520002bfa151df356308f77f1fb21b3",
+          "source": "demo-runtime/assembly/overlays/cli/scripts/local-ovms/skills/local-media-player/SKILL.md"
+        },
+        "tests/agent/test_empty_tool_name_loop_dampening.py": {
+          "sha256": "4db8c3ade5754d6467e07d350c2bb26456c431f4b0af4e8c9735ac607eac72e5",
+          "source": "demo-runtime/assembly/overlays/cli/tests/agent/test_empty_tool_name_loop_dampening.py"
+        },
+        "tests/cli/test_native_voice.py": {
+          "sha256": "3d1abe14c81476b029890d22a40e25952acf20473a1a6b62fa947772e11a5130",
+          "source": "demo-runtime/assembly/overlays/cli/tests/cli/test_native_voice.py"
+        },
+        "tests/cli/test_voice_response_policy.py": {
+          "sha256": "f8d821768db75f516217a3ef17c421f826521f98b938ca4eefe4b3f2a1146520",
+          "source": "demo-runtime/assembly/overlays/cli/tests/cli/test_voice_response_policy.py"
+        },
+        "toolsets.py": {
+          "sha256": "fa7c407f7f42edafa72e5ae3b461281d463fadf1e90907567eaa072e9719f60a",
+          "source": "demo-runtime/assembly/overlays/cli/toolsets.py"
+        }
+      },
+      "core_remove": [
+        "docs/IM_CAPABILITY_SCOPE_PLAN_20261014.md",
+        "docs/LOCAL_AISP_EOS_ENDPOINT.md",
+        "docs/LOCAL_OVMS_INIT_WARMUP.md",
+        "docs/MEDIA_CROSS_CHANNEL_STOP.md",
+        "docs/MODEL_CALL_STATS.md",
+        "docs/VOICE_CUE_TIMING.md",
+        "docs/VOICE_WAKE_ACCEPTED_DEFAULTS.md",
+        "docs/VOICE_WAKE_BUFFER.md",
+        "docs/development/queued-email-formatting.md",
+        "docs/releases/20261015.3.md",
+        "docs/releases/20261016.1.md",
+        "docs/releases/20261019.1.md",
+        "scripts/local-ovms/check_email_line_array.py",
+        "scripts/local-ovms/check_gateway_media_policy.py",
+        "scripts/local-ovms/check_im_capabilities.py",
+        "tests/agent/test_model_call_stats.py",
+        "tests/agent/test_tool_turn_completion.py",
+        "tests/hermes_cli/test_email_render.py",
+        "tests/skills/test_gateway_media_stop_policy.py",
+        "tests/tools/test_im_skills_readonly.py",
+        "tests/tools/test_media_cross_channel_stop.py"
+      ],
+      "plugins": {
+        "demo-home/__init__.py": {
+          "sha256": "74b0a06f2c414a92a3aa0220e99e030608a23ad50d34a0aba83ee304d04e3f4f",
+          "source": "demo-runtime/plugins/cli/demo-home/__init__.py"
+        },
+        "demo-home/plugin.yaml": {
+          "sha256": "d7b2b30257852484ed1dd8ed506c93971a4f0dcc161ca4852c60e92ca2880e92",
+          "source": "demo-runtime/plugins/cli/demo-home/plugin.yaml"
+        },
+        "demo-home/simulator.py": {
+          "sha256": "387b0d4ac4fe2b98820ad90421219acccac0e0375708a14787d210fa44643df5",
+          "source": "demo-runtime/plugins/cli/demo-home/simulator.py"
+        },
+        "demo-media/__init__.py": {
+          "sha256": "f82e099ef06aa31ba6baba2abd85aba262a08c2294149cfb1cab4300efa00fc8",
+          "source": "demo-runtime/plugins/cli/demo-media/__init__.py"
+        },
+        "demo-media/play_media.py": {
+          "sha256": "612a9075f25debd59f2f4a3f259b92c18068ed4b4a4cea491118e010158e2a21",
+          "source": "demo-runtime/plugins/cli/demo-media/play_media.py"
+        },
+        "demo-media/plugin.yaml": {
+          "sha256": "c6099cae834f64caf80495cd3a9d251005c9e38368b3e6e091bc98d0630e523f",
+          "source": "demo-runtime/plugins/cli/demo-media/plugin.yaml"
+        },
+        "email-queue/__init__.py": {
+          "sha256": "66cf08915c37a65ae47a1c089828545e2fd25cb28874cf674ca1c4f0e37f4159",
+          "source": "demo-runtime/plugins/cli/email-queue/__init__.py"
+        },
+        "email-queue/mail_queue.py": {
+          "sha256": "e0cc195daa14bd2b39ec97c6778099bd6e0469f7610888ebe06cf28bbdbefb04",
+          "source": "demo-runtime/plugins/cli/email-queue/mail_queue.py"
+        },
+        "email-queue/plugin.yaml": {
+          "sha256": "daef5b43459f906f4f8baf9237681e129606ad551b0484111f91ce3b62459027",
+          "source": "demo-runtime/plugins/cli/email-queue/plugin.yaml"
+        },
+        "general-voice/__init__.py": {
+          "sha256": "4017e4925d46318ad4268b78d26692c686c85b4f29a3c6b54c33acfb8ad716be",
+          "source": "demo-runtime/plugins/cli/general-voice/__init__.py"
+        },
+        "general-voice/plugin.yaml": {
+          "sha256": "c8b128724cfb5a32084fedd6186f4ce6ce4acccd6cd3d18aa025529aeacb24c8",
+          "source": "demo-runtime/plugins/cli/general-voice/plugin.yaml"
+        },
+        "local-igpu-asr/__init__.py": {
+          "sha256": "f1bb762bf221a19aae65ac35c339dfe2fcec3a73b718ee508d9ea43f75fea976",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/__init__.py"
+        },
+        "local-igpu-asr/plugin.yaml": {
+          "sha256": "e6f53340ce5a38ba551b30e434f1beb9580710d1927cc8fc30176075a93904dd",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/plugin.yaml"
+        },
+        "local-igpu-asr/transport.py": {
+          "sha256": "7d16742915ab0fbc141813a6867479c89203e7b3d0f0f3161c163dfd77ee5dc8",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/transport.py"
+        },
+        "local-igpu-asr/worker.py": {
+          "sha256": "c053cc65eba88cbe2c62d8501b72fe030e5614e57383e20de41b81761b1e5afd",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/worker.py"
+        },
+        "travel-voice/__init__.py": {
+          "sha256": "7a003d9998ca5155fe093208ead68ec7c7d7831773e0fe77eaa1ffa54ec9eacd",
+          "source": "demo-runtime/plugins/cli/travel-voice/__init__.py"
+        },
+        "travel-voice/plugin.yaml": {
+          "sha256": "cbbd84a83e946fbe73e4643446aa0d2f2bf5d033c203d0204437f0b5a3cbe9a7",
+          "source": "demo-runtime/plugins/cli/travel-voice/plugin.yaml"
+        }
+      },
+      "container_helpers": {
+        "disable-cross-session-memory.py": {
+          "sha256": "5d28f21c1713e139895d071573466c09188247ccc374300682b3806d6aadd4b1",
+          "source": "demo-runtime/assembly/container/cli/disable-cross-session-memory.py"
+        },
+        "entrypoint.py": {
+          "sha256": "143dfe441c229b8316c7295480b529cbe9b51f4274f94b3b23816b01276ca98d",
+          "source": "demo-runtime/assembly/container/cli/entrypoint.py"
+        },
+        "media-client.py": {
+          "sha256": "612a9075f25debd59f2f4a3f259b92c18068ed4b4a4cea491118e010158e2a21",
+          "source": "demo-runtime/plugins/cli/demo-media/play_media.py"
+        },
+        "migrate-aisp-eos.py": {
+          "sha256": "2d6830795907de4918192b923517bf44725d7bc52ca866b01d0dc58c75e589bd",
+          "source": "demo-runtime/assembly/container/cli/migrate-aisp-eos.py"
+        },
+        "migrate-concise-prompts.py": {
+          "sha256": "2249baf95de668db588ba409b4dfd19d5b746569b61ffbc74a99915c53e84629",
+          "source": "demo-runtime/assembly/container/cli/migrate-concise-prompts.py"
+        },
+        "migrate-panel-skills.py": {
+          "sha256": "9c2b4c60ba77eb01fe3f819fe0f46816bd58aff9207146a6870048b9c38a7b92",
+          "source": "demo-runtime/assembly/container/cli/migrate-panel-skills.py"
+        },
+        "migrate-voice-endpoint.py": {
+          "sha256": "dec950abcd77b2b5e1bc1bb55ed355b57a8ea9e04bed196dcfa5c1d0a085499f",
+          "source": "demo-runtime/assembly/container/cli/migrate-voice-endpoint.py"
+        },
+        "original-play-media.py": {
+          "sha256": "b053110ff7c6ab18403f121cecb6491ca646284480421827e57db78ab4f4f6be",
+          "source": "demo-runtime/assembly/container/cli/original-play-media.py"
+        }
+      },
+      "observed_core_files": 11506
+    },
+    "gateway": {
+      "accepted_image_id": "sha256:e46572172c2671c6abe79e77f2773b491da38574e465e22e555bb78d19e8fd88",
+      "core_overrides": {
+        "README.md": {
+          "sha256": "1d733df90c2836c1b9cd8d7307d2d222023456b7b55b5036c2fbb54fd8bcfdf4",
+          "source": "demo-runtime/assembly/overlays/cli/README.md"
+        },
+        "cli.py": {
+          "sha256": "7c9828080f0c1f3471b8ea44c423f6ba1f5f8bb9f4313e23bf77bd46306df39d",
+          "source": "demo-runtime/assembly/overlays/gateway/cli.py"
+        },
+        "hermes_cli/config_defaults.py": {
+          "sha256": "07265266328fccc1cb7fec8adbf682a4fec11a52d441afd5c79ee4a94ec6138d",
+          "source": "demo-runtime/assembly/overlays/gateway/hermes_cli/config_defaults.py"
+        },
+        "hermes_cli/voice_scenes.py": {
+          "sha256": "8167e7e4bc6377e4dba7cfd2813c585da1db4965317d2de120314b394cf12115",
+          "source": "demo-runtime/assembly/overlays/gateway/hermes_cli/voice_scenes.py"
+        },
+        "hermes_cli/voice_wake_ack.py": {
+          "sha256": "37be4e6b810d12f503fdb8c915c4a6e7adef1f1f04bbc413b0415902d6cc65c1",
+          "source": "demo-runtime/assembly/overlays/gateway/hermes_cli/voice_wake_ack.py"
+        },
+        "scripts/local-ovms/skills/local-media-player/SKILL.md": {
+          "sha256": "78b19ee71ad1a8f4e691558411e83a317520002bfa151df356308f77f1fb21b3",
+          "source": "demo-runtime/assembly/overlays/cli/scripts/local-ovms/skills/local-media-player/SKILL.md"
+        },
+        "tests/cli/test_native_voice.py": {
+          "sha256": "3d1abe14c81476b029890d22a40e25952acf20473a1a6b62fa947772e11a5130",
+          "source": "demo-runtime/assembly/overlays/cli/tests/cli/test_native_voice.py"
+        },
+        "tests/cli/test_voice_response_policy.py": {
+          "sha256": "f8d821768db75f516217a3ef17c421f826521f98b938ca4eefe4b3f2a1146520",
+          "source": "demo-runtime/assembly/overlays/cli/tests/cli/test_voice_response_policy.py"
+        },
+        "tests/cli/test_voice_scenes.py": {
+          "sha256": "1e686ab8b4a02983c124771f4c5cadddba29f09c80ad2d40b95577f77d37fcaf",
+          "source": "demo-runtime/assembly/overlays/gateway/tests/cli/test_voice_scenes.py"
+        },
+        "tests/cli/test_voice_sentence_delivery.py": {
+          "sha256": "c8ccdaccba41d491769f70f5d473e076951319751367f36c76ce03987fa31d88",
+          "source": "demo-runtime/assembly/overlays/gateway/tests/cli/test_voice_sentence_delivery.py"
+        },
+        "tests/cli/test_voice_wake_ack.py": {
+          "sha256": "3dba4f3cc33daff2d5c00a5a55acd53ef0fa7ccbcb8a43c8559004c1523ce982",
+          "source": "demo-runtime/assembly/overlays/gateway/tests/cli/test_voice_wake_ack.py"
+        },
+        "tools/tts_tool.py": {
+          "sha256": "3d463da59978b125affb54692da19a6e5bf8075dd6b069ff7b28da4a063d66ab",
+          "source": "demo-runtime/assembly/overlays/gateway/tools/tts_tool.py"
+        },
+        "tools/voice_endpoint.py": {
+          "sha256": "d09e17243841491e348d30babe1fac5c420f3381f153b6efa02064e3220158a2",
+          "source": "demo-runtime/assembly/overlays/gateway/tools/voice_endpoint.py"
+        },
+        "tools/voice_mode.py": {
+          "sha256": "af03874c0e91f62877ef893086cabf29951c07ea5d931b07152596e4bc2aad52",
+          "source": "demo-runtime/assembly/overlays/gateway/tools/voice_mode.py"
+        },
+        "tools/wake_word.py": {
+          "sha256": "c9991cf100999ad9f41098aef8f3c1a71db10c5781b5c3cc7bdbf24b3d2fce7d",
+          "source": "demo-runtime/assembly/overlays/gateway/tools/wake_word.py"
+        }
+      },
+      "core_remove": [
+        "docs/IM_CAPABILITY_SCOPE_PLAN_20261014.md",
+        "docs/LOCAL_AISP_EOS_ENDPOINT.md",
+        "docs/LOCAL_OVMS_INIT_WARMUP.md",
+        "docs/MEDIA_CROSS_CHANNEL_STOP.md",
+        "docs/MODEL_CALL_STATS.md",
+        "docs/VOICE_CUE_TIMING.md",
+        "docs/VOICE_EOS_END_PHRASE.md",
+        "docs/VOICE_WAKE_ACCEPTED_DEFAULTS.md",
+        "docs/VOICE_WAKE_BUFFER.md",
+        "docs/development/queued-email-formatting.md",
+        "docs/releases/20261015.3.md",
+        "docs/releases/20261016.1.md",
+        "docs/releases/20261019.1.md",
+        "hermes_cli/voice_llm_warmup.py",
+        "hermes_cli/voice_wake_buffer.py",
+        "scripts/local-ovms/check_email_line_array.py",
+        "scripts/local-ovms/check_init_warmup.py",
+        "tests/agent/test_model_call_stats.py",
+        "tests/agent/test_tool_turn_completion.py",
+        "tests/cli/test_voice_cue_timing.py",
+        "tests/cli/test_voice_llm_warmup.py",
+        "tests/cli/test_voice_wake_buffer.py",
+        "tests/hermes_cli/test_email_render.py",
+        "tests/skills/test_gateway_media_stop_policy.py",
+        "tests/tools/test_aisp_eos.py",
+        "tests/tools/test_eos_end_phrase.py",
+        "tests/tools/test_media_cross_channel_stop.py",
+        "tests/tools/test_recording_end_phrase_pcm.py",
+        "tests/tools/test_recording_quiet.py",
+        "tests/tools/test_wake_audio.py",
+        "tests/tools/test_wake_config.py",
+        "tests/tools/test_wake_force_segment.py",
+        "tools/external_wake.py",
+        "tools/recording_quiet.py",
+        "tools/wake_audio.py"
+      ],
+      "plugins": {
+        "demo-home/__init__.py": {
+          "sha256": "74b0a06f2c414a92a3aa0220e99e030608a23ad50d34a0aba83ee304d04e3f4f",
+          "source": "demo-runtime/plugins/cli/demo-home/__init__.py"
+        },
+        "demo-home/plugin.yaml": {
+          "sha256": "d7b2b30257852484ed1dd8ed506c93971a4f0dcc161ca4852c60e92ca2880e92",
+          "source": "demo-runtime/plugins/cli/demo-home/plugin.yaml"
+        },
+        "demo-home/simulator.py": {
+          "sha256": "387b0d4ac4fe2b98820ad90421219acccac0e0375708a14787d210fa44643df5",
+          "source": "demo-runtime/plugins/cli/demo-home/simulator.py"
+        },
+        "demo-media/__init__.py": {
+          "sha256": "43489a04bc19bcda43ca7264715315e3fd1ba01e13049b429b52342ea996841d",
+          "source": "demo-runtime/plugins/gateway/demo-media/__init__.py"
+        },
+        "demo-media/play_media.py": {
+          "sha256": "612a9075f25debd59f2f4a3f259b92c18068ed4b4a4cea491118e010158e2a21",
+          "source": "demo-runtime/plugins/cli/demo-media/play_media.py"
+        },
+        "demo-media/plugin.yaml": {
+          "sha256": "535925a0903d991738cde1e4aa16146ac238ac43b806bbf0f2a902c06661e1d1",
+          "source": "demo-runtime/plugins/gateway/demo-media/plugin.yaml"
+        },
+        "email-queue/__init__.py": {
+          "sha256": "66cf08915c37a65ae47a1c089828545e2fd25cb28874cf674ca1c4f0e37f4159",
+          "source": "demo-runtime/plugins/cli/email-queue/__init__.py"
+        },
+        "email-queue/mail_queue.py": {
+          "sha256": "e0cc195daa14bd2b39ec97c6778099bd6e0469f7610888ebe06cf28bbdbefb04",
+          "source": "demo-runtime/plugins/cli/email-queue/mail_queue.py"
+        },
+        "email-queue/plugin.yaml": {
+          "sha256": "daef5b43459f906f4f8baf9237681e129606ad551b0484111f91ce3b62459027",
+          "source": "demo-runtime/plugins/cli/email-queue/plugin.yaml"
+        },
+        "general-voice/__init__.py": {
+          "sha256": "4017e4925d46318ad4268b78d26692c686c85b4f29a3c6b54c33acfb8ad716be",
+          "source": "demo-runtime/plugins/cli/general-voice/__init__.py"
+        },
+        "general-voice/plugin.yaml": {
+          "sha256": "c8b128724cfb5a32084fedd6186f4ce6ce4acccd6cd3d18aa025529aeacb24c8",
+          "source": "demo-runtime/plugins/cli/general-voice/plugin.yaml"
+        },
+        "local-igpu-asr/__init__.py": {
+          "sha256": "f1bb762bf221a19aae65ac35c339dfe2fcec3a73b718ee508d9ea43f75fea976",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/__init__.py"
+        },
+        "local-igpu-asr/plugin.yaml": {
+          "sha256": "e6f53340ce5a38ba551b30e434f1beb9580710d1927cc8fc30176075a93904dd",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/plugin.yaml"
+        },
+        "local-igpu-asr/transport.py": {
+          "sha256": "7d16742915ab0fbc141813a6867479c89203e7b3d0f0f3161c163dfd77ee5dc8",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/transport.py"
+        },
+        "local-igpu-asr/worker.py": {
+          "sha256": "c053cc65eba88cbe2c62d8501b72fe030e5614e57383e20de41b81761b1e5afd",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/worker.py"
+        },
+        "travel-voice/__init__.py": {
+          "sha256": "7a003d9998ca5155fe093208ead68ec7c7d7831773e0fe77eaa1ffa54ec9eacd",
+          "source": "demo-runtime/plugins/cli/travel-voice/__init__.py"
+        },
+        "travel-voice/plugin.yaml": {
+          "sha256": "cbbd84a83e946fbe73e4643446aa0d2f2bf5d033c203d0204437f0b5a3cbe9a7",
+          "source": "demo-runtime/plugins/cli/travel-voice/plugin.yaml"
+        }
+      },
+      "container_helpers": {
+        "disable-cross-session-memory.py": {
+          "sha256": "5d28f21c1713e139895d071573466c09188247ccc374300682b3806d6aadd4b1",
+          "source": "demo-runtime/assembly/container/cli/disable-cross-session-memory.py"
+        },
+        "entrypoint.py": {
+          "sha256": "d86b9e30d6bab4c7f8b38ebc59bd017a55619d80f4432f74b1195bab08d4188d",
+          "source": "demo-runtime/assembly/container/gateway/entrypoint.py"
+        },
+        "media-client.py": {
+          "sha256": "612a9075f25debd59f2f4a3f259b92c18068ed4b4a4cea491118e010158e2a21",
+          "source": "demo-runtime/plugins/cli/demo-media/play_media.py"
+        },
+        "migrate-concise-prompts.py": {
+          "sha256": "2249baf95de668db588ba409b4dfd19d5b746569b61ffbc74a99915c53e84629",
+          "source": "demo-runtime/assembly/container/cli/migrate-concise-prompts.py"
+        },
+        "migrate-panel-skills.py": {
+          "sha256": "9c2b4c60ba77eb01fe3f819fe0f46816bd58aff9207146a6870048b9c38a7b92",
+          "source": "demo-runtime/assembly/container/cli/migrate-panel-skills.py"
+        },
+        "migrate-voice-endpoint.py": {
+          "sha256": "7bba5600324ae1519bde5b3652ff5b9089704a12ff6eecffe01c6af895a1142d",
+          "source": "demo-runtime/assembly/container/gateway/migrate-voice-endpoint.py"
+        },
+        "original-play-media.py": {
+          "sha256": "b053110ff7c6ab18403f121cecb6491ca646284480421827e57db78ab4f4f6be",
+          "source": "demo-runtime/assembly/container/cli/original-play-media.py"
+        }
+      },
+      "observed_core_files": 11492
+    },
+    "services": {
+      "accepted_image_id": "sha256:073858d56f91567adec0bccdab9f37073b5d90bd072e36fc4e8a51492ec71f19",
+      "core_overrides": {
+        "README.md": {
+          "sha256": "1d733df90c2836c1b9cd8d7307d2d222023456b7b55b5036c2fbb54fd8bcfdf4",
+          "source": "demo-runtime/assembly/overlays/cli/README.md"
+        },
+        "agent/chat_completion_helpers.py": {
+          "sha256": "0870dd9da77ce31da4a7cdbfe13cfc45f22e707a9552d9a606715f86678abcdc",
+          "source": "demo-runtime/assembly/overlays/services/agent/chat_completion_helpers.py"
+        },
+        "agent/conversation_loop.py": {
+          "sha256": "54248f82dbd641e47f079f7a5a25d656db4af597c664c19507595ce6dbe84f6b",
+          "source": "demo-runtime/assembly/overlays/services/agent/conversation_loop.py"
+        },
+        "cli.py": {
+          "sha256": "6beaef3d3f66862b658438220adf10dd7d480a7df9247aabf53135149cdd30db",
+          "source": "demo-runtime/assembly/overlays/services/cli.py"
+        },
+        "hermes_cli/config_defaults.py": {
+          "sha256": "07265266328fccc1cb7fec8adbf682a4fec11a52d441afd5c79ee4a94ec6138d",
+          "source": "demo-runtime/assembly/overlays/gateway/hermes_cli/config_defaults.py"
+        },
+        "hermes_cli/native_voice.py": {
+          "sha256": "573a960aec5229487130198c30587061db97883b551df8008c9727c085c79152",
+          "source": "demo-runtime/assembly/overlays/services/hermes_cli/native_voice.py"
+        },
+        "hermes_cli/plugins.py": {
+          "sha256": "8d4ded2a2b455d93c3384a3b48ea85cf1707b3660ec4175a284629d019cb1436",
+          "source": "demo-runtime/assembly/overlays/services/hermes_cli/plugins.py"
+        },
+        "hermes_cli/voice.py": {
+          "sha256": "9d98e95459b8e7e09deb5780250486e68be46195f71e03d7084ab5b814418d6d",
+          "source": "demo-runtime/overlays/services/hermes_cli/voice.py"
+        },
+        "hermes_cli/voice_scenes.py": {
+          "sha256": "cf3dd9a357c33340dc8d65e50cfc7a674cf58f39ab85e1396d244c5047da1110",
+          "source": "demo-runtime/overlays/services/hermes_cli/voice_scenes.py"
+        },
+        "hermes_cli/voice_sentence_delivery.py": {
+          "sha256": "daf29df713b797bf58f803cd1eefd44f23d9e1de9b007c0bc545d6ee5944f296",
+          "source": "demo-runtime/assembly/overlays/services/hermes_cli/voice_sentence_delivery.py"
+        },
+        "hermes_cli/voice_wake_ack.py": {
+          "sha256": "37be4e6b810d12f503fdb8c915c4a6e7adef1f1f04bbc413b0415902d6cc65c1",
+          "source": "demo-runtime/assembly/overlays/gateway/hermes_cli/voice_wake_ack.py"
+        },
+        "scripts/local-ovms/skills/local-media-player/SKILL.md": {
+          "sha256": "78b19ee71ad1a8f4e691558411e83a317520002bfa151df356308f77f1fb21b3",
+          "source": "demo-runtime/assembly/overlays/cli/scripts/local-ovms/skills/local-media-player/SKILL.md"
+        },
+        "tests/agent/test_empty_tool_name_loop_dampening.py": {
+          "sha256": "4db8c3ade5754d6467e07d350c2bb26456c431f4b0af4e8c9735ac607eac72e5",
+          "source": "demo-runtime/assembly/overlays/cli/tests/agent/test_empty_tool_name_loop_dampening.py"
+        },
+        "tests/cli/test_native_voice.py": {
+          "sha256": "3d1abe14c81476b029890d22a40e25952acf20473a1a6b62fa947772e11a5130",
+          "source": "demo-runtime/assembly/overlays/cli/tests/cli/test_native_voice.py"
+        },
+        "tests/cli/test_voice_response_policy.py": {
+          "sha256": "f8d821768db75f516217a3ef17c421f826521f98b938ca4eefe4b3f2a1146520",
+          "source": "demo-runtime/assembly/overlays/cli/tests/cli/test_voice_response_policy.py"
+        },
+        "tests/cli/test_voice_scenes.py": {
+          "sha256": "1e686ab8b4a02983c124771f4c5cadddba29f09c80ad2d40b95577f77d37fcaf",
+          "source": "demo-runtime/assembly/overlays/gateway/tests/cli/test_voice_scenes.py"
+        },
+        "tests/cli/test_voice_sentence_delivery.py": {
+          "sha256": "c8ccdaccba41d491769f70f5d473e076951319751367f36c76ce03987fa31d88",
+          "source": "demo-runtime/assembly/overlays/gateway/tests/cli/test_voice_sentence_delivery.py"
+        },
+        "tests/cli/test_voice_wake_ack.py": {
+          "sha256": "3dba4f3cc33daff2d5c00a5a55acd53ef0fa7ccbcb8a43c8559004c1523ce982",
+          "source": "demo-runtime/assembly/overlays/gateway/tests/cli/test_voice_wake_ack.py"
+        },
+        "tools/tts_tool.py": {
+          "sha256": "bc121b654221b7e6d1c8f7cdfd2a3ded43f8f8febe0a037e708f70405e137d71",
+          "source": "demo-runtime/assembly/overlays/services/tools/tts_tool.py"
+        },
+        "tools/voice_endpoint.py": {
+          "sha256": "d09e17243841491e348d30babe1fac5c420f3381f153b6efa02064e3220158a2",
+          "source": "demo-runtime/assembly/overlays/gateway/tools/voice_endpoint.py"
+        },
+        "tools/voice_mode.py": {
+          "sha256": "64fb6df4f182ad365a6d760aeec1b299b8e532ddfa344c897fa0581e56174168",
+          "source": "demo-runtime/assembly/overlays/services/tools/voice_mode.py"
+        },
+        "tools/wake_word.py": {
+          "sha256": "c9991cf100999ad9f41098aef8f3c1a71db10c5781b5c3cc7bdbf24b3d2fce7d",
+          "source": "demo-runtime/assembly/overlays/gateway/tools/wake_word.py"
+        },
+        "toolsets.py": {
+          "sha256": "fa7c407f7f42edafa72e5ae3b461281d463fadf1e90907567eaa072e9719f60a",
+          "source": "demo-runtime/assembly/overlays/cli/toolsets.py"
+        }
+      },
+      "core_remove": [
+        "agent/model_call_stats.py",
+        "docs/IM_CAPABILITY_SCOPE_PLAN_20261014.md",
+        "docs/LOCAL_AISP_EOS_ENDPOINT.md",
+        "docs/LOCAL_OVMS_INIT_WARMUP.md",
+        "docs/MEDIA_CROSS_CHANNEL_STOP.md",
+        "docs/MODEL_CALL_STATS.md",
+        "docs/VOICE_CUE_TIMING.md",
+        "docs/VOICE_EOS_END_PHRASE.md",
+        "docs/VOICE_WAKE_ACCEPTED_DEFAULTS.md",
+        "docs/VOICE_WAKE_BUFFER.md",
+        "docs/development/queued-email-formatting.md",
+        "docs/releases/20261015.3.md",
+        "docs/releases/20261016.1.md",
+        "docs/releases/20261019.1.md",
+        "hermes_cli/email_render.py",
+        "hermes_cli/voice_llm_warmup.py",
+        "hermes_cli/voice_wake_buffer.py",
+        "scripts/local-ovms/check_email_line_array.py",
+        "scripts/local-ovms/check_gateway_media_policy.py",
+        "scripts/local-ovms/check_im_capabilities.py",
+        "scripts/local-ovms/check_init_warmup.py",
+        "scripts/local-ovms/check_media_stop.py",
+        "tests/agent/test_model_call_stats.py",
+        "tests/agent/test_tool_turn_completion.py",
+        "tests/cli/test_voice_cue_timing.py",
+        "tests/cli/test_voice_llm_warmup.py",
+        "tests/cli/test_voice_wake_buffer.py",
+        "tests/hermes_cli/test_email_render.py",
+        "tests/skills/test_gateway_media_stop_policy.py",
+        "tests/tools/test_aisp_eos.py",
+        "tests/tools/test_eos_end_phrase.py",
+        "tests/tools/test_im_skills_readonly.py",
+        "tests/tools/test_media_cross_channel_stop.py",
+        "tests/tools/test_recording_end_phrase_pcm.py",
+        "tests/tools/test_recording_quiet.py",
+        "tests/tools/test_wake_audio.py",
+        "tests/tools/test_wake_config.py",
+        "tests/tools/test_wake_force_segment.py",
+        "tools/external_wake.py",
+        "tools/media_stop_policy.py",
+        "tools/playback_control.py",
+        "tools/recording_quiet.py",
+        "tools/wake_audio.py"
+      ],
+      "plugins": {
+        "demo-home/__init__.py": {
+          "sha256": "74b0a06f2c414a92a3aa0220e99e030608a23ad50d34a0aba83ee304d04e3f4f",
+          "source": "demo-runtime/plugins/cli/demo-home/__init__.py"
+        },
+        "demo-home/plugin.yaml": {
+          "sha256": "d7b2b30257852484ed1dd8ed506c93971a4f0dcc161ca4852c60e92ca2880e92",
+          "source": "demo-runtime/plugins/cli/demo-home/plugin.yaml"
+        },
+        "demo-home/simulator.py": {
+          "sha256": "387b0d4ac4fe2b98820ad90421219acccac0e0375708a14787d210fa44643df5",
+          "source": "demo-runtime/plugins/cli/demo-home/simulator.py"
+        },
+        "demo-media/__init__.py": {
+          "sha256": "580681191e0637ebe694a6ede811f02ad0093e0ef369f0c1ad109f553bc35cef",
+          "source": "demo-runtime/plugins/services/demo-media/__init__.py"
+        },
+        "demo-media/play_media.py": {
+          "sha256": "612a9075f25debd59f2f4a3f259b92c18068ed4b4a4cea491118e010158e2a21",
+          "source": "demo-runtime/plugins/cli/demo-media/play_media.py"
+        },
+        "demo-media/plugin.yaml": {
+          "sha256": "c6099cae834f64caf80495cd3a9d251005c9e38368b3e6e091bc98d0630e523f",
+          "source": "demo-runtime/plugins/cli/demo-media/plugin.yaml"
+        },
+        "email-queue/__init__.py": {
+          "sha256": "d9e4520b0b0c7abc13d6bb7be133aea41d427e6bef8e7b78fdf45e40ad0db19b",
+          "source": "demo-runtime/assembly/plugins/services/email-queue/__init__.py"
+        },
+        "email-queue/mail_queue.py": {
+          "sha256": "0e579f2aa78a8ef8bf59f3c0ebdd11c053769d89125d030c9bb1643ab0014b0b",
+          "source": "demo-runtime/assembly/plugins/services/email-queue/mail_queue.py"
+        },
+        "email-queue/plugin.yaml": {
+          "sha256": "daef5b43459f906f4f8baf9237681e129606ad551b0484111f91ce3b62459027",
+          "source": "demo-runtime/plugins/cli/email-queue/plugin.yaml"
+        },
+        "general-voice/__init__.py": {
+          "sha256": "4017e4925d46318ad4268b78d26692c686c85b4f29a3c6b54c33acfb8ad716be",
+          "source": "demo-runtime/plugins/cli/general-voice/__init__.py"
+        },
+        "general-voice/plugin.yaml": {
+          "sha256": "c8b128724cfb5a32084fedd6186f4ce6ce4acccd6cd3d18aa025529aeacb24c8",
+          "source": "demo-runtime/plugins/cli/general-voice/plugin.yaml"
+        },
+        "local-igpu-asr/__init__.py": {
+          "sha256": "f1bb762bf221a19aae65ac35c339dfe2fcec3a73b718ee508d9ea43f75fea976",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/__init__.py"
+        },
+        "local-igpu-asr/plugin.yaml": {
+          "sha256": "e6f53340ce5a38ba551b30e434f1beb9580710d1927cc8fc30176075a93904dd",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/plugin.yaml"
+        },
+        "local-igpu-asr/transport.py": {
+          "sha256": "7d16742915ab0fbc141813a6867479c89203e7b3d0f0f3161c163dfd77ee5dc8",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/transport.py"
+        },
+        "local-igpu-asr/worker.py": {
+          "sha256": "c053cc65eba88cbe2c62d8501b72fe030e5614e57383e20de41b81761b1e5afd",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/worker.py"
+        },
+        "travel-voice/__init__.py": {
+          "sha256": "7a003d9998ca5155fe093208ead68ec7c7d7831773e0fe77eaa1ffa54ec9eacd",
+          "source": "demo-runtime/plugins/cli/travel-voice/__init__.py"
+        },
+        "travel-voice/plugin.yaml": {
+          "sha256": "cbbd84a83e946fbe73e4643446aa0d2f2bf5d033c203d0204437f0b5a3cbe9a7",
+          "source": "demo-runtime/plugins/cli/travel-voice/plugin.yaml"
+        }
+      },
+      "container_helpers": {
+        "disable-cross-session-memory.py": {
+          "sha256": "5d28f21c1713e139895d071573466c09188247ccc374300682b3806d6aadd4b1",
+          "source": "demo-runtime/assembly/container/cli/disable-cross-session-memory.py"
+        },
+        "entrypoint.py": {
+          "sha256": "d86b9e30d6bab4c7f8b38ebc59bd017a55619d80f4432f74b1195bab08d4188d",
+          "source": "demo-runtime/assembly/container/gateway/entrypoint.py"
+        },
+        "media-client.py": {
+          "sha256": "612a9075f25debd59f2f4a3f259b92c18068ed4b4a4cea491118e010158e2a21",
+          "source": "demo-runtime/plugins/cli/demo-media/play_media.py"
+        },
+        "migrate-concise-prompts.py": {
+          "sha256": "2249baf95de668db588ba409b4dfd19d5b746569b61ffbc74a99915c53e84629",
+          "source": "demo-runtime/assembly/container/cli/migrate-concise-prompts.py"
+        },
+        "migrate-panel-skills.py": {
+          "sha256": "9c2b4c60ba77eb01fe3f819fe0f46816bd58aff9207146a6870048b9c38a7b92",
+          "source": "demo-runtime/assembly/container/cli/migrate-panel-skills.py"
+        },
+        "migrate-voice-endpoint.py": {
+          "sha256": "7bba5600324ae1519bde5b3652ff5b9089704a12ff6eecffe01c6af895a1142d",
+          "source": "demo-runtime/assembly/container/gateway/migrate-voice-endpoint.py"
+        },
+        "original-play-media.py": {
+          "sha256": "b053110ff7c6ab18403f121cecb6491ca646284480421827e57db78ab4f4f6be",
+          "source": "demo-runtime/assembly/container/cli/original-play-media.py"
+        }
+      },
+      "observed_core_files": 11484
+    },
+    "mail": {
+      "accepted_image_id": "sha256:709993f292468ad1eab674a391fe4b84897f6f2e7b1b2d4e582478c7fc30a342",
+      "core_overrides": {
+        "README.md": {
+          "sha256": "1d733df90c2836c1b9cd8d7307d2d222023456b7b55b5036c2fbb54fd8bcfdf4",
+          "source": "demo-runtime/assembly/overlays/cli/README.md"
+        },
+        "agent/chat_completion_helpers.py": {
+          "sha256": "0870dd9da77ce31da4a7cdbfe13cfc45f22e707a9552d9a606715f86678abcdc",
+          "source": "demo-runtime/assembly/overlays/services/agent/chat_completion_helpers.py"
+        },
+        "agent/conversation_loop.py": {
+          "sha256": "d099d3546c7d038ff2319f1db9486a56c79e7f222f951381a4b135cc2fab9dc2",
+          "source": "demo-runtime/assembly/overlays/mail/agent/conversation_loop.py"
+        },
+        "cli.py": {
+          "sha256": "7c9828080f0c1f3471b8ea44c423f6ba1f5f8bb9f4313e23bf77bd46306df39d",
+          "source": "demo-runtime/assembly/overlays/gateway/cli.py"
+        },
+        "hermes_cli/config_defaults.py": {
+          "sha256": "07265266328fccc1cb7fec8adbf682a4fec11a52d441afd5c79ee4a94ec6138d",
+          "source": "demo-runtime/assembly/overlays/gateway/hermes_cli/config_defaults.py"
+        },
+        "hermes_cli/voice.py": {
+          "sha256": "9d98e95459b8e7e09deb5780250486e68be46195f71e03d7084ab5b814418d6d",
+          "source": "demo-runtime/overlays/services/hermes_cli/voice.py"
+        },
+        "hermes_cli/voice_scenes.py": {
+          "sha256": "cf3dd9a357c33340dc8d65e50cfc7a674cf58f39ab85e1396d244c5047da1110",
+          "source": "demo-runtime/overlays/services/hermes_cli/voice_scenes.py"
+        },
+        "hermes_cli/voice_wake_ack.py": {
+          "sha256": "37be4e6b810d12f503fdb8c915c4a6e7adef1f1f04bbc413b0415902d6cc65c1",
+          "source": "demo-runtime/assembly/overlays/gateway/hermes_cli/voice_wake_ack.py"
+        },
+        "scripts/local-ovms/skills/local-media-player/SKILL.md": {
+          "sha256": "78b19ee71ad1a8f4e691558411e83a317520002bfa151df356308f77f1fb21b3",
+          "source": "demo-runtime/assembly/overlays/cli/scripts/local-ovms/skills/local-media-player/SKILL.md"
+        },
+        "tests/agent/test_empty_tool_name_loop_dampening.py": {
+          "sha256": "4db8c3ade5754d6467e07d350c2bb26456c431f4b0af4e8c9735ac607eac72e5",
+          "source": "demo-runtime/assembly/overlays/cli/tests/agent/test_empty_tool_name_loop_dampening.py"
+        },
+        "tests/cli/test_native_voice.py": {
+          "sha256": "3d1abe14c81476b029890d22a40e25952acf20473a1a6b62fa947772e11a5130",
+          "source": "demo-runtime/assembly/overlays/cli/tests/cli/test_native_voice.py"
+        },
+        "tests/cli/test_voice_response_policy.py": {
+          "sha256": "f8d821768db75f516217a3ef17c421f826521f98b938ca4eefe4b3f2a1146520",
+          "source": "demo-runtime/assembly/overlays/cli/tests/cli/test_voice_response_policy.py"
+        },
+        "tests/cli/test_voice_scenes.py": {
+          "sha256": "1e686ab8b4a02983c124771f4c5cadddba29f09c80ad2d40b95577f77d37fcaf",
+          "source": "demo-runtime/assembly/overlays/gateway/tests/cli/test_voice_scenes.py"
+        },
+        "tests/cli/test_voice_sentence_delivery.py": {
+          "sha256": "c8ccdaccba41d491769f70f5d473e076951319751367f36c76ce03987fa31d88",
+          "source": "demo-runtime/assembly/overlays/gateway/tests/cli/test_voice_sentence_delivery.py"
+        },
+        "tests/cli/test_voice_wake_ack.py": {
+          "sha256": "3dba4f3cc33daff2d5c00a5a55acd53ef0fa7ccbcb8a43c8559004c1523ce982",
+          "source": "demo-runtime/assembly/overlays/gateway/tests/cli/test_voice_wake_ack.py"
+        },
+        "tools/tts_tool.py": {
+          "sha256": "bc121b654221b7e6d1c8f7cdfd2a3ded43f8f8febe0a037e708f70405e137d71",
+          "source": "demo-runtime/assembly/overlays/services/tools/tts_tool.py"
+        },
+        "tools/voice_endpoint.py": {
+          "sha256": "d09e17243841491e348d30babe1fac5c420f3381f153b6efa02064e3220158a2",
+          "source": "demo-runtime/assembly/overlays/gateway/tools/voice_endpoint.py"
+        },
+        "tools/voice_mode.py": {
+          "sha256": "64fb6df4f182ad365a6d760aeec1b299b8e532ddfa344c897fa0581e56174168",
+          "source": "demo-runtime/assembly/overlays/services/tools/voice_mode.py"
+        },
+        "tools/wake_word.py": {
+          "sha256": "c9991cf100999ad9f41098aef8f3c1a71db10c5781b5c3cc7bdbf24b3d2fce7d",
+          "source": "demo-runtime/assembly/overlays/gateway/tools/wake_word.py"
+        },
+        "toolsets.py": {
+          "sha256": "fa7c407f7f42edafa72e5ae3b461281d463fadf1e90907567eaa072e9719f60a",
+          "source": "demo-runtime/assembly/overlays/cli/toolsets.py"
+        }
+      },
+      "core_remove": [
+        "agent/model_call_stats.py",
+        "docs/IM_CAPABILITY_SCOPE_PLAN_20261014.md",
+        "docs/LOCAL_AISP_EOS_ENDPOINT.md",
+        "docs/LOCAL_OVMS_INIT_WARMUP.md",
+        "docs/MEDIA_CROSS_CHANNEL_STOP.md",
+        "docs/MODEL_CALL_STATS.md",
+        "docs/VOICE_CUE_TIMING.md",
+        "docs/VOICE_EOS_END_PHRASE.md",
+        "docs/VOICE_WAKE_ACCEPTED_DEFAULTS.md",
+        "docs/VOICE_WAKE_BUFFER.md",
+        "docs/development/queued-email-formatting.md",
+        "docs/releases/20261015.3.md",
+        "docs/releases/20261016.1.md",
+        "docs/releases/20261019.1.md",
+        "hermes_cli/voice_llm_warmup.py",
+        "hermes_cli/voice_wake_buffer.py",
+        "scripts/local-ovms/check_email_line_array.py",
+        "scripts/local-ovms/check_gateway_media_policy.py",
+        "scripts/local-ovms/check_im_capabilities.py",
+        "scripts/local-ovms/check_init_warmup.py",
+        "scripts/local-ovms/check_media_stop.py",
+        "tests/agent/test_model_call_stats.py",
+        "tests/agent/test_tool_turn_completion.py",
+        "tests/cli/test_voice_cue_timing.py",
+        "tests/cli/test_voice_llm_warmup.py",
+        "tests/cli/test_voice_wake_buffer.py",
+        "tests/hermes_cli/test_email_render.py",
+        "tests/skills/test_gateway_media_stop_policy.py",
+        "tests/tools/test_aisp_eos.py",
+        "tests/tools/test_eos_end_phrase.py",
+        "tests/tools/test_im_skills_readonly.py",
+        "tests/tools/test_media_cross_channel_stop.py",
+        "tests/tools/test_recording_end_phrase_pcm.py",
+        "tests/tools/test_recording_quiet.py",
+        "tests/tools/test_wake_audio.py",
+        "tests/tools/test_wake_config.py",
+        "tests/tools/test_wake_force_segment.py",
+        "tools/external_wake.py",
+        "tools/media_stop_policy.py",
+        "tools/playback_control.py",
+        "tools/recording_quiet.py",
+        "tools/wake_audio.py"
+      ],
+      "plugins": {
+        "demo-home/__init__.py": {
+          "sha256": "74b0a06f2c414a92a3aa0220e99e030608a23ad50d34a0aba83ee304d04e3f4f",
+          "source": "demo-runtime/plugins/cli/demo-home/__init__.py"
+        },
+        "demo-home/plugin.yaml": {
+          "sha256": "d7b2b30257852484ed1dd8ed506c93971a4f0dcc161ca4852c60e92ca2880e92",
+          "source": "demo-runtime/plugins/cli/demo-home/plugin.yaml"
+        },
+        "demo-home/simulator.py": {
+          "sha256": "387b0d4ac4fe2b98820ad90421219acccac0e0375708a14787d210fa44643df5",
+          "source": "demo-runtime/plugins/cli/demo-home/simulator.py"
+        },
+        "demo-media/__init__.py": {
+          "sha256": "580681191e0637ebe694a6ede811f02ad0093e0ef369f0c1ad109f553bc35cef",
+          "source": "demo-runtime/plugins/services/demo-media/__init__.py"
+        },
+        "demo-media/play_media.py": {
+          "sha256": "612a9075f25debd59f2f4a3f259b92c18068ed4b4a4cea491118e010158e2a21",
+          "source": "demo-runtime/plugins/cli/demo-media/play_media.py"
+        },
+        "demo-media/plugin.yaml": {
+          "sha256": "c6099cae834f64caf80495cd3a9d251005c9e38368b3e6e091bc98d0630e523f",
+          "source": "demo-runtime/plugins/cli/demo-media/plugin.yaml"
+        },
+        "email-queue/__init__.py": {
+          "sha256": "66cf08915c37a65ae47a1c089828545e2fd25cb28874cf674ca1c4f0e37f4159",
+          "source": "demo-runtime/plugins/cli/email-queue/__init__.py"
+        },
+        "email-queue/mail_queue.py": {
+          "sha256": "e0cc195daa14bd2b39ec97c6778099bd6e0469f7610888ebe06cf28bbdbefb04",
+          "source": "demo-runtime/plugins/cli/email-queue/mail_queue.py"
+        },
+        "email-queue/plugin.yaml": {
+          "sha256": "daef5b43459f906f4f8baf9237681e129606ad551b0484111f91ce3b62459027",
+          "source": "demo-runtime/plugins/cli/email-queue/plugin.yaml"
+        },
+        "general-voice/__init__.py": {
+          "sha256": "4017e4925d46318ad4268b78d26692c686c85b4f29a3c6b54c33acfb8ad716be",
+          "source": "demo-runtime/plugins/cli/general-voice/__init__.py"
+        },
+        "general-voice/plugin.yaml": {
+          "sha256": "c8b128724cfb5a32084fedd6186f4ce6ce4acccd6cd3d18aa025529aeacb24c8",
+          "source": "demo-runtime/plugins/cli/general-voice/plugin.yaml"
+        },
+        "local-igpu-asr/__init__.py": {
+          "sha256": "f1bb762bf221a19aae65ac35c339dfe2fcec3a73b718ee508d9ea43f75fea976",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/__init__.py"
+        },
+        "local-igpu-asr/plugin.yaml": {
+          "sha256": "e6f53340ce5a38ba551b30e434f1beb9580710d1927cc8fc30176075a93904dd",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/plugin.yaml"
+        },
+        "local-igpu-asr/transport.py": {
+          "sha256": "7d16742915ab0fbc141813a6867479c89203e7b3d0f0f3161c163dfd77ee5dc8",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/transport.py"
+        },
+        "local-igpu-asr/worker.py": {
+          "sha256": "c053cc65eba88cbe2c62d8501b72fe030e5614e57383e20de41b81761b1e5afd",
+          "source": "demo-runtime/plugins/cli/local-igpu-asr/worker.py"
+        },
+        "travel-voice/__init__.py": {
+          "sha256": "7a003d9998ca5155fe093208ead68ec7c7d7831773e0fe77eaa1ffa54ec9eacd",
+          "source": "demo-runtime/plugins/cli/travel-voice/__init__.py"
+        },
+        "travel-voice/plugin.yaml": {
+          "sha256": "cbbd84a83e946fbe73e4643446aa0d2f2bf5d033c203d0204437f0b5a3cbe9a7",
+          "source": "demo-runtime/plugins/cli/travel-voice/plugin.yaml"
+        }
+      },
+      "container_helpers": {
+        "disable-cross-session-memory.py": {
+          "sha256": "5d28f21c1713e139895d071573466c09188247ccc374300682b3806d6aadd4b1",
+          "source": "demo-runtime/assembly/container/cli/disable-cross-session-memory.py"
+        },
+        "entrypoint.py": {
+          "sha256": "d86b9e30d6bab4c7f8b38ebc59bd017a55619d80f4432f74b1195bab08d4188d",
+          "source": "demo-runtime/assembly/container/gateway/entrypoint.py"
+        },
+        "media-client.py": {
+          "sha256": "612a9075f25debd59f2f4a3f259b92c18068ed4b4a4cea491118e010158e2a21",
+          "source": "demo-runtime/plugins/cli/demo-media/play_media.py"
+        },
+        "migrate-concise-prompts.py": {
+          "sha256": "2249baf95de668db588ba409b4dfd19d5b746569b61ffbc74a99915c53e84629",
+          "source": "demo-runtime/assembly/container/cli/migrate-concise-prompts.py"
+        },
+        "migrate-panel-skills.py": {
+          "sha256": "9c2b4c60ba77eb01fe3f819fe0f46816bd58aff9207146a6870048b9c38a7b92",
+          "source": "demo-runtime/assembly/container/cli/migrate-panel-skills.py"
+        },
+        "migrate-voice-endpoint.py": {
+          "sha256": "7bba5600324ae1519bde5b3652ff5b9089704a12ff6eecffe01c6af895a1142d",
+          "source": "demo-runtime/assembly/container/gateway/migrate-voice-endpoint.py"
+        },
+        "original-play-media.py": {
+          "sha256": "b053110ff7c6ab18403f121cecb6491ca646284480421827e57db78ab4f4f6be",
+          "source": "demo-runtime/assembly/container/cli/original-play-media.py"
+        }
+      },
+      "observed_core_files": 11485
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  ".gitattributes": {
+    "executable": true,
+    "sha256": "34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930",
+    "size": 1570
+  },
+  "chat_template.jinja": {
+    "executable": true,
+    "sha256": "f50e6b694fbf4a683206e37869990d68333fe95d285730f084c838a34b0d98c2",
+    "size": 1434
+  },
+  "config.json": {
+    "executable": true,
+    "sha256": "e56901e7a105e01aaa2dde36c420f227dff99dd1d0ac0636d5a21affc3bd9995",
+    "size": 2763
+  },
+  "generation_config.json": {
+    "executable": true,
+    "sha256": "df46acdace2b2310226154fb33e392c7cc921187f9679e9e3e6e0244a78218e2",
+    "size": 148
+  },
+  "openvino_config.json": {
+    "executable": true,
+    "sha256": "2d0cf3b5421d2693ba6bbb1de4847c8e7a9fdefb3fc514e811dc54b046ef4f74",
+    "size": 476
+  },
+  "openvino_decoder_model.bin": {
+    "executable": true,
+    "sha256": "b6389ba2450b05086ca1aa8dc5983ea9cdc2051b0a7a766e4e6902043c9b637b",
+    "size": 597735084
+  },
+  "openvino_decoder_model.xml": {
+    "executable": true,
+    "sha256": "49bd5b8127ebda6341ee45edba4239fc90027f26c193044877445db3515a3e0f",
+    "size": 2704028
+  },
+  "openvino_detokenizer.bin": {
+    "executable": true,
+    "sha256": "5d61185747c1da506c668eb78d79b2a4f3431b38a62c4ba53a5817cb7357bdb8",
+    "size": 2190496
+  },
+  "openvino_detokenizer.xml": {
+    "executable": true,
+    "sha256": "2ed1b24afda63214c0a4340eac33d84ffe61065c767bb6a6e8a95ee230393f7e",
+    "size": 8627
+  },
+  "openvino_encoder_model.bin": {
+    "executable": true,
+    "sha256": "d3219ccedfa687b2742be3d3588fdca0ae43dc90b201f9d2f43d74966e1be7c2",
+    "size": 187221596
+  },
+  "openvino_encoder_model.xml": {
+    "executable": true,
+    "sha256": "d41788ddd60a93d5d0a1674a90a5a827e90c9d219dab911de6a60bb344b574d7",
+    "size": 965812
+  },
+  "openvino_tokenizer.bin": {
+    "executable": true,
+    "sha256": "7275eb119067b985a49288f5c22e177cd56dfdeb5bc01d0c2a31c112ad8542ce",
+    "size": 5590735
+  },
+  "openvino_tokenizer.xml": {
+    "executable": true,
+    "sha256": "f354031ee7e07c0c0c73aa950b84338353d41ea4bb906566259f342c53024252",
+    "size": 25620
+  },
+  "preprocessor_config.json": {
+    "executable": true,
+    "sha256": "68c5de218c110e61edded1fea3ecf5d6c5adf672b904db079178e08b86267542",
+    "size": 356
+  },
+  "processor_config.json": {
+    "executable": true,
+    "sha256": "bc0b230081b44e629dd5b9045b78495615c1831b4b9f4cffe97bd37e82a6156a",
+    "size": 487
+  },
+  "tokenizer.json": {
+    "executable": true,
+    "sha256": "fe1fad59be22a41ee293363fcf95fdedbc7c93f3b49270b1d2e18bd1399a7a05",
+    "size": 11429653
+  },
+  "tokenizer_config.json": {
+    "executable": true,
+    "sha256": "8fcf05424a8841ffec1dbcd2c57d9f871305f7ed74e21cf35037486be61f7791",
+    "size": 999
+  }
+}

@@ -23,8 +23,10 @@ Current product sources:
 - `wake`: AISP wake service and bridge sources.
 
 Configuration templates now live in [profiles](profiles/README.md), with a
-standalone renderer in `build/render_profile.py`. Reusable build/host scripts
-and dependency manifests still need consolidation from `shawnxhong/hermes-demo-ops`. The inventory is
+standalone renderer in `build/render_profile.py`. Role assembly, reference Compose, host sources and asset locks are now captured
+in [assembly](assembly/README.md). Full native/dependency builds and host install
+integration remain pending. Their provenance comes from `shawnxhong/hermes-demo-ops`
+and the accepted images. The inventory is
 `docs/MAIN_CONVERGENCE_INVENTORY_20261111.md` at ops commit `94e2853`;
 its classifications remain applicable, with this release branch replacing main
 as the initial integration destination. Its file/field inventories are in

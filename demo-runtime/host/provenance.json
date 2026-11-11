@@ -1,0 +1,42 @@
+{
+  "control.py": {
+    "origin": "ops/normalized/host/control.py",
+    "sha256": "ac11f34cd13caacf37d3322952c53d81005934dda3a64bea615fde9804f26fc3"
+  },
+  "aisp_startup.py": {
+    "origin": "ops/normalized/host/aisp_startup.py",
+    "sha256": "6bad724d963f74afaa9725bfac251d1faf798a173e013065b5ebc2a1e0477d36"
+  },
+  "media-bridge.py": {
+    "origin": "ops/normalized/host/media-bridge.py",
+    "sha256": "eb683e897d4bd34463cac57d522d969f3bfa8bd5006f3023f90873c704fee7ba"
+  },
+  "host-play-media.py": {
+    "origin": "ops/normalized/host/host-play-media.py",
+    "sha256": "69163e51e4e7e4456131f12136889741cb602b5bf59553792a6f386dc39263a2"
+  },
+  "recording-quiet/server.py": {
+    "origin": "accepted runtime host/recording-quiet/server.py",
+    "sha256": "5e3e89f3a02213efba62f46330287750ba4b7522698f7bfed0bc0188c913c8b4"
+  },
+  "recording-quiet/recording_quiet.py": {
+    "origin": "accepted runtime host/recording-quiet/recording_quiet.py",
+    "sha256": "021739d4c63e5d739b98717e11017cafe5b3d609cf6a4c7d2415dd67c919ce4e"
+  },
+  "voice-autostart/desktop.py": {
+    "origin": "ops/host/voice-autostart/desktop.py",
+    "sha256": "9f248bbc5aa57e01593a0f779ec08bb17a143368a6ed480132562f1b5e5dd701"
+  },
+  "voice-autostart/session.sh": {
+    "origin": "ops/host/voice-autostart/session.sh",
+    "sha256": "46157ce69e233ee4fdadac63ec0cf530a1999106f099bb10dc12fcbabfdfb72d"
+  },
+  "voice-autostart/session.bashrc": {
+    "origin": "ops/host/voice-autostart/session.bashrc",
+    "sha256": "184127c42129d09d25acf4a891f8763e99371f8f577ab7e18e535899be94a168"
+  },
+  "lifecycle.py": {
+    "origin": "accepted runtime lifecycle.py; older than ops fleet_install.py host_control_defaults extension",
+    "sha256": "c7811ccfcd85901c7f5e93530f68e2e2c8875c7c45dc6021a66fc7522d2074f7"
+  }
+}

@@ -1,0 +1,77 @@
+--- a/module-echo-cancel.c
++++ b/module-echo-cancel.c
+@@ -233,6 +233,8 @@
+ 	struct spa_io_position *capture_position;
+ 	struct spa_io_position *sink_position;
+ 	uint32_t capture_cycle;
++	bool capture_ready;
++	bool sink_ready;
+ 	uint32_t sink_cycle;
+ 
+ 	unsigned int do_disconnect:1;
+@@ -485,6 +487,8 @@
+ done:
+ 	impl->capture_cycle = 0;
+ 	impl->sink_cycle = 0;
++	impl->capture_ready = false;
++	impl->sink_ready = false;
+ }
+ 
+ static void reset_buffers(struct impl *impl)
+@@ -510,6 +514,8 @@
+ 
+ 	impl->capture_cycle = 0;
+ 	impl->sink_cycle = 0;
++	impl->capture_ready = false;
++	impl->sink_ready = false;
+ }
+ 
+ static void capture_destroy(void *d)
+@@ -579,7 +585,11 @@
+ 			impl->capture_cycle = impl->capture_position->clock.cycle;
+ 		else
+ 			pw_log_warn("no capture position");
+-		if (impl->capture_cycle == impl->sink_cycle)
++		impl->capture_ready = true;
++		/* Older servers leave clock.cycle at zero (formerly padding).
++		 * Equality alone does not mean both inputs supplied a block. */
++		if (impl->capture_ready && impl->sink_ready &&
++		    impl->capture_cycle == impl->sink_cycle)
+ 			process(impl);
+ 	}
+ 
+@@ -984,7 +994,11 @@
+ 			impl->sink_cycle = impl->sink_position->clock.cycle;
+ 		else
+ 			pw_log_warn("no sink position");
+-		if (impl->capture_cycle == impl->sink_cycle)
++		impl->sink_ready = true;
++		/* Older servers leave clock.cycle at zero (formerly padding).
++		 * Equality alone does not mean both inputs supplied a block. */
++		if (impl->capture_ready && impl->sink_ready &&
++		    impl->capture_cycle == impl->sink_cycle)
+ 			process(impl);
+ 	}
+ 
+@@ -1230,6 +1244,21 @@
+ static void impl_destroy(struct impl *impl)
+ {
+ 	uint32_t i;
++	/* Stop both producers before releasing any cross-referenced stream.
++	 * Removing a process listener synchronizes with the stream data loop
++	 * (stream.c:hook_removed). Disconnect/destroy events must not run our
++	 * state callbacks against partially destroyed peers either.
++	 * A non-NULL stream has its listener installed in setup_streams().
++	 */
++	if (impl->capture)
++		spa_hook_remove(&impl->capture_listener);
++	if (impl->sink)
++		spa_hook_remove(&impl->sink_listener);
++	if (impl->source)
++		spa_hook_remove(&impl->source_listener);
++	if (impl->playback)
++		spa_hook_remove(&impl->playback_listener);
++
+ 	if (impl->capture)
+ 		pw_stream_destroy(impl->capture);
+ 	if (impl->source)

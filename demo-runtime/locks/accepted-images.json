@@ -1,0 +1,21 @@
+{
+  "baseline": "docker-20261023.1",
+  "images": {
+    "cli": "sha256:aaf104ee25ed248639c3ef749792b0f7dfd4d4a6ae19f1da90868d713976a193",
+    "aisp_wake": "sha256:54443217692aedb8b763280856edb009e459e1b5d18f9147f5c1c4dbe6d52b4f",
+    "ovms": "sha256:cc13f88dc249cb94ab30cab90286b0c72a329e3d605da497bd4e594c5d21af00",
+    "gateway": "sha256:e46572172c2671c6abe79e77f2773b491da38574e465e22e555bb78d19e8fd88",
+    "mail": "sha256:709993f292468ad1eab674a391fe4b84897f6f2e7b1b2d4e582478c7fc30a342",
+    "services": "sha256:073858d56f91567adec0bccdab9f37073b5d90bd072e36fc4e8a51492ec71f19",
+    "quiet_fan": "sha256:50250ede4a7c1aa7be036d69f6f2d0672ffce0c4f076339e72b3a7926f6c82e4"
+  },
+  "dependencies": {
+    "aec_module_sha256": "7ab3fde10685dd0422295a4576c0ca04ffbbb527128017b150078622431c7819",
+    "ovms_version": "2026.2.1",
+    "sdk_runtime_sha256": "f3f72ebb1e222d39a7b8d2c128d1eb4f06bf9e7b5c5a6998646662973cbc77a0",
+    "sdk_archive_sha256": "d955dc5e242cc0fd7ec05f1d518c52191b0d827e14b0ce1883d83bb370d0795b",
+    "sdk_artifact_image": "sha256:26518b2d6663d2085b61684135bae3ff5eb567bf7a504a0b70a4882c15a9b72f",
+    "vad_bridge_sha256": "67d87e15d2db4c728d4c62a52294a479222374524dfd2f746c5930bb852dbc84",
+    "aec_module_donor": "sha256:d6814195a15199bf0efa0ccc4fb06fa37647c33f1a5b435a6925ef42223ac9d8"
+  }
+}

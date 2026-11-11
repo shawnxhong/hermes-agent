@@ -1,0 +1,10 @@
+{
+  "parent": "sha256:e95207dc843ea676653cee7f5ad77a93730271023c3742b6f764fba8408999e8",
+  "pipewire_version": "1.6.2-1ubuntu1.2",
+  "inputs": {
+    "echo-cancel-1.6.2.c": "c43076a58e34092d0c1cf0042492ba763346f2326d6688fd033ada62d35410bf",
+    "wavfile.h": "cdc08d456149ac3bdec1101b5e95b80e140701c1363825a8fdd99b4eaabd3daf",
+    "libpipewire-0.3-dev_1.6.2-1ubuntu1.2_amd64.deb": "acb939694a484a55fd1a8a266284ee2bb117c80f95def5102c58692c9524618c",
+    "libspa-0.2-dev_1.6.2-1ubuntu1.2_amd64.deb": "855c99e14cd51eacb9ac2536a8a03efd0889e150ce4fdee57789774dd963ceb9"
+  }
+}

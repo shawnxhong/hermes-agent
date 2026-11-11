@@ -1,0 +1,132 @@
+{
+  ".gitattributes": {
+    "executable": false,
+    "sha256": "34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930",
+    "size": 1570
+  },
+  "README.md": {
+    "executable": false,
+    "sha256": "f72f90d2508ec0cbc1e43ad1b7338543acf732891b56d9365b620c2e8dc8008b",
+    "size": 7108
+  },
+  "chat_template.jinja": {
+    "executable": false,
+    "sha256": "7f37d41cf193fbe4d2acc7de68900225f228cf38166a8604a51b26867539078a",
+    "size": 9130
+  },
+  "chat_template.jinja.bak_think": {
+    "executable": false,
+    "sha256": "c3f7038f278583e1c1e0a3796a2f885472a75f9265c2ce75fd261908babb9700",
+    "size": 9131
+  },
+  "chat_template_original.jinja": {
+    "executable": false,
+    "sha256": "e84f32a23fdda27689f868aa4a1a5621f41133e51a48d7f3efcbea2839574259",
+    "size": 7764
+  },
+  "config.json": {
+    "executable": false,
+    "sha256": "a859aceb5c6c8651c3d49238af21ed36ea6242f0d914f4a2b3f451eb0f1db961",
+    "size": 3187
+  },
+  "generation_config.json": {
+    "executable": false,
+    "sha256": "07f857aba5260b2ea2513f80de8062d086661f00eada0a3794964e665ba680f5",
+    "size": 213
+  },
+  "openvino_config.json": {
+    "executable": false,
+    "sha256": "f2e55f59a648ac9a3206a18d8dc06c07bea41025dd13110f4a84b79775da19ad",
+    "size": 2601
+  },
+  "openvino_detokenizer.bin": {
+    "executable": false,
+    "sha256": "48fc2c6a7a1056994982911eb9695826acef933c3d742364c56d16317a0b2a79",
+    "size": 3828184
+  },
+  "openvino_detokenizer.xml": {
+    "executable": false,
+    "sha256": "e4d8e778bc6b69bbab6deb09f466c8eac3b1c697a87840a5e53f9523153b97b5",
+    "size": 15600
+  },
+  "openvino_language_model.bin": {
+    "executable": false,
+    "sha256": "44b8b72c7009a5a76d3430c910cdadc7829629707c326cd5ca6530329fa66a62",
+    "size": 18646558274
+  },
+  "openvino_language_model.xml": {
+    "executable": false,
+    "sha256": "21fe4d57d6d016f5689248be01901b1107850ec4efebb31cdbb1262899e72919",
+    "size": 8221673
+  },
+  "openvino_text_embeddings_model.bin": {
+    "executable": false,
+    "sha256": "b9957db96d6aca2a8cb0e193cf970f801dbbea183cfd01bf04e649405d9b8b51",
+    "size": 509056004
+  },
+  "openvino_text_embeddings_model.xml": {
+    "executable": false,
+    "sha256": "8f7ff1b3017e49094e93f221371306368c712b98daa5348b3a2265bc3d159fe1",
+    "size": 5933
+  },
+  "openvino_tokenizer.bin": {
+    "executable": false,
+    "sha256": "ea3fcce2251902efffbc774cbc8ffff69e981412347a1e510e430c6557a63701",
+    "size": 9631154
+  },
+  "openvino_tokenizer.xml": {
+    "executable": false,
+    "sha256": "9bc2c00bf9bdedbb72f261561d43da06142e7e0b364a76fbb5918fb6c2fd8e13",
+    "size": 32594
+  },
+  "openvino_vision_embeddings_merger_model.bin": {
+    "executable": false,
+    "sha256": "a995b0d1c23a3247d580f74b491e82fc6fc023238d1248bf9fd1baa12d41b578",
+    "size": 443361892
+  },
+  "openvino_vision_embeddings_merger_model.xml": {
+    "executable": false,
+    "sha256": "7df29e7bdf3c8a565a9ca8886bb255b32ec32b2a29fa12539f58699c35d71043",
+    "size": 1322526
+  },
+  "openvino_vision_embeddings_model.bin": {
+    "executable": false,
+    "sha256": "631d92e19f219a37262cd25ff9fde218f3c1fe8d648b59881641bf6cbf31bb87",
+    "size": 7082552
+  },
+  "openvino_vision_embeddings_model.xml": {
+    "executable": false,
+    "sha256": "1c2550d7a817177d4fea5e6a92ed75d6078cc43a40b670e45c5963ba443daf91",
+    "size": 5156
+  },
+  "openvino_vision_embeddings_pos_model.bin": {
+    "executable": false,
+    "sha256": "aa6c0b30472a88a431c8ac2a692214b0a4f2263b71105a1772181f30c56d194e",
+    "size": 5308420
+  },
+  "openvino_vision_embeddings_pos_model.xml": {
+    "executable": false,
+    "sha256": "2fa7739cfeed7ee54cff67ecb23a12f2282eabff94ce7c349a1b7b1910795ea9",
+    "size": 3271
+  },
+  "preprocessor_config.json": {
+    "executable": false,
+    "sha256": "957eb01d1ea45341a92d543daec95857a7cbeff5803834bc0603b27ba7b41b3f",
+    "size": 482
+  },
+  "processor_config.json": {
+    "executable": false,
+    "sha256": "14932921ca485d458a04dafd8069fbb0a4505622a48208d19ed247115801385b",
+    "size": 1300
+  },
+  "tokenizer.json": {
+    "executable": false,
+    "sha256": "87a7830d63fcf43bf241c3c5242e96e62dd3fdc29224ca26fed8ea333db72de4",
+    "size": 19989343
+  },
+  "tokenizer_config.json": {
+    "executable": false,
+    "sha256": "e98f1901ac6f0adff67b1d540bfa0c36ac1a0cf59eb72ed78146ef89aafa1182",
+    "size": 1139
+  }
+}

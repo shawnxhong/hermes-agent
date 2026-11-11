@@ -1,0 +1,608 @@
+{
+  "name": "${PROJECT}",
+  "services": {
+    "aisp-wake": {
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "--device",
+        "GPU",
+        "--config",
+        "/config/wake/config.yaml"
+      ],
+      "devices": [
+        {
+          "source": "/dev/dri",
+          "target": "/dev/dri",
+          "permissions": "rwm"
+        }
+      ],
+      "entrypoint": null,
+      "environment": {
+        "PIPEWIRE_REMOTE": "pipewire-0",
+        "XDG_RUNTIME_DIR": "/audio"
+      },
+      "group_add": [
+        "${VIDEO_GID}",
+        "${RENDER_GID}"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python3",
+          "-c",
+          "from pathlib import Path; assert Path('/ipc/wake/service.sock').is_socket()"
+        ],
+        "timeout": "2s",
+        "interval": "3s",
+        "retries": 30,
+        "start_period": "1m0s"
+      },
+      "image": "sha256:54443217692aedb8b763280856edb009e459e1b5d18f9147f5c1c4dbe6d52b4f",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-file": "3",
+          "max-size": "5m"
+        }
+      },
+      "network_mode": "none",
+      "pull_policy": "never",
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/tmp:size=256m,mode=1777"
+      ],
+      "user": "${UID}:${GID}",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${AUDIO_RUNTIME}/pipewire-0",
+          "target": "/audio/pipewire-0",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/ipc/wake",
+          "target": "/ipc/wake",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${MODELS}/wake-asr",
+          "target": "/models/qwen3-asr",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/config/wake",
+          "target": "/config/wake",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "asr": {
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "asr"
+      ],
+      "devices": [
+        {
+          "source": "/dev/dri",
+          "target": "/dev/dri",
+          "permissions": "rwm"
+        }
+      ],
+      "entrypoint": null,
+      "environment": {
+        "HERMES_HOME": "/state",
+        "HERMES_MEDIA_BRIDGE": "/ipc/media/service.sock",
+        "HOME": "/home/hermes",
+        "PIPEWIRE_REMOTE": "pipewire-0",
+        "PULSE_SERVER": "unix:/audio/pulse/native",
+        "XDG_RUNTIME_DIR": "/audio"
+      },
+      "group_add": [
+        "${VIDEO_GID}",
+        "${RENDER_GID}"
+      ],
+      "image": "sha256:073858d56f91567adec0bccdab9f37073b5d90bd072e36fc4e8a51492ec71f19",
+      "init": true,
+      "network_mode": "host",
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "stop_grace_period": "20s",
+      "user": "${UID}:${GID}",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/ipc",
+          "target": "/ipc",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${MODELS}/question-asr",
+          "target": "/models/asr",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "cli": {
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "cli"
+      ],
+      "depends_on": {
+        "aisp-wake": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "HERMES_HOME": "/state",
+        "HERMES_MEDIA_BRIDGE": "/ipc/media/service.sock",
+        "HOME": "/home/hermes",
+        "PIPEWIRE_REMOTE": "pipewire-0",
+        "PULSE_SERVER": "unix:/audio/pulse/native",
+        "XDG_RUNTIME_DIR": "/audio"
+      },
+      "image": "sha256:aaf104ee25ed248639c3ef749792b0f7dfd4d4a6ae19f1da90868d713976a193",
+      "init": true,
+      "network_mode": "host",
+      "pull_policy": "never",
+      "restart": "no",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "stdin_open": true,
+      "stop_grace_period": "20s",
+      "tty": true,
+      "user": "${UID}:${GID}",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/state",
+          "target": "/state",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/ipc",
+          "target": "/ipc",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/work",
+          "target": "/home/hermes",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${AUDIO_RUNTIME}/pipewire-0",
+          "target": "/audio/pipewire-0",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${AUDIO_RUNTIME}/pulse",
+          "target": "/audio/pulse",
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "gateway": {
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "gateway"
+      ],
+      "entrypoint": null,
+      "environment": {
+        "HERMES_HOME": "/state",
+        "HERMES_MEDIA_BRIDGE": "/ipc/media/service.sock",
+        "HOME": "/home/hermes",
+        "PIPEWIRE_REMOTE": "pipewire-0",
+        "PULSE_SERVER": "unix:/audio/pulse/native",
+        "XDG_RUNTIME_DIR": "/audio"
+      },
+      "image": "sha256:e46572172c2671c6abe79e77f2773b491da38574e465e22e555bb78d19e8fd88",
+      "init": true,
+      "network_mode": "host",
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "stop_grace_period": "1m15s",
+      "user": "${UID}:${GID}",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/gateway-state",
+          "target": "/state",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/ipc",
+          "target": "/ipc",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/work",
+          "target": "/home/hermes",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/state/mail-queue",
+          "target": "/state/mail-queue",
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "home": {
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "home"
+      ],
+      "entrypoint": null,
+      "environment": {
+        "HERMES_HOME": "/state",
+        "HERMES_MEDIA_BRIDGE": "/ipc/media/service.sock",
+        "HOME": "/home/hermes",
+        "PIPEWIRE_REMOTE": "pipewire-0",
+        "PULSE_SERVER": "unix:/audio/pulse/native",
+        "XDG_RUNTIME_DIR": "/audio"
+      },
+      "image": "sha256:073858d56f91567adec0bccdab9f37073b5d90bd072e36fc4e8a51492ec71f19",
+      "init": true,
+      "network_mode": "host",
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "stop_grace_period": "20s",
+      "user": "${UID}:${GID}",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/state",
+          "target": "/state",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/ipc",
+          "target": "/ipc",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/work",
+          "target": "/home/hermes",
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "mail": {
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "mail"
+      ],
+      "entrypoint": null,
+      "environment": {
+        "HERMES_HOME": "/state",
+        "HERMES_MEDIA_BRIDGE": "/ipc/media/service.sock",
+        "HOME": "/home/hermes",
+        "PIPEWIRE_REMOTE": "pipewire-0",
+        "PULSE_SERVER": "unix:/audio/pulse/native",
+        "XDG_RUNTIME_DIR": "/audio"
+      },
+      "image": "sha256:709993f292468ad1eab674a391fe4b84897f6f2e7b1b2d4e582478c7fc30a342",
+      "init": true,
+      "network_mode": "host",
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "stop_grace_period": "20s",
+      "user": "${UID}:${GID}",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/state",
+          "target": "/state",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/ipc",
+          "target": "/ipc",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/work",
+          "target": "/home/hermes",
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "ovms": {
+      "command": [
+        "--model_path",
+        "/model",
+        "--model_name",
+        "qwen3.6-35b-a3b",
+        "--task",
+        "text_generation",
+        "--pipeline_type",
+        "VLM_CB",
+        "--target_device",
+        "GPU",
+        "--tool_parser",
+        "hermes3",
+        "--enable_tool_guided_generation",
+        "true",
+        "--rest_port",
+        "8000"
+      ],
+      "devices": [
+        {
+          "source": "/dev/dri",
+          "target": "/dev/dri",
+          "permissions": "rwm"
+        }
+      ],
+      "entrypoint": [
+        "/ovms/bin/ovms"
+      ],
+      "environment": {
+        "DEBIAN_FRONTEND": "noninteractive",
+        "LD_LIBRARY_PATH": "/ovms/lib",
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/ovms/bin",
+        "PYTHONPATH": "/ovms/lib/python:/ovms/python_deps"
+      },
+      "group_add": [
+        "${VIDEO_GID}",
+        "${RENDER_GID}"
+      ],
+      "image": "sha256:cc13f88dc249cb94ab30cab90286b0c72a329e3d605da497bd4e594c5d21af00",
+      "ipc": "private",
+      "network_mode": "bridge",
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "0.0.0.0",
+          "target": 8000,
+          "published": "8000",
+          "protocol": "tcp"
+        }
+      ],
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "shm_size": "67108864",
+      "user": "ovms",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${MODELS}/llm",
+          "target": "/model",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "quiet-fan": {
+      "cap_drop": [
+        "ALL"
+      ],
+      "cpus": 0.5,
+      "command": [
+        "--role",
+        "fan",
+        "--socket",
+        "/quiet/fan.sock",
+        "--state",
+        "/quiet/fan-state.json",
+        "--uid",
+        "${UID}"
+      ],
+      "entrypoint": [
+        "/usr/bin/python3",
+        "/opt/qwen-wake/quiet_server.py"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python3",
+          "-c",
+          "from pathlib import Path; assert Path(\"/quiet/fan.sock\").is_socket()"
+        ],
+        "timeout": "3s",
+        "interval": "10s",
+        "retries": 3
+      },
+      "image": "sha256:50250ede4a7c1aa7be036d69f6f2d0672ffce0c4f076339e72b3a7926f6c82e4",
+      "mem_limit": "134217728",
+      "network_mode": "none",
+      "read_only": true,
+      "restart": "unless-stopped",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "stop_grace_period": "20s",
+      "user": "0:${GID}",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/ipc/recording-quiet",
+          "target": "/quiet",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${FAN_CONTROL}/cur_state",
+          "target": "/fan/state",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${FAN_CONTROL}/max_state",
+          "target": "/fan/maximum",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${FAN_CONTROL}/type",
+          "target": "/fan/type",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${FAN_RPM}",
+          "target": "/fan/rpm",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${TEMPERATURES}",
+          "target": "/temps",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "tts": {
+      "cap_drop": [
+        "ALL"
+      ],
+      "command": [
+        "tts"
+      ],
+      "entrypoint": null,
+      "environment": {
+        "HERMES_HOME": "/state",
+        "HERMES_MEDIA_BRIDGE": "/ipc/media/service.sock",
+        "HOME": "/home/hermes",
+        "PIPEWIRE_REMOTE": "pipewire-0",
+        "PULSE_SERVER": "unix:/audio/pulse/native",
+        "XDG_RUNTIME_DIR": "/audio"
+      },
+      "image": "sha256:073858d56f91567adec0bccdab9f37073b5d90bd072e36fc4e8a51492ec71f19",
+      "init": true,
+      "network_mode": "host",
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "stop_grace_period": "20s",
+      "user": "${UID}:${GID}",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${RUNTIME}/ipc",
+          "target": "/ipc",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${MODELS}/tts",
+          "target": "/models/tts",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    }
+  }
+}

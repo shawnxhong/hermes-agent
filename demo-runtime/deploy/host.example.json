@@ -1,0 +1,13 @@
+{
+  "PROJECT": "hermes-example",
+  "RUNTIME": "/srv/hermes/runtime",
+  "MODELS": "/srv/hermes/models",
+  "AUDIO_RUNTIME": "/run/user/1000",
+  "UID": "1000",
+  "GID": "1000",
+  "VIDEO_GID": "44",
+  "RENDER_GID": "REPLACE_ME",
+  "FAN_CONTROL": "REPLACE_ME",
+  "FAN_RPM": "REPLACE_ME",
+  "TEMPERATURES": "REPLACE_ME"
+}
