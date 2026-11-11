@@ -5,6 +5,17 @@ voice/IM product. It starts at tag `20261023.1`, application commit
 `8174860c9fcabb7c88e3a235fb3914fda8e46670` (product baseline
 `docker-20261023.1`). Upstream-style `main` remains unchanged.
 
+## Unified build release — ubuntu-demo-20261111.2
+
+Use [UNIFIED_BUILD.md](build/UNIFIED_BUILD.md) for a single-command build.
+The complete chain was tested by a newly created non-sudo Ubuntu user, cloning
+from GitHub and reading declared shared assets, with Docker build cache disabled.
+All stages passed; a real `--resume` reused all seven stages and repeated final
+checks. Production container identities, start times and configuration hashes
+were unchanged. See [the validation receipt](build/results/20261111-unified-build.json).
+This test uses the same host/Docker daemon, not a clean VM; no live audio or
+production service switch was performed. The previous source tag remains intact.
+
 ## Status
 
 This developer source release preserves the accepted product behavior and adds

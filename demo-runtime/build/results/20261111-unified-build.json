@@ -1,0 +1,169 @@
+{
+  "release": "ubuntu-demo-20261111.2",
+  "tested_source_commit": "287ce7240d579e784e82e14b17c0f6dae8767f6a",
+  "validation_user": "hermes-build-test",
+  "source_obtained": "fresh GitHub clone, no local source copy",
+  "sudo_membership": false,
+  "production_credentials_copied": false,
+  "models_required": false,
+  "docker_layer_cache_disabled": true,
+  "build_limits": {
+    "cpu_cores": 2,
+    "memory_bytes": 8589934592,
+    "kernel_cgroup_observed": true
+  },
+  "stages": {
+    "os-cli": {
+      "status": "passed",
+      "images": [
+        "sha256:fe7bb8d6ee787fdeeb976df58091796ae6f46fdf15660945c6fb8c374a0b0f3d"
+      ]
+    },
+    "os-wake": {
+      "status": "passed",
+      "images": [
+        "sha256:dfffe7ec7483abb670a9a2b850539c72389122272a43a6de6dc46d8f2cd38707"
+      ]
+    },
+    "os-sdk-toolchain": {
+      "status": "passed",
+      "images": [
+        "sha256:f6d5fd67ca4624e9c11acad6d03959ea0d33a2e2fa1f5cf8c6a75c8de31710fe"
+      ]
+    },
+    "python": {
+      "status": "passed",
+      "images": [
+        "sha256:c7237fb50e9f8b73cf4d6cbf367817e11add791d269042afd0a556b9b09ea918"
+      ]
+    },
+    "native": {
+      "status": "passed",
+      "images": []
+    },
+    "roles": {
+      "status": "passed",
+      "images": [
+        "sha256:8ca21bc4bea332c04bbe545097913fba97aacc9b22288476d55a9320e3dc32f0",
+        "sha256:bacb51a0ef4799a7d9f0fd7a550d116d9ae6b93ffefddf05143ce4d9d379ea5b",
+        "sha256:cb1004d1256ad3b9b9ecadeabfe088525eba33879429c5782cee92eb7e3e9cbf",
+        "sha256:ed3a68e50a57f4514d64ac5d8a8e1ab6c20aa64ccc7bdff6986c4d70ffb43728"
+      ]
+    },
+    "wake": {
+      "status": "passed",
+      "images": [
+        "sha256:da6cce2f369533d226945b1ec9ffa920209e9ef98c3b5f131bd36fba68122b56"
+      ]
+    }
+  },
+  "checks": {
+    "deployed": false,
+    "microphone_used": false,
+    "model_inference": false,
+    "roles": {
+      "cli": {
+        "image": "sha256:ed3a68e50a57f4514d64ac5d8a8e1ab6c20aa64ccc7bdff6986c4d70ffb43728",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      },
+      "gateway": {
+        "image": "sha256:8ca21bc4bea332c04bbe545097913fba97aacc9b22288476d55a9320e3dc32f0",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      },
+      "services": {
+        "image": "sha256:cb1004d1256ad3b9b9ecadeabfe088525eba33879429c5782cee92eb7e3e9cbf",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      },
+      "mail": {
+        "image": "sha256:bacb51a0ef4799a7d9f0fd7a550d116d9ae6b93ffefddf05143ce4d9d379ea5b",
+        "environments": {
+          "core-env": {
+            "package_parity": true,
+            "count": 138
+          },
+          "asr-env": {
+            "package_parity": true,
+            "count": 30
+          },
+          "tts-env": {
+            "package_parity": true,
+            "count": 26
+          }
+        }
+      }
+    },
+    "asr_devices": [
+      "CPU",
+      "GPU"
+    ],
+    "wake": {
+      "image": "sha256:da6cce2f369533d226945b1ec9ffa920209e9ef98c3b5f131bd36fba68122b56",
+      "bridge_and_aec_load": true
+    }
+  },
+  "native_hashes": {
+    "sdk_output_sha256": "85e5b835cb2a597bf2db547dfc8a89426ecfc1e2e4d193a05ee0e6a352ffc6a4",
+    "bridge_output_sha256": "c605f1d839a8dfbab35a041f938e248b8d9e01fb238fe4c695307e9874e3610a"
+  },
+  "full_resume": {
+    "all_seven_stages_reused": true,
+    "stage_paths_and_artifacts_unchanged": true,
+    "final_checks_and_fresh_init_reexecuted": true
+  },
+  "additional_checks": [
+    "missing materials aggregated before output creation",
+    "corrupt SDK rejected before output creation",
+    "27 build unit tests passed, including interrupted subprocess cleanup and artifact tamper rejection"
+  ],
+  "production_comparison": {
+    "container_ids_unchanged": true,
+    "start_times_unchanged": true,
+    "config_hashes_unchanged": true,
+    "all_original_running_services_still_running": true
+  },
+  "limits": [
+    "same host and shared Docker daemon; not a pristine OS or security isolation",
+    "requires authorized external assets and existing Docker/host dependencies",
+    "no real microphone, TTS playback, LLM inference or mail/IM delivery test",
+    "no production runtime switch"
+  ]
+}
