@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Reinstall pinned Python dependencies into new venvs in a networkless OS image."""
 import argparse
+from build_policy import docker_build
 import json
 from pathlib import Path
 import shutil
@@ -38,7 +39,7 @@ def build(materials, output, os_build=None):
                   f"PYTHONPATH=/wheels/{pip['sha256']}/{Path(pip['file']).name} /opt/hermes/{env}/bin/python -m pip --isolated install --no-index --no-deps --ignore-installed --require-hashes --no-compile -r /requirements/{env}.txt"]
     recipe.append('RUN '+' && '.join(steps))
     (context/'Dockerfile').write_text('\n'.join(recipe)+'\n')
-    command=['docker','build','--network=none','--pull=false','--iidfile',str(output/'image.id'),str(context)]
+    command=docker_build(output/'image.id',context)
     with (output/'build.log').open('w') as log:result=subprocess.run(command,stdout=log,stderr=subprocess.STDOUT)
     receipt={'network':'none','returncode':result.returncode,'os_image':lock['os_image'],'lock_sha256':sha(ROOT/'locks/python-build.json'),'recipe_sha256':sha(context/'Dockerfile'),'environment_package_counts':{k:len(v) for k,v in lock['environments'].items()},'deployed':False}
     if not result.returncode:receipt['image']=(output/'image.id').read_text().strip()

@@ -46,6 +46,9 @@ Models and restricted SDK distributions are not uploaded to public GitHub.
 
 ## Build
 
+For the unified entrypoint, see [UNIFIED_BUILD.md](UNIFIED_BUILD.md). The manual
+stage commands below remain available for debugging.
+
 Clone `release/ubuntu-demo`, then check out the immutable release tag specified
 by the maintainer (this release: `ubuntu-demo-20261111.1`). Keep the checkout
 clean while building. Follow all commands in [SOURCE_BUILD.md](SOURCE_BUILD.md),

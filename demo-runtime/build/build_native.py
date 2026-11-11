@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build authorized AISP sources and the Hermes bridge offline; no deployment."""
 import argparse
+from build_policy import policy
 import hashlib
 import json
 import os
@@ -59,7 +60,7 @@ def build(args):
     extract_zip(args.libpng,out/'png')
     shutil.move(str(out/'png/libpng-1.6.43'),out/'dependencies/libpng')
     shutil.copy2(ROOT/'wake/bridge.cpp',out/'bridge.cpp')
-    prefix=['docker','run','--pull=never','--rm','--network','none','--cpus',str(args.jobs),'--memory','8g',
+    prefix=['docker','run','--pull=never','--rm','--network','none','--cpus',str(args.jobs),'--memory',f'{policy()[1]}g','--memory-swap',f'{policy()[1]}g',
             '--user',f'{os.getuid()}:{os.getgid()}','-e','HOME=/work','-v',f'{out}:/work',
             '--entrypoint','/bin/sh',lock['toolchain_image']]
     configure=['cmake','-S','/work/source','-B','/work/build','-G','Ninja','-DCMAKE_BUILD_TYPE=Release',

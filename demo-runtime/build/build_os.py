@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build Ubuntu dependency layers offline from locked debs, verifying package parity."""
 import argparse
+from build_policy import docker_build
 import json
 from pathlib import Path
 import shutil
@@ -34,7 +35,7 @@ def build(a):
     recipe=f"FROM {lock['base_image']}\nCOPY debs /offline-debs\nRUN DEBIAN_FRONTEND=noninteractive apt-get --no-install-recommends -y install /offline-debs/*.deb && rm -r /offline-debs\n"
     (a.output/'Dockerfile').write_text(recipe)
     with (a.output/'build.log').open('w') as log:
-        r=subprocess.run(['docker','build','--network=none','--pull=false','--iidfile',str(a.output/'image.id'),str(a.output)],stdout=log,stderr=subprocess.STDOUT)
+        r=subprocess.run(docker_build(a.output/'image.id',a.output),stdout=log,stderr=subprocess.STDOUT)
     receipt={'target':a.target,'network':'none','returncode':r.returncode,'lock_sha256':sha(ROOT/'locks/os-build.json'),'passed':False}
     if not r.returncode:
         receipt['image']=(a.output/'image.id').read_text().strip();actual=packages(receipt['image']);receipt.update(missing=sorted(expected-actual),unexpected=sorted(actual-expected),passed=actual==expected)

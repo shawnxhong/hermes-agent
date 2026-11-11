@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build a wake candidate from rebuilt SDK/bridge and compile the AEC fix."""
 import argparse
+from build_policy import docker_build
 import json
 from pathlib import Path
 import shutil
@@ -71,7 +72,7 @@ ENTRYPOINT ["/usr/bin/python3", "/opt/qwen-wake/service.py", "--library", "/opt/
 '''
     (ctx/'Dockerfile').write_text(recipe_text)
     with (a.output/'build.log').open('w') as log:
-        result=subprocess.run(['docker','build','--network=none','--pull=false','--iidfile',str(a.output/'image.id'),str(ctx)],stdout=log,stderr=subprocess.STDOUT)
+        result=subprocess.run(docker_build(a.output/'image.id',ctx),stdout=log,stderr=subprocess.STDOUT)
     receipt={'deployed':False,'network':'none','returncode':result.returncode,'native':native,'wake_os_image':os_lock['wake_os_image'],'recipe_sha256':sha(ctx/'Dockerfile'),'aec_patch_sha256':sha(recipe/'quiesce-before-destroy.patch')}
     if not result.returncode:receipt['image']=(a.output/'image.id').read_text().strip()
     (a.output/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')

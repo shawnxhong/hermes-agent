@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build role candidates from source + new Python deps + hash-locked binary assets."""
 import argparse
+from build_policy import docker_build
 import json
 from pathlib import Path
 import shutil
@@ -46,7 +47,7 @@ CMD ["check"]
 '''
         (context/'Dockerfile').write_text(recipe)
         with (out/'build.log').open('w') as log:
-            r=subprocess.run(['docker','build','--network=none','--pull=false','--iidfile',str(out/'image.id'),str(context)],stdout=log,stderr=subprocess.STDOUT)
+            r=subprocess.run(docker_build(out/'image.id',context),stdout=log,stderr=subprocess.STDOUT)
         entry={'returncode':r.returncode,'recipe_sha256':sha(context/'Dockerfile')}
         if not r.returncode:entry['image']=(out/'image.id').read_text().strip()
         receipt['roles'][role]=entry;(args.output/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
