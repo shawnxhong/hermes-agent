@@ -1,3 +1,5 @@
+> **Ubuntu demo release:** This branch preserves the accepted `docker-20261023.1` product. See [release status and source-build roadmap](demo-runtime/RELEASE.md). Standalone full-product source builds are not yet ready; the generic instructions below are not a complete demo deployment recipe.
+
 <p align="center">
   <img src="assets/banner.png" alt="Hermes Agent" width="100%">
 </p>
