@@ -32,9 +32,10 @@ def unit_arg(value):
 
 
 def prepare(a):
-    root=a.output.resolve();reference=a.reference.resolve()
+    root=a.output.resolve();reference=a.reference.resolve() if a.reference else None
+    private=reference or a.private.resolve()
     if root.exists() or root==reference:raise ValueError('Use a new candidate runtime directory')
-    if not re.fullmatch(r'[a-z0-9][a-z0-9_-]*',a.project) or a.project==yaml.safe_load((reference/'compose.yaml').read_text())['name']:
+    if not re.fullmatch(r'[a-z0-9][a-z0-9_-]*',a.project) or (reference and a.project==yaml.safe_load((reference/'compose.yaml').read_text())['name']):
         raise ValueError('Candidate project must be distinct')
     checks=read_json(a.checks);wake=read_json(a.wake_build/'receipt.json')
     if set(checks['roles'])!={'cli','gateway','services','mail'} or wake.get('smoke_returncode')!=0:
@@ -46,10 +47,13 @@ def prepare(a):
         subprocess.run(['docker','image','inspect',image],stdout=subprocess.DEVNULL,check=True)
     configs={}
     for profile in ['state','gateway-state']:
-        actual=yaml.safe_load((reference/profile/'config.yaml').read_text())
-        template=read_json(ROOT/'profiles'/f'{profile}.template.json')
-        generated=render(profile,bindings_from_config(template,actual))
-        if generated!=actual:raise ValueError('Reference behavior differs from source profile; review first')
+        if reference:
+            actual=yaml.safe_load((reference/profile/'config.yaml').read_text())
+            template=read_json(ROOT/'profiles'/f'{profile}.template.json')
+            generated=render(profile,bindings_from_config(template,actual))
+            if generated!=actual:raise ValueError('Reference behavior differs from source profile; review first')
+        else:
+            generated=render(profile,read_json(private/f'{profile}.bindings.json'))
         configs[profile]=generated
     # Resolve hardware by identity at preparation and again at activation.
     groups={p.name:p.stat().st_gid for p in Path('/dev/dri').glob('*')}
@@ -68,6 +72,9 @@ def prepare(a):
     os.chmod(root,0o700)
     for path in ['ipc/wake','ipc/asr','ipc/tts','ipc/media','ipc/recording-quiet','work','config/wake','units','host','deployment']:
         (root/path).mkdir(parents=True,exist_ok=True)
+    # Root fan helper drops all capabilities and accesses this directory via its
+    # host GID; owner-only permissions prevent even socket cleanup.
+    (root/'ipc/recording-quiet').chmod(0o2770)
     for profile in configs:
         state=root/profile;state.mkdir()
         write_new(state/'config.yaml',configs[profile])
@@ -77,9 +84,9 @@ def prepare(a):
         for folder in ['run','logs','cache/box-voice','mail-queue','demo-home','sessions','cron']:(state/folder).mkdir(parents=True,exist_ok=True)
         # Explicit private-input allowlist: no auth caches, pairing requests,
         # pending messages, sessions, databases or queues are migrated.
-        env=reference/profile/'.env'
+        env=private/profile/'.env'
         if env.exists():
-            if str(reference) in env.read_text():raise ValueError('Private environment contains old runtime paths')
+            if reference and str(reference) in env.read_text():raise ValueError('Private environment contains old runtime paths')
             shutil.copyfile(env,state/'.env');os.chmod(state/'.env',0o600)
     shutil.copy2(ROOT/'wake/config.yaml',root/'config/wake/config.yaml')
     for name in ['control.py','aisp_startup.py']:shutil.copy2(ROOT/'host'/name,root/'deployment'/name)
@@ -97,9 +104,9 @@ def prepare(a):
     for role,command in commands.items():
         name=a.project+'-'+role+'.service';units.append(name)
         (root/'units'/name).write_text('[Unit]\nDescription=Hermes isolated candidate '+role+'\nAfter=pipewire.service\n[Service]\nType=simple\nExecStart='+' '.join(unit_arg(x) for x in command)+'\nRestart=on-failure\nRestartSec=1\nTimeoutStopSec=20\nUMask=0077\n')
-    ref_files=[reference/'compose.yaml',reference/'control.json']+[reference/p/n for p in ['state','gateway-state'] for n in ['config.yaml','SOUL.md','.env'] if (reference/p/n).exists()]
+    ref_files=([reference/'compose.yaml',reference/'control.json']+[reference/p/n for p in ['state','gateway-state'] for n in ['config.yaml','SOUL.md','.env'] if (reference/p/n).exists()]) if reference else []
     reference_hashes={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in ref_files}
-    write_new(root/'candidate.json',{'project':a.project,'reference':str(reference),'units':units,'images':images,'status':'prepared-not-active','reference_hashes':reference_hashes,'source_commit':subprocess.check_output(['git','-C',str(ROOT.parent),'rev-parse','HEAD'],text=True).strip()})
+    write_new(root/'candidate.json',{'project':a.project,'reference':str(reference) if reference else None,'units':units,'images':images,'status':'prepared-not-active','reference_hashes':reference_hashes,'source_commit':subprocess.check_output(['git','-C',str(ROOT.parent),'rev-parse','HEAD'],text=True).strip()})
     subprocess.run(['docker','compose','-f',str(root/'compose.yaml'),'config','--quiet'],check=True)
     subprocess.run(['systemd-analyze','--user','verify',*[str(root/'units'/x) for x in units]],check=True)
     print('Candidate runtime prepared; no services started:',root)
@@ -108,7 +115,10 @@ def prepare(a):
 def main():
     os.umask(0o077)
     p=argparse.ArgumentParser(description=__doc__)
-    for name in ['reference','output','models','resources','checks','wake-build']:p.add_argument('--'+name,type=Path,required=True)
+    source=p.add_mutually_exclusive_group(required=True)
+    source.add_argument('--reference',type=Path)
+    source.add_argument('--private',type=Path,help='Fresh install: profile bindings and optional per-profile .env files')
+    for name in ['output','models','resources','checks','wake-build']:p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--project',required=True);prepare(p.parse_args())
 
 if __name__=='__main__':main()

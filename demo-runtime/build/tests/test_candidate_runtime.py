@@ -18,6 +18,17 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(bindings_from_config(template,actual),{'private.a':'private-value'})
         with self.assertRaises(ValueError):bindings_from_config(template,{'a':'x','b':[]})
 
+    def test_readiness_rejects_exited_helper_and_waits_for_health(self):
+        items=[{'Id':name,'Image':'x','Mounts':[],
+                'Config':{'Labels':{'com.docker.compose.service':name}},
+                'State':{'Running':True,'Status':'running'}} for name in ctl.BACKGROUND_SERVICES]
+        self.assertTrue(ctl.services_ready(items))
+        items[0]['State']['Health']={'Status':'starting'}
+        self.assertFalse(ctl.services_ready(items))
+        items[0]['State']={'Running':False,'Status':'exited'}
+        with self.assertRaises(RuntimeError):ctl.services_ready(items)
+        self.assertFalse(ctl.services_ready([]))
+
     def test_private_drift_blocks_switch_without_changes(self):
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'config';path.write_bytes(b'old')

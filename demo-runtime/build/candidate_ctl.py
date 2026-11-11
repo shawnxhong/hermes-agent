@@ -93,6 +93,20 @@ def preflight(config):
     print('Candidate preflight passed; no services changed.',flush=True)
 
 
+BACKGROUND_SERVICES={'ovms','asr','tts','home','mail','gateway','quiet-fan','aisp-wake'}
+
+
+def services_ready(containers):
+    states={identity(item)['service']:item['State'] for item in containers}
+    for name in BACKGROUND_SERVICES:
+        state=states.get(name,{})
+        if state.get('Status') in ('exited','dead'):
+            raise RuntimeError('Required service exited: '+name)
+        if not state.get('Running') or state.get('Health',{}).get('Status','healthy')!='healthy':
+            return False
+    return True
+
+
 def stop_candidate_writers(config):
     writers=[x['Id'] for x in project_containers(config['project'],True) if identity(x)['service'] in ('cli','gateway')]
     if writers:run(['docker','stop','--time','45',*writers])
@@ -133,19 +147,26 @@ def activate(config):
     journal_path=ROOT/'switch.json'
     if journal_path.exists() and load(journal_path)['phase']!='restored':raise RuntimeError('Switch already recorded; use voice/status/rollback')
     if project_containers(config['project'],True):raise RuntimeError('Candidate already running')
-    ref=Path(config['reference']);ref_project=output(['docker','compose','-f',str(ref/'compose.yaml'),'config','--format','json'])
-    ref_project=json.loads(ref_project)['name'];containers=project_containers(ref_project,True)
-    if any(identity(x)['service']=='cli' for x in containers):raise RuntimeError('Close the production voice CLI before activating the candidate')
-    if pending(ref) or pending(ROOT):raise RuntimeError('Pending mail found; allow delivery to finish before switching')
-    units=[u for u in PRODUCTION_UNITS if subprocess.run(['systemctl','--user','is-active','--quiet',u]).returncode==0]
+    ref=Path(config['reference']) if config.get('reference') else None
+    ref_project=None;containers=[];units=[]
+    if ref:
+        ref_project=json.loads(output(['docker','compose','-f',str(ref/'compose.yaml'),'config','--format','json']))['name']
+        containers=project_containers(ref_project,True)
+        if any(identity(x)['service']=='cli' for x in containers):raise RuntimeError('Close the production voice CLI before activating the candidate')
+        units=[u for u in PRODUCTION_UNITS if subprocess.run(['systemctl','--user','is-active','--quiet',u]).returncode==0]
+    if (ref and pending(ref)) or pending(ROOT):raise RuntimeError('Pending mail found; allow delivery to finish before switching')
+    # Reject occupied ports before stopping anything on a fresh host.
+    if not ref:
+        for port in (8000,8769):
+            with socket.socket() as probe:probe.bind(('127.0.0.1',port))
     journal={'phase':'suspending','containers':[identity(x) for x in containers],'active_units':units}
     save(journal_path,journal)  # Persist recovery information before stopping anything.
     writers=[x['Id'] for x in containers if identity(x)['service']=='gateway']
     if writers:run(['docker','stop','--time','45',*writers])
-    drain(ref)
+    if ref:drain(ref)
     for unit in units:run(['systemctl','--user','stop',unit],timeout=650)
     if containers:run(['docker','stop','--time','35',*[x['Id'] for x in containers]])
-    if project_containers(ref_project,True):raise RuntimeError('Production still running; candidate not started')
+    if ref_project and project_containers(ref_project,True):raise RuntimeError('Production still running; candidate not started')
     run(['/usr/bin/python3',ROOT/'host/host-play-media.py','stop'])
     for port in (8000,8769):
         with socket.socket() as probe:probe.bind(('127.0.0.1',port))
@@ -164,7 +185,8 @@ def activate(config):
         try:
             with urllib.request.urlopen('http://127.0.0.1:8000/v3/models',timeout=2) as response:ready=bool(json.load(response).get('data'))
         except (OSError,ValueError):ready=False
-        if sockets and ready:break
+        alive=services_ready(project_containers(config['project']))
+        if sockets and ready and alive:break
         time.sleep(1)
     else:raise RuntimeError('Candidate readiness timed out; run rollback')
     journal['phase']='active';save(journal_path,journal)
