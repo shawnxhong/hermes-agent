@@ -21,6 +21,8 @@
   },
   "kws": {
     "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2",
-    "root": "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"
+    "root": "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01",
+    "sha256": "f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a",
+    "bytes": 17626723
   }
 }
