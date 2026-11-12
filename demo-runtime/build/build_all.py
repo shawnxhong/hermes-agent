@@ -99,7 +99,9 @@ def reusable(record,key,exists=image_exists):
 
 def execute(command,log):
     with log.open('w') as stream:
-        proc=subprocess.Popen(list(map(str,command)),stdout=stream,stderr=subprocess.STDOUT,start_new_session=True)
+        # Public image payloads must stay readable to service UIDs even when
+        # the installer uses umask 077 for private state and its own logs.
+        proc=subprocess.Popen(list(map(str,command)),stdout=stream,stderr=subprocess.STDOUT,start_new_session=True,umask=0o022)
         try:code=proc.wait()
         except BaseException:
             os.killpg(proc.pid,signal.SIGTERM)

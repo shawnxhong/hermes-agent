@@ -74,3 +74,15 @@ class BuildAllTests(unittest.TestCase):
         self.assertNotEqual(b.fingerprint({'commit':'a','assets':'x'}),b.fingerprint({'commit':'a','assets':'y'}))
 
 if __name__=='__main__':unittest.main()
+
+class BuildPermissionTests(unittest.TestCase):
+    def test_private_installer_umask_does_not_enter_image_build_context(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);private=root/'private';private.write_text('private');private.chmod(0o600)
+            old=os.umask(0o077)
+            try:
+                b.execute([sys.executable,'-c',"from pathlib import Path; import sys; p=Path(sys.argv[1]); p.mkdir(); (p/'module.py').write_text('pass')",root/'context'],root/'build.log')
+            finally:os.umask(old)
+            self.assertEqual((root/'context').stat().st_mode & 0o777,0o755)
+            self.assertEqual((root/'context/module.py').stat().st_mode & 0o777,0o644)
+            self.assertEqual(private.stat().st_mode & 0o777,0o600)
