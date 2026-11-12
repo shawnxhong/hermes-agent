@@ -69,3 +69,19 @@ class RuntimeTests(unittest.TestCase):
             self.assertFalse(any(c[:2]==['docker','start'] for c in calls))
 
 if __name__=='__main__':unittest.main()
+
+class PreparedRuntimeTests(unittest.TestCase):
+    def test_offline_check_defers_only_user_audio_sockets(self):
+        import os
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);image='sha256:'+'a'*64
+            audio=f'/run/user/{os.getuid()}/hermes-test-absent-socket'
+            doc={'name':'isolated','services':{'cli':{'image':image,'restart':'no','volumes':[{'source':audio}]}}}
+            (root/'compose.yaml').write_text(json.dumps(doc))
+            config={'reference_hashes':{},'project':'isolated','images':{'cli':image,'services':image},'units':[]}
+            with patch.object(ctl,'ROOT',root),patch.object(ctl,'refresh_fan'),patch.object(ctl,'run'):
+                ctl.preflight(config,require_session=False)
+                with self.assertRaises(RuntimeError):ctl.preflight(config,require_session=True)
+                doc['services']['cli']['volumes']=[{'source':str(root/'missing-model')}]
+                (root/'compose.yaml').write_text(json.dumps(doc))
+                with self.assertRaises(RuntimeError):ctl.preflight(config,require_session=False)
