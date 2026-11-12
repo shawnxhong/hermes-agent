@@ -62,3 +62,5 @@ security boundary, and Docker group membership grants privileged host access.
 
 After successful build, follow FRESH_HOST.md for a separately authorized runtime
 installation. A successful source-build smoke is not a microphone/TTS acceptance.
+
+For public model downloads and private material downloads followed by unified provisioning, see [ONLINE_DEPLOY.md](ONLINE_DEPLOY.md).

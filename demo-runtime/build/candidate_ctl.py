@@ -76,7 +76,7 @@ def refresh_fan():
     save(ROOT/'compose.yaml',doc)
 
 
-def preflight(config):
+def preflight(config,require_session=True):
     reference_ok(config);refresh_fan();doc=load(ROOT/'compose.yaml')
     if doc['name']!=config['project']:raise RuntimeError('Candidate project changed')
     for name,service in doc['services'].items():
@@ -84,7 +84,9 @@ def preflight(config):
         if service['image']!=expected:raise RuntimeError('Candidate image selector changed')
         if service.get('restart')!='no':raise RuntimeError('Candidate auto-restart must remain disabled')
         for volume in service.get('volumes',[]):
-            if not Path(volume['source']).exists():raise RuntimeError('Missing bind source: '+volume['source'])
+            if not Path(volume['source']).exists():
+                if not require_session and Path(volume['source']).is_relative_to(Path('/run/user')/str(os.getuid())):continue
+                raise RuntimeError('Missing bind source: '+volume['source'])
     for unit in config['units']:
         installed=Path.home()/'.config/systemd/user'/unit
         if (installed.exists() or installed.is_symlink()) and installed.resolve()!=(ROOT/'units'/unit).resolve():
@@ -196,10 +198,10 @@ def activate(config):
 
 def main():
     os.umask(0o077)
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['check','status','activate','voice','rollback']);a=parser.parse_args();config=load(ROOT/'candidate.json')
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=['check','check-prepared','status','activate','voice','rollback']);a=parser.parse_args();config=load(ROOT/'candidate.json')
     with (ROOT/'switch.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        if a.action=='check':preflight(config)
+        if a.action in ['check','check-prepared']:preflight(config,require_session=a.action=='check')
         elif a.action=='status':
             print('Switch:',load(ROOT/'switch.json')['phase'] if (ROOT/'switch.json').exists() else 'not activated')
             run(compose()+['ps','-a'])

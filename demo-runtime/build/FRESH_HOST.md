@@ -42,7 +42,7 @@ Use `prepare_assembly.py verify-assets --manifest LOCK --directory DIR` for each
 model/resource lock. Build stages hash-check their own inputs before use. Base
 image IDs are local immutable identities, not registry URLs; do not assume they
 can be downloaded by SHA. No historical Hermes product image is a build input.
-Models and restricted SDK distributions are not uploaded to public GitHub.
+Models come from pinned public upstreams. Authorized SDK/build material archives are distributed through private GitHub Release assets; see ONLINE_DEPLOY.md.
 
 ## Build
 
@@ -101,3 +101,5 @@ or replace an existing `hermes-box-voice` command. Linked user helper units and
 containers are not enabled for automatic login/reboot. Test voice wake, recording,
 end phrase, scene switch, media playback/stop and configured delivery channels
 on the target hardware before distributing it as a production deployment.
+
+For public model downloads and private material downloads followed by unified provisioning, see [ONLINE_DEPLOY.md](ONLINE_DEPLOY.md).
