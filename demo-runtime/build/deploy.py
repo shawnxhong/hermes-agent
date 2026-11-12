@@ -69,7 +69,8 @@ def main():
     # No network, hardware or microphone needed to verify installed profile initialization.
     for profile,role in [('state','cli'),('gateway-state','gateway')]:
         subprocess.run(['docker','run','--rm','--pull=never','--network','none','--cpus','1','--memory','2g','--user',f'{os.getuid()}:{os.getgid()}','-v',f'{runtime/profile}:/state',release['checks']['roles'][role]['image'],'init'],check=True)
-    run('check_candidates.py','--roles-build',release['stages']['roles'],'--wake-build',release['stages']['wake'],'--output',a.prefix/'installed-image-checks.json')
+    image_check=a.prefix/'installed-image-checks.json'
+    if not image_check.exists():run('check_candidates.py','--roles-build',release['stages']['roles'],'--wake-build',release['stages']['wake'],'--output',image_check)
     subprocess.run([sys.executable,str(runtime/'candidate_ctl.py'),'check-prepared'],check=True)
     if a.install_commands:install_commands(runtime,Path.home()/'.local/bin')
     print('PASS: runtime prepared. No services started. Log in to the desktop, then run: '+(str(Path.home()/'.local/bin/hermes-box-voice')+' start' if a.install_commands else f'python3 {runtime}/runtime_entry.py voice start'))
