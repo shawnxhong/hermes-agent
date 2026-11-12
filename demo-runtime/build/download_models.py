@@ -136,6 +136,20 @@ def download_kws(cache,destination,source):
     print('PASS: legacy KWS downloaded and verified.',flush=True)
 
 
+def public_model_permissions(root,groups):
+    # OVMS intentionally uses UID 5000, unlike the desktop user's ASR/TTS roles.
+    # Only hash-verified public models get cross-UID read access; not private state.
+    for model in groups:
+        directory=root/model;directory.chmod(0o755)
+        for name,record in read_json(ROOT/'locks'/f'{model}.json').items():
+            path=safe_path(directory,name)
+            if path.is_symlink():raise ValueError('Refusing symlink model')
+            path.chmod(0o755 if record.get('executable') else 0o644)
+            for parent in path.parents:
+                if parent==directory:break
+                parent.chmod(0o755)
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--output',type=Path,required=True);p.add_argument('--workers',type=int,default=4);p.add_argument('--runtime-assets',type=Path)
     a=p.parse_args();root=a.output.resolve()
@@ -165,6 +179,7 @@ def main():
         atomic_bytes(root/'llm/chat_template.jinja',rendered)
         atomic_bytes(root/'wake-asr/generation_config.json',(ROOT/'model-download/wake-generation_config.json').read_bytes())
         for model in ['llm','question-asr','wake-asr','tts']:verify_assets(ROOT/'locks'/f'{model}.json',root/model)
+        public_model_permissions(root,['llm','question-asr','wake-asr','tts'])
         receipt={'status':'verified','sources':sources,'models':['llm','question-asr','wake-asr','tts'],'files':results,'normalizations':['llm-default-thinking-off','wake-max-new-tokens-128'],'production_modified':False}
         atomic_bytes(root/'download-receipt.json',(json.dumps(receipt,indent=2)+'\n').encode())
         print('PASS: all four model directories match release file hashes.',flush=True)

@@ -15,7 +15,14 @@ firmware, drivers, audio routing, panel scripts or existing production commands.
 Allow at least 80 GiB free disk for models, source materials and intermediate
 build layers; more if retaining multiple builds.
 
-Clone the release repository/tag, then on a **fresh host without Docker**:
+Start with Git (`sudo apt-get install git` if absent), then pin the installer release:
+
+```sh
+git clone --branch ubuntu-demo-20261112.1 https://github.com/shawnxhong/hermes-agent.git
+cd hermes-agent
+```
+
+On a **fresh host without Docker**:
 
 ```sh
 sudo ./scripts/bootstrap-ubuntu-demo.sh "$USER"

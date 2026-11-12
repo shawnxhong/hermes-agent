@@ -50,7 +50,7 @@ For the unified entrypoint, see [UNIFIED_BUILD.md](UNIFIED_BUILD.md). The manual
 stage commands below remain available for debugging.
 
 Clone `release/ubuntu-demo`, then check out the immutable release tag specified
-by the maintainer (this release: `ubuntu-demo-20261111.2`). Keep the checkout
+by the maintainer (online installer release: `ubuntu-demo-20261112.1`). Keep the checkout
 clean while building. Follow all commands in [SOURCE_BUILD.md](SOURCE_BUILD.md),
 including explicit `--os-build` / `--toolchain-build` arguments. Keep outputs in
 a new directory outside the checkout. All image build steps are offline after

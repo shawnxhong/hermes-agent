@@ -72,3 +72,16 @@ class AuthRedirectTests(unittest.TestCase):
         redirected=SafeRedirect().redirect_request(req,None,302,'Found',{},'https://release-assets.githubusercontent.com/file')
         self.assertIsNone(redirected.get_header('Authorization'))
         self.assertEqual(redirected.get_header('Accept'),'application/octet-stream')
+
+class ModelAccessTests(unittest.TestCase):
+    def test_private_umask_does_not_make_public_models_owner_only(self):
+        import os
+        import download_models as d
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);group=root/'llm';group.mkdir(mode=0o700)
+            model=group/'template';model.write_text('model');model.chmod(0o600)
+            private=root/'private.env';private.write_text('private');private.chmod(0o600)
+            with patch.object(d,'read_json',return_value={'template':{}}):d.public_model_permissions(root,['llm'])
+            self.assertEqual(group.stat().st_mode & 0o777,0o755)
+            self.assertEqual(model.stat().st_mode & 0o777,0o644)
+            self.assertEqual(private.stat().st_mode & 0o777,0o600)
