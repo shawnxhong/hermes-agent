@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import tempfile
 import subprocess
 import yaml
 from render_profile import ROOT, read_json, render, write_new
@@ -106,9 +107,12 @@ def prepare(a):
         (root/'units'/name).write_text('[Unit]\nDescription=Hermes isolated candidate '+role+'\nAfter=pipewire.service\n[Service]\nType=simple\nExecStart='+' '.join(unit_arg(x) for x in command)+'\nRestart=on-failure\nRestartSec=1\nTimeoutStopSec=20\nUMask=0077\n')
     ref_files=([reference/'compose.yaml',reference/'control.json']+[reference/p/n for p in ['state','gateway-state'] for n in ['config.yaml','SOUL.md','.env'] if (reference/p/n).exists()]) if reference else []
     reference_hashes={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in ref_files}
-    write_new(root/'candidate.json',{'project':a.project,'reference':str(reference) if reference else None,'units':units,'images':images,'status':'prepared-not-active','reference_hashes':reference_hashes,'source_commit':subprocess.check_output(['git','-C',str(ROOT.parent),'rev-parse','HEAD'],text=True).strip()})
+    write_new(root/'candidate.json',{'project':a.project,'reference':str(reference) if reference else None,'units':units,'images':images,'status':'prepared-not-active','reference_hashes':reference_hashes,'background_services':[x for x in ['ovms','asr','tts','home','mail','gateway','quiet-fan','aisp-wake'] if x!='gateway' or reference or a.enable_gateway],'source_commit':subprocess.check_output(['git','-C',str(ROOT.parent),'rev-parse','HEAD'],text=True).strip()})
     subprocess.run(['docker','compose','-f',str(root/'compose.yaml'),'config','--quiet'],check=True)
-    subprocess.run(['systemd-analyze','--user','verify',*[str(root/'units'/x) for x in units]],check=True)
+    # Offline lint must also work before the target user's first desktop login.
+    with tempfile.TemporaryDirectory(prefix='hermes-unit-lint-') as lint_runtime:
+        env=dict(os.environ,XDG_RUNTIME_DIR=lint_runtime)
+        subprocess.run(['systemd-analyze','--user','verify',*[str(root/'units'/x) for x in units]],env=env,check=True)
     print('Candidate runtime prepared; no services started:',root)
 
 
@@ -119,6 +123,6 @@ def main():
     source.add_argument('--reference',type=Path)
     source.add_argument('--private',type=Path,help='Fresh install: profile bindings and optional per-profile .env files')
     for name in ['output','models','resources','checks','wake-build']:p.add_argument('--'+name,type=Path,required=True)
-    p.add_argument('--project',required=True);prepare(p.parse_args())
+    p.add_argument('--enable-gateway',action='store_true',help='Fresh install: start configured IM gateway');p.add_argument('--project',required=True);prepare(p.parse_args())
 
 if __name__=='__main__':main()

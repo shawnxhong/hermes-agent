@@ -96,9 +96,9 @@ def preflight(config):
 BACKGROUND_SERVICES={'ovms','asr','tts','home','mail','gateway','quiet-fan','aisp-wake'}
 
 
-def services_ready(containers):
+def services_ready(containers,required=BACKGROUND_SERVICES):
     states={identity(item)['service']:item['State'] for item in containers}
-    for name in BACKGROUND_SERVICES:
+    for name in required:
         state=states.get(name,{})
         if state.get('Status') in ('exited','dead'):
             raise RuntimeError('Required service exited: '+name)
@@ -154,7 +154,7 @@ def activate(config):
         containers=project_containers(ref_project,True)
         if any(identity(x)['service']=='cli' for x in containers):raise RuntimeError('Close the production voice CLI before activating the candidate')
         units=[u for u in PRODUCTION_UNITS if subprocess.run(['systemctl','--user','is-active','--quiet',u]).returncode==0]
-    if (ref and pending(ref)) or pending(ROOT):raise RuntimeError('Pending mail found; allow delivery to finish before switching')
+    if ref and (pending(ref) or pending(ROOT)):raise RuntimeError('Pending mail found; allow delivery to finish before switching')
     # Reject occupied ports before stopping anything on a fresh host.
     if not ref:
         for port in (8000,8769):
@@ -178,14 +178,15 @@ def activate(config):
     run(['systemctl','--user','link',*[ROOT/'units'/u for u in config['units']]])
     run(['systemctl','--user','daemon-reload'])
     run(['systemctl','--user','start',*config['units']])
-    run(compose()+['up','-d','ovms','asr','tts','home','mail','gateway','quiet-fan','aisp-wake'],timeout=360)
+    required=config.get('background_services',sorted(BACKGROUND_SERVICES))
+    run(compose()+['up','-d',*required],timeout=360)
     deadline=time.monotonic()+240
     while time.monotonic()<deadline:
         sockets=all((ROOT/p).is_socket() for p in ['ipc/asr/asr.sock','ipc/tts/tts.sock','ipc/wake/service.sock','ipc/media/service.sock','ipc/recording-quiet/service.sock'])
         try:
             with urllib.request.urlopen('http://127.0.0.1:8000/v3/models',timeout=2) as response:ready=bool(json.load(response).get('data'))
         except (OSError,ValueError):ready=False
-        alive=services_ready(project_containers(config['project']))
+        alive=services_ready(project_containers(config['project']),required)
         if sockets and ready and alive:break
         time.sleep(1)
     else:raise RuntimeError('Candidate readiness timed out; run rollback')
