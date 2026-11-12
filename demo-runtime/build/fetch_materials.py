@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tarfile
-from download_models import download,atomic_bytes
+from download_models import download,download_large,atomic_bytes
 from render_profile import ROOT,read_json
 
 
@@ -41,7 +41,8 @@ def main():
         path=cache/part['name']
         if not part['api_url'].startswith('https://api.github.com/repos/'+manifest['repository']+'/releases/assets/'):
             raise ValueError('Unexpected authorized asset endpoint')
-        download(part['api_url'],path,part,headers={'Authorization':'Bearer '+token,'Accept':'application/octet-stream'})
+        fetch=download_large if part['bytes']>128*1024*1024 else download
+        fetch(part['api_url'],path,part,headers={'Authorization':'Bearer '+token,'Accept':'application/octet-stream'})
         extract(path,root)
     atomic_bytes(root/'materials-receipt.json',a.manifest.read_bytes())
     print('PASS: private source-build materials downloaded and checksum verified.')

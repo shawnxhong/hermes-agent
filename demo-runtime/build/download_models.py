@@ -16,7 +16,9 @@ from prepare_assembly import safe_path,verify_assets
 
 
 def atomic_bytes(path,data):
-    tmp=path.with_name(path.name+'.tmp');tmp.write_bytes(data);tmp.replace(path)
+    tmp=path.with_name(path.name+'.tmp')
+    if tmp.is_symlink() or path.is_symlink():raise ValueError('Refusing symlink output')
+    tmp.write_bytes(data);tmp.replace(path)
 
 
 def normalize_template(raw,patch):
@@ -69,21 +71,24 @@ def download(url,path,expected,timeout=60,headers=None):
     raise RuntimeError('Unreachable')
 
 
-def download_large(url,path,expected,connections=4,chunk_size=256*1024*1024):
+def download_large(url,path,expected,connections=4,chunk_size=64*1024*1024,headers=None):
     """Bounded public HTTP range downloads, merged in order; final hash is mandatory."""
-    if path.exists():return download(url,path,expected)
+    if path.exists():return download(url,path,expected,headers=headers)
     path.parent.mkdir(parents=True,exist_ok=True)
     part=path.with_name(path.name+'.part')
     if part.is_symlink():raise ValueError('Refusing symlink partial file')
     total=expected.get('bytes',expected.get('size'));offset=part.stat().st_size if part.exists() else 0
     if offset>total:raise ValueError('Partial model exceeds expected size')
     network=0
+    for stale in path.parent.glob(path.name+'.range-*'):
+        if stale.is_symlink():raise ValueError('Refusing symlink range file')
+        if stale.is_file():stale.unlink()
     def chunk_job(start,end):
         chunk_path=path.with_name(path.name+f'.range-{start}-{end}')
         if chunk_path.is_symlink():raise ValueError('Refusing symlink range file')
         for attempt in range(4):
             try:
-                req=urllib.request.Request(url+('&' if '?' in url else '?')+'download=true&attempt='+str(time.time_ns()),headers={'Range':f'bytes={start}-{end}','User-Agent':'hermes-model-fetch/1'})
+                req=urllib.request.Request(url+('&' if '?' in url else '?')+'download=true&attempt='+str(time.time_ns()),headers={**(headers or {}),'Range':f'bytes={start}-{end}','User-Agent':'hermes-model-fetch/1'})
                 with urllib.request.build_opener(SafeRedirect()).open(req,timeout=60) as response:
                     if response.status!=206 or response.headers.get('Content-Range')!=f'bytes {start}-{end}/{total}':raise ValueError('Server did not honor bounded range')
                     count=0

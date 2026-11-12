@@ -63,3 +63,12 @@ class Downloads(unittest.TestCase):
         with self.assertRaises(ValueError):normalize_template('changed',{'before':'before','after':'after'})
 
 if __name__=='__main__':unittest.main()
+
+class AuthRedirectTests(unittest.TestCase):
+    def test_private_asset_auth_is_not_forwarded_to_cdn(self):
+        import urllib.request
+        from download_models import SafeRedirect
+        req=urllib.request.Request('https://api.github.com/repos/example/assets/1',headers={'Authorization':'Bearer private','Accept':'application/octet-stream'})
+        redirected=SafeRedirect().redirect_request(req,None,302,'Found',{},'https://release-assets.githubusercontent.com/file')
+        self.assertIsNone(redirected.get_header('Authorization'))
+        self.assertEqual(redirected.get_header('Accept'),'application/octet-stream')
