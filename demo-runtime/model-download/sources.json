@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "huggingface": {
+    "llm": {
+      "repo": "OpenVINO/Qwen3.6-35B-A3B-int4-ov",
+      "revision": "3a4443474bd304c5328abbe00054e1b145f6abae"
+    },
+    "question-asr": {
+      "repo": "OpenVINO/whisper-large-v3-turbo-int8-ov",
+      "revision": "b568445dd5dc8c695bde596f8acbb4694fd6ba64"
+    },
+    "wake-asr": {
+      "repo": "circulus/Qwen3-ASR-0.6B-int8-ov",
+      "revision": "69f4b5bd74781e89d427be2ff41001368dd6fabc"
+    }
+  },
+  "tts": {
+    "kokoro-v1.1-zh.onnx": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.1-zh.onnx",
+    "voices-v1.1-zh.bin": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.1-zh.bin",
+    "config.json": "https://huggingface.co/hexgrad/Kokoro-82M-v1.1-zh/resolve/01e7505bd6a7a2ac4975463114c3a7650a9f7218/config.json"
+  },
+  "kws": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2",
+    "root": "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"
+  }
+}
