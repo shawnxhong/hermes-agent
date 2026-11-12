@@ -1,6 +1,6 @@
 {
-  "sdk_archive_sha256": "d955dc5e242cc0fd7ec05f1d518c52191b0d827e14b0ce1883d83bb370d0795b",
-  "sdk_source_license": "Proprietary; provide authorized archive separately",
+  "sdk_archive_sha256": "a94d84a5409b6164237c8f30a4eeaffd051592b0c982a4ee3731c48ce8e35ac6",
+  "sdk_source_license": "Apache-2.0; third-party components retain their respective licenses",
   "toolchain_image": "sha256:06ea35390f82a4a5b19cafa0d97f15d88aff91f7b6625aa348ac35e775de8ae5",
   "dependencies": {
     "cpp_httplib": {

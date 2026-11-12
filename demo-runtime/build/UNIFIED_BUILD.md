@@ -25,7 +25,7 @@ ASSETS/
   images.tar          # locked Ubuntu bases and OVMS OCI archive (if not loaded)
 ```
 
-The maintainer supplies these through the authorized asset channel. No old
+The maintainer supplies these through the public release asset channel. No old
 Hermes product image is used. Assets can be root-owned and read-only. No online
 package resolution is performed during builds. `images.tar` is only needed if
 locked external image IDs are absent; the script validates its OCI index before
@@ -63,4 +63,4 @@ security boundary, and Docker group membership grants privileged host access.
 After successful build, follow FRESH_HOST.md for a separately authorized runtime
 installation. A successful source-build smoke is not a microphone/TTS acceptance.
 
-For public model downloads and private material downloads followed by unified provisioning, see [ONLINE_DEPLOY.md](ONLINE_DEPLOY.md).
+For public model downloads and public material downloads followed by unified provisioning, see [ONLINE_DEPLOY.md](ONLINE_DEPLOY.md).

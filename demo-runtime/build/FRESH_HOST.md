@@ -21,7 +21,7 @@ layouts fail explicitly rather than guessing sysfs paths.
 
 ## External materials
 
-Obtain these from the release maintainer through the authorized private asset
+Obtain these from the release maintainer through the public release asset
 channel, preserving relative paths. A Git checkout alone is not sufficient.
 
 | Group | Contents / authoritative lock | Destination used below |
@@ -42,7 +42,7 @@ Use `prepare_assembly.py verify-assets --manifest LOCK --directory DIR` for each
 model/resource lock. Build stages hash-check their own inputs before use. Base
 image IDs are local immutable identities, not registry URLs; do not assume they
 can be downloaded by SHA. No historical Hermes product image is a build input.
-Models come from pinned public upstreams. Authorized SDK/build material archives are distributed through private GitHub Release assets; see ONLINE_DEPLOY.md.
+Models come from pinned public upstreams. Authorized SDK/build material archives are distributed through public GitHub Release assets; see ONLINE_DEPLOY.md.
 
 ## Build
 
@@ -102,4 +102,4 @@ containers are not enabled for automatic login/reboot. Test voice wake, recordin
 end phrase, scene switch, media playback/stop and configured delivery channels
 on the target hardware before distributing it as a production deployment.
 
-For public model downloads and private material downloads followed by unified provisioning, see [ONLINE_DEPLOY.md](ONLINE_DEPLOY.md).
+For public model downloads and public material downloads followed by unified provisioning, see [ONLINE_DEPLOY.md](ONLINE_DEPLOY.md).

@@ -1,83 +1,83 @@
 {
-  "repository": "shawnxhong/hermes-demo-ops",
-  "tag": "ubuntu-demo-materials-20261112",
+  "repository": "shawnxhong/hermes-agent",
+  "tag": "ubuntu-demo-materials-20261112.2",
   "assets": [
     {
       "name": "dependencies-custom-python-sources.tar.gz",
       "bytes": 41271027,
       "sha256": "46460e19afd4788c55e8bfb240d0475e3e89c7b4280ff3132bb4f25f4e806743",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738117955",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/dependencies-custom-python-sources.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738669289",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/dependencies-custom-python-sources.tar.gz"
     },
     {
       "name": "dependencies-gpu-userspace.tar.gz",
       "bytes": 219025167,
       "sha256": "85b79435349d4c703b0ea15310771ed03f6e42f57804acbed4497dca556e07c8",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738119051",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/dependencies-gpu-userspace.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738669778",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/dependencies-gpu-userspace.tar.gz"
     },
     {
       "name": "dependencies-portaudio-inputs.tar.gz",
       "bytes": 79068347,
       "sha256": "cef82ab278ad091a05c51d9c61758238a1a34e41f32ba9488542211570dfecd0",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738121860",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/dependencies-portaudio-inputs.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738671876",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/dependencies-portaudio-inputs.tar.gz"
     },
     {
       "name": "dependencies-python-interpreter.tar.gz",
       "bytes": 30769758,
       "sha256": "0a67db9fb82dd2507eb36c1b978bb78027091730cf2ad7e3e85e31812cf20016",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738123283",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/dependencies-python-interpreter.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738673062",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/dependencies-python-interpreter.tar.gz"
     },
     {
       "name": "dependencies-python-materials.tar.gz",
       "bytes": 515604428,
       "sha256": "dd0721335faad4aa6729f20b0f7386221f898c7e8feced2932d01696f2c93909",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738123747",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/dependencies-python-materials.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738673470",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/dependencies-python-materials.tar.gz"
     },
     {
       "name": "dependencies-sdk-inputs.tar.gz",
       "bytes": 205770596,
       "sha256": "4d8a9fe7ad9b9a693bec45457ce3f6e30012671bf28bbc993d104860f71c2531",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738130713",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/dependencies-sdk-inputs.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738680330",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/dependencies-sdk-inputs.tar.gz"
     },
     {
       "name": "dependencies-system-materials.tar.gz",
       "bytes": 384505086,
       "sha256": "b882cf0a8918f2d52c71e5fd3835cfbd7fc30328eac49335f278463d754dd934",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738134202",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/dependencies-system-materials.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738683408",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/dependencies-system-materials.tar.gz"
     },
     {
       "name": "dependencies-wheel-build-inputs.tar.gz",
       "bytes": 20269454,
       "sha256": "9aa5bf875abf3c62e15ee502d29f861ca5711a37d6377b64a7c7421363abd42e",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738140568",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/dependencies-wheel-build-inputs.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738688158",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/dependencies-wheel-build-inputs.tar.gz"
     },
     {
       "name": "sdk.tar.gz",
-      "bytes": 16924116,
-      "sha256": "f497bc8c85cdfc1a3c6a64fe64bb59e3e72fee1e10eea6f57b894f0656059c10",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738141317",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/sdk.tar.gz"
+      "bytes": 16940766,
+      "sha256": "4dc571a6d1f9576e1d4c9ddc09a9e0be1bcd61b71a21ab15203ffba10808644f",
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738688814",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/sdk.tar.gz"
     },
     {
       "name": "runtime-assets.tar.gz",
       "bytes": 110107239,
       "sha256": "1605b36f16a3c015abf9a72028a9793c74a806c42c1d97a70e2b608c51e29aa4",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738142108",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/runtime-assets.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738689186",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/runtime-assets.tar.gz"
     },
     {
       "name": "base-images.tar.gz",
       "bytes": 461019215,
       "sha256": "f5b8c61254fbc8e99c9998ad9b43189e1f564cc8721aedabd251eb9f1cb112d1",
-      "api_url": "https://api.github.com/repos/shawnxhong/hermes-demo-ops/releases/assets/738143756",
-      "browser_url": "https://github.com/shawnxhong/hermes-demo-ops/releases/download/ubuntu-demo-materials-20261112/base-images.tar.gz"
+      "api_url": "https://api.github.com/repos/shawnxhong/hermes-agent/releases/assets/738690914",
+      "browser_url": "https://github.com/shawnxhong/hermes-agent/releases/download/ubuntu-demo-materials-20261112.2/base-images.tar.gz"
     }
   ]
 }

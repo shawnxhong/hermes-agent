@@ -32,7 +32,7 @@ def main():
     os.umask(0o077)
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--assets',type=Path,help='Existing materials directory; default downloads into PREFIX/materials')
-    p.add_argument('--git-credential',action='store_true',help='Use Git credential helper for private material download')
+    p.add_argument('--git-credential',action='store_true',help='Optionally authenticate public material downloads using Git credential helper')
     p.add_argument('--prefix',type=Path,required=True)
     p.add_argument('--private',type=Path,required=True,help='Profile bindings and optional service credentials')
     p.add_argument('--models',type=Path,help='Default PREFIX/models; missing files downloaded from public sources')

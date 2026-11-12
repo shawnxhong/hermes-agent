@@ -10,10 +10,20 @@ import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from download_models import download,download_large,normalize_template
-from fetch_materials import extract
+from fetch_materials import extract,asset_request
 from deploy import install_commands
 
 class Downloads(unittest.TestCase):
+    def test_public_materials_need_no_credentials(self):
+        manifest={'repository':'owner/repo','tag':'v1'}
+        part={'name':'sdk.tar.gz','browser_url':'https://github.com/owner/repo/releases/download/v1/sdk.tar.gz','api_url':'https://api.github.com/repos/owner/repo/releases/assets/123'}
+        self.assertEqual(asset_request(manifest,part),(part['browser_url'],{}))
+        url,headers=asset_request(manifest,part,'test-token')
+        self.assertEqual(url,part['api_url'])
+        self.assertEqual(headers['Authorization'],'Bearer test-token')
+        with self.assertRaises(ValueError):asset_request(manifest,{**part,'browser_url':'https://example.invalid/sdk'})
+        with self.assertRaises(ValueError):asset_request(manifest,{**part,'api_url':part['api_url']+'?redirect=x'},'test-token')
+
     def test_fresh_and_resume_through_real_http(self):
         data=b'model weights'*100;seen=[]
         class Handler(BaseHTTPRequestHandler):

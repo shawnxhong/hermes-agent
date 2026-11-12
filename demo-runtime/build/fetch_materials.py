@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch authorized release assets; authenticate without logging tokens."""
+"""Fetch public release assets anonymously; authentication is optional."""
 import argparse
 import os
 from pathlib import Path
@@ -22,6 +22,20 @@ def extract(archive,destination):
         tar.extractall(destination,filter='data')
 
 
+def asset_request(manifest,part,token=''):
+    from urllib.parse import quote
+    expected='https://github.com/'+manifest['repository']+'/releases/download/'+quote(manifest['tag'],safe='')+'/'+quote(part['name'],safe='')
+    if part['browser_url']!=expected:
+        raise ValueError('Unexpected public asset endpoint')
+    if not token:
+        return expected,{}
+    api=part['api_url']
+    prefix='https://api.github.com/repos/'+manifest['repository']+'/releases/assets/'
+    if not api.startswith(prefix) or not api[len(prefix):].isdigit():
+        raise ValueError('Unexpected authenticated asset endpoint')
+    return api,{'Authorization':'Bearer '+token,'Accept':'application/octet-stream'}
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--output',required=True,type=Path)
@@ -34,17 +48,15 @@ def main():
     if a.git_credential:
         r=subprocess.run(['git','credential','fill'],input='protocol=https\nhost=github.com\n\n',capture_output=True,text=True,check=True)
         token=dict(x.split('=',1) for x in r.stdout.splitlines() if '=' in x).get('password','')
-    if not token:raise ValueError('Private assets require GH_TOKEN, GITHUB_TOKEN or --git-credential')
     root.mkdir(parents=True,exist_ok=True);cache=root/'.archives';cache.mkdir(exist_ok=True)
     manifest=read_json(a.manifest)
     for part in manifest['assets']:
         path=cache/part['name']
-        if not part['api_url'].startswith('https://api.github.com/repos/'+manifest['repository']+'/releases/assets/'):
-            raise ValueError('Unexpected authorized asset endpoint')
+        url,headers=asset_request(manifest,part,token)
         fetch=download_large if part['bytes']>128*1024*1024 else download
-        fetch(part['api_url'],path,part,headers={'Authorization':'Bearer '+token,'Accept':'application/octet-stream'})
+        fetch(url,path,part,headers=headers)
         extract(path,root)
     atomic_bytes(root/'materials-receipt.json',a.manifest.read_bytes())
-    print('PASS: private source-build materials downloaded and checksum verified.')
+    print('PASS: public source-build materials downloaded and checksum verified.')
 
 if __name__=='__main__':main()

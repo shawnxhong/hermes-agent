@@ -20,9 +20,9 @@ production service switch was performed. The previous source tag remains intact.
 
 This developer source release preserves the accepted product behavior and adds
 explicit offline build recipes plus fresh-host provisioning. Start with
-[the fresh-host guide](build/FRESH_HOST.md). It requires authorized external
-assets; it is not a download-everything installer or an automatic production
-upgrade. Desktop audio, GPU drivers and panel software remain host prerequisites.
+[the online installer guide](build/ONLINE_DEPLOY.md). The installer downloads
+pinned public materials and models and builds the application from source.
+It does not automatically upgrade an existing production deployment. Desktop audio, GPU drivers and panel software remain host prerequisites.
 
 Current product sources:
 

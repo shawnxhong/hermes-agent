@@ -2,9 +2,10 @@
 
 Product behavior is pinned by the source release. Model files are downloaded
 from public upstreams at fixed revisions, not copied from a previous device.
-AISP SDK source and offline build materials are separate **private GitHub
-Release assets** in `shawnxhong/hermes-demo-ops`. Access to that repository is
-required. No service credentials or previous sessions are in those assets.
+AISP SDK source and offline build materials are separate **public GitHub
+Release assets** in `shawnxhong/hermes-agent`. No GitHub credentials are
+required. AISP SDK is licensed under Apache-2.0; third-party licenses remain
+unchanged. No service credentials or previous sessions are in those assets.
 
 ## Host preparation
 
@@ -18,7 +19,7 @@ build layers; more if retaining multiple builds.
 Start with Git (`sudo apt-get install git` if absent), then pin the installer release:
 
 ```sh
-git clone --branch ubuntu-demo-20261112.1 https://github.com/shawnxhong/hermes-agent.git
+git clone --branch ubuntu-demo-20261112.2 https://github.com/shawnxhong/hermes-agent.git
 cd hermes-agent
 ```
 
@@ -38,18 +39,18 @@ without changing a running deployment. Docker group access is privileged.
 
 ## Obtain materials from GitHub
 
-Use a GitHub credential with read access to the private operations repository:
+Download anonymously:
 
 ```sh
 ./scripts/download-ubuntu-demo-materials.sh \
-  --output "$HOME/hermes-install/materials" --git-credential
+  --output "$HOME/hermes-install/materials"
 ```
 
-Alternatively provide `GH_TOKEN` or `GITHUB_TOKEN` through your credential manager.
+Optionally, for authenticated downloads, use `--git-credential` or provide `GH_TOKEN` or `GITHUB_TOKEN` through your credential manager.
 Tokens are not written into runtime files or command arguments. Asset download
 redirects strip authorization when changing hosts. Every archive is hash-checked
 against the version-controlled manifest before safe extraction. Model weights
-are excluded from the private bundle; legacy KWS is downloaded separately too.
+are excluded from the public bundle; legacy KWS is downloaded separately too.
 
 ## Configure private bindings
 
@@ -75,8 +76,8 @@ credentials; installing their tools does not create accounts or authorize sends.
   --project hermes-local --install-commands
 ```
 
-Omit `--assets` to have the same deployment command download the private assets
-into `PREFIX/materials` first (use `--git-credential` or a token environment variable).
+Omit `--assets` to have the same deployment command download the public assets
+into `PREFIX/materials` first (no token required).
 
 This downloads approximately 21.7 GB of pinned LLM, question ASR, wake ASR and
 TTS artifacts, normalizes two small product configuration files, checks every
